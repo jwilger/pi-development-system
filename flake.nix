@@ -24,7 +24,17 @@
             git
             gh
             jq
+            lefthook
+            biome
+            actionlint
+            nixfmt
           ];
+
+          shellHook = ''
+            if [ -d .git ]; then
+              lefthook install >/dev/null 2>&1 || true
+            fi
+          '';
         };
       });
 

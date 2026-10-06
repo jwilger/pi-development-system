@@ -22,5 +22,18 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "@typesafe-ai/sdk": "^0.6.0",
+    "typescript": "^7.0.2"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "check:build-gate": "node scripts/build-gate.ts",
+    "check:version": "node scripts/check-version.ts"
   }
 }

@@ -1,34 +1,104 @@
-name: Publish to npm
+name: CI/CD
 
-# Trusted publishing (OIDC): no NPM_TOKEN secret. The trusted publisher on
-# npmjs.com must be configured for this repository + workflow filename.
+# Every push to main is gated, tested, released and published. The file must
+# stay named publish.yml: npm's trusted publisher is bound to this filename.
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+
+concurrency:
+  group: ci-main
+  cancel-in-progress: false
 
 permissions:
   contents: read
-  id-token: write # required for npm trusted publishing
+
+env:
+  TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+  GH_TOKEN: ${{ github.token }}
 
 jobs:
-  publish:
+  gate:
+    name: Release gates
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read # read previous run results and failed-job logs
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: cachix/install-nix-action@v31
+      - name: Install dependencies
+        run: nix develop -c npm ci
+      - name: Build gate (only fix(ci) commits on a broken build)
+        run: |
+          nix develop -c node scripts/build-gate.ts --ci \
+            --before "${{ github.event.before }}" --after "${{ github.sha }}"
+      - name: Semantic version gate
+        run: |
+          nix develop -c node scripts/check-version.ts --ci \
+            --before "${{ github.event.before }}" --after "${{ github.sha }}"
+
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - run: nix develop -c npm ci
+      - run: nix develop -c npx tsc --noEmit
+      - run: nix develop -c biome check .
+      - run: nix develop -c sh -c 'nixfmt --check *.nix'
+      - run: nix develop -c actionlint
 
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - run: nix develop -c npm ci
+      - run: nix develop -c npm test
+
+  release:
+    name: GitHub release
+    needs: [gate, lint, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create release if this version is new
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          if gh release view "$version" >/dev/null 2>&1; then
+            echo "$version already released; nothing to do"
+          else
+            gh release create "$version" --target "$GITHUB_SHA" \
+              --title "$version" --generate-notes
+          fi
+
+  publish:
+    name: Publish to npm
+    needs: [release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing (OIDC)
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           # Node 24 ships npm >= 11.5.1, required for trusted publishing
           node-version: 24
           registry-url: https://registry.npmjs.org
-
-      - name: Verify tag matches package.json version
+      - name: Publish if this version is not on npm yet
         run: |
-          pkg="v$(node -p "require('./package.json').version")"
-          if [ "$pkg" != "$GITHUB_REF_NAME" ]; then
-            echo "Tag $GITHUB_REF_NAME != package.json version $pkg" >&2
-            exit 1
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "$name@$version already published"
+          else
+            npm publish --access public
           fi
-
-      - name: Publish
-        run: npm publish --access public

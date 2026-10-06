@@ -1,0 +1,24 @@
+# Hooks are installed by the nix devshell (shellHook). Skipping them is
+# possible, but CI re-runs every gate and fails the build.
+commit-msg:
+  commands:
+    build-gate:
+      run: node scripts/build-gate.ts --message-file {1}
+
+pre-commit:
+  parallel: true
+  commands:
+    version:
+      run: node scripts/check-version.ts --staged
+    typecheck:
+      run: npx tsc --noEmit
+    lint:
+      run: biome check .
+    test:
+      run: npm test
+    nix-format:
+      glob: "*.nix"
+      run: nixfmt --check {staged_files}
+    actionlint:
+      glob: ".github/workflows/*.yml"
+      run: actionlint
