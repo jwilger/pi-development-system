@@ -5,9 +5,7 @@ export type ParseError = { readonly kind: "parse-error"; readonly message: strin
 export const parseError = (message: string): ParseError => ({ kind: "parse-error", message });
 
 export const isParseError = (value: unknown): value is ParseError =>
-  typeof value === "object" &&
-  value !== null &&
-  (value as { kind?: unknown }).kind === "parse-error";
+  typeof value === "object" && value !== null && "kind" in value && value.kind === "parse-error";
 
 export type Tier = "hard" | "soft" | "advisory";
 
