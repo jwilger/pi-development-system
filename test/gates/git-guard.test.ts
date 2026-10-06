@@ -226,3 +226,18 @@ test("unknown + low-confidence Jev is treated like offline", async () => {
   const { bash } = setupJev(false, jevSaying("ordinary", 0.3));
   assert.equal(((await bash("xargs git push")) as { block: boolean }).block, true);
 });
+
+test("devsys_request_approval refuses commit.forbidden-trailer", async () => {
+  const { fake, tool } = setup(true);
+  fake.ui.confirmResponses.push(true);
+  const r = await tool.execute(
+    "t1",
+    { gate: "commit.forbidden-trailer", command: "git commit -m x", why: "test" },
+    undefined,
+    undefined,
+    fake.ctx as never,
+  );
+  assert.equal(r.isError, true);
+  assert.match(JSON.stringify(r.content), /never approvable/);
+  assert.equal(fake.ui.calls.length, 0);
+});

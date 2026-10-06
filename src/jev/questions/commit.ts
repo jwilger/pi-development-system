@@ -35,7 +35,9 @@ export const MIX_QUESTION: ClassifierBoolQuestion = {
   },
 };
 
-const clip = (text: string, max: number): string => redactSecrets(text).slice(0, max);
+// Bound the text before redacting (redaction cost grows with run length); keep margin so a secret at the cut is still seen whole.
+const clip = (text: string, max: number): string =>
+  redactSecrets(text.slice(0, max * 2)).slice(0, max);
 
 export async function judgeCommit(
   jev: Jev,

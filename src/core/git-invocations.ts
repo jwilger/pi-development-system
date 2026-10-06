@@ -26,7 +26,6 @@ export type GitInvocation = {
 
 export type GitResolution = {
   readonly invocations: readonly GitInvocation[];
-  /** True when git may run through something the parser cannot see into (xargs, `$CMD`, …). */
   /** Words of segments that may run git in a way that cannot be read (`$GIT push`, `xargs git …`). */
   readonly opaque: readonly string[];
 };

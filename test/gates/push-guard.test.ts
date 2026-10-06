@@ -225,3 +225,12 @@ test("a push with a redirect and no refspec still checks the current branch", as
   assert.equal((await w.push("git push 2>&1"))?.block, true);
   assert.equal((await w.push("git push >/dev/null 2>&1"))?.block, true);
 });
+
+test("on a red trunk a call that commits and pushes together is refused, not judged on the old HEAD", async () => {
+  const { push } = setup({ ci: "failure", lastCommit: "fix: old", jev: jevRelated(0.95) });
+  const r = await push(
+    'git add -A && git commit -m "feat: huge unrelated" -m "because reasons here" && git push origin main',
+  );
+  assert.equal(r?.block, true);
+  assert.match(r?.reason ?? "", /Commit first in one call, then push/);
+});

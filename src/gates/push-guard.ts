@@ -5,6 +5,7 @@ import {
   isBashToolResult,
   isToolCallEventType,
 } from "@earendil-works/pi-coding-agent";
+import { extractCommits } from "../core/commit-command.ts";
 import { parseConventionalCommit } from "../core/commit-message.ts";
 import type { Exec } from "../core/exec.ts";
 import { type PushTarget, pushTargets } from "../core/push-command.ts";
@@ -177,6 +178,12 @@ export function registerPushGuard(deps: PushGuardDeps): void {
     }
     const status = await getTrunkStatus(deps.exec, { branch: trunk, cwd: ctx.cwd });
     if (status.status !== "red") return undefined;
+    if (extractCommits(command).length > 0) {
+      return {
+        block: true,
+        reason: `CI on ${trunk} is red and this call commits and pushes together, so the push cannot be judged as a fix for it. Commit first in one call, then push in the next.`,
+      };
+    }
     if (await repairsRedTrunk(deps, ctx, loaded.value, status.runId)) return undefined;
     return hardStop(deps, {
       ctx,

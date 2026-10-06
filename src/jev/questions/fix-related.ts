@@ -23,9 +23,9 @@ export async function judgeFixRelated(
 ): Promise<Result<number, JevError>> {
   const asked = await jev.ask(
     {
-      failingLog: redactSecrets(input.failingLog).slice(-4000),
-      message: redactSecrets(input.message).slice(0, 2000),
-      diff: redactSecrets(input.diff).slice(0, 8000),
+      failingLog: redactSecrets(input.failingLog.slice(-8000)).slice(-4000),
+      message: redactSecrets(input.message.slice(0, 4000)).slice(0, 2000),
+      diff: redactSecrets(input.diff.slice(0, 16000)).slice(0, 8000),
     },
     { related: FIX_RELATED_QUESTION },
   );
