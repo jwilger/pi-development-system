@@ -18,3 +18,15 @@ test("status report lists phase, sizing, slice, departures and jev", () => {
   assert.match(text, /open departures: 0/);
   assert.match(text, /jev: unknown/);
 });
+
+test("online status names the Jev model; offline does not", () => {
+  assert.equal(
+    renderStatusLine({ ...initialState(), jev: "online" }, "typesafe/jev-latest"),
+    "devsys: idle · jev online (typesafe/jev-latest)",
+  );
+  assert.match(renderStatus({ ...initialState(), jev: "online" }, "a/b"), /jev: online \(a\/b\)/);
+  assert.equal(
+    renderStatusLine({ ...initialState(), jev: "offline" }),
+    "devsys: idle · jev offline",
+  );
+});

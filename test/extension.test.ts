@@ -17,7 +17,7 @@ test("session_start sets the devsys status line", async () => {
   await fake.emit({ type: "session_start", reason: "startup" });
   const call = fake.ui.calls.find((c) => c.kind === "setStatus");
   assert.equal(call?.args[0], "devsys");
-  assert.equal(call?.args[1], "devsys: idle · jev unknown");
+  assert.equal(call?.args[1], "devsys: idle · jev offline");
 });
 
 test("before_agent_start puts the non-negotiables into the development-system section", async () => {
@@ -75,4 +75,12 @@ test("the context handler appends the departure tail at the end only when there 
   };
   assert.equal(result.messages.length, 2);
   assert.match(result.messages[1]?.content ?? "", /phase: implementing/);
+});
+
+test("session_start shows the Jev model when a classifier credential exists", async () => {
+  const fake = createFakePi({ classifiers: ["typesafe/jev-latest"] });
+  developmentSystem(fake.api);
+  await fake.emit({ type: "session_start", reason: "startup" });
+  const last = fake.ui.calls.filter((c) => c.kind === "setStatus").at(-1);
+  assert.equal(last?.args[1], "devsys: idle · jev online (typesafe/jev-latest)");
 });

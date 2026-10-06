@@ -161,3 +161,68 @@ test("a qualified hard gate id cannot be pre-approved", async () => {
   );
   assert.equal(result.isError, true);
 });
+
+import { err, ok } from "../../src/core/result.ts";
+import type { Jev } from "../../src/jev/client.ts";
+
+const jevSaying = (choice: string, confidence = 0.95): Jev => ({
+  ask: async () => ok({ intent: { type: "choice", choice, probabilities: {}, confidence } }),
+  availability: () => "online",
+  model: () => "fake/jev",
+});
+const offlineJev: Jev = {
+  ask: async () => err({ kind: "no-model" }),
+  availability: () => "offline",
+  model: () => undefined,
+};
+
+const setupJev = (hasUI: boolean, jev: Jev) => {
+  const fake = createFakePi({ hasUI, cwd: mkdtempSync(join(tmpdir(), "devsys-guard-")) });
+  registerGitGuard({ pi: fake.api, approvals: createApprovalStore(fake.api), jev: () => jev, now });
+  const bash = (command: string) =>
+    fake.emit({
+      type: "tool_call",
+      toolName: "bash",
+      toolCallId: "c",
+      input: { command },
+    } as never);
+  return { fake, bash };
+};
+
+test("an unknown command that Jev judges history-rewrite goes through the hard stop", async () => {
+  const { fake, bash } = setupJev(false, jevSaying("history-rewrite"));
+  const result = (await bash("xargs git commit --amend")) as { block: boolean; reason: string };
+  assert.equal(result.block, true);
+  assert.match(result.reason, /hard stop git\.history-rewrite/);
+  assert.equal(fake.ui.calls.length, 0);
+});
+
+test("an unknown command that Jev judges ordinary is allowed", async () => {
+  const { bash } = setupJev(false, jevSaying("ordinary"));
+  assert.equal(await bash("xargs git status"), undefined);
+});
+
+test("unknown + Jev offline + UI → confirm dialog; approval allows", async () => {
+  const { fake, bash } = setupJev(true, offlineJev);
+  fake.ui.confirmResponses.push(true);
+  assert.equal(await bash("xargs git push"), undefined);
+  assert.match(String(fake.ui.calls[0]?.args[1]), /Could not classify/);
+});
+
+test("unknown + Jev offline + UI declined → blocked", async () => {
+  const { fake, bash } = setupJev(true, offlineJev);
+  fake.ui.confirmResponses.push(false);
+  assert.equal(((await bash("xargs git push")) as { block: boolean }).block, true);
+});
+
+test("unknown + Jev offline + headless → blocked with an instructive reason", async () => {
+  const { bash } = setupJev(false, offlineJev);
+  const r = (await bash("xargs git push")) as { block: boolean; reason: string };
+  assert.equal(r.block, true);
+  assert.match(r.reason, /could not classify/);
+});
+
+test("unknown + low-confidence Jev is treated like offline", async () => {
+  const { bash } = setupJev(false, jevSaying("ordinary", 0.3));
+  assert.equal(((await bash("xargs git push")) as { block: boolean }).block, true);
+});

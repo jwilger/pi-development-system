@@ -20,7 +20,12 @@ export type FakeUi = {
 
 export type FakeEntry = { customType: string; data: unknown };
 
-export type FakePiOptions = { hasUI?: boolean; cwd?: string };
+export type FakePiOptions = {
+  hasUI?: boolean;
+  cwd?: string;
+  /** `provider/id` classifier models that exist and have configured auth. */
+  classifiers?: string[];
+};
 
 /**
  * A minimal in-memory stand-in for pi's ExtensionAPI/ExtensionContext. It is
@@ -48,6 +53,16 @@ export function createFakePi(init: FakePiOptions = {}) {
       return ui.hasUI;
     },
     cwd: init.cwd ?? process.cwd(),
+    modelRegistry: {
+      findOfType: (_type: string, provider: string, id: string) =>
+        (init.classifiers ?? []).includes(`${provider}/${id}`)
+          ? { provider, id, type: "classifier" }
+          : undefined,
+      hasConfiguredAuth: () => true,
+      classify: async () => {
+        throw new Error("fake registry: classify not configured");
+      },
+    },
     ui: {
       confirm: async (...args: unknown[]) => {
         record("confirm", args);

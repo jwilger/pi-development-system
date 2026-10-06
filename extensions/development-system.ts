@@ -7,6 +7,7 @@ import { createApprovalStore } from "../src/gates/approvals.ts";
 import { registerGitGuard } from "../src/gates/git-guard.ts";
 import { createRecordDepartureTool } from "../src/gates/record-departure-tool.ts";
 import { createRequestApprovalTool } from "../src/gates/request-approval-tool.ts";
+import { createJevHolder } from "../src/jev/holder.ts";
 import { createSessionState } from "../src/state/session-state.ts";
 
 const nonNegotiables = readFileSync(
@@ -19,14 +20,19 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   const state = createSessionState(pi);
   const approvals = createApprovalStore(pi);
 
+  const jevHolder = createJevHolder();
+  let jevModel: string | undefined;
   let lastCtx: ExtensionContext | undefined;
 
   const refreshStatus = () => {
-    lastCtx?.ui.setStatus(STATUS_KEY, renderStatusLine(state.get()));
+    lastCtx?.ui.setStatus(STATUS_KEY, renderStatusLine(state.get(), jevModel));
   };
 
   const rebuild = (ctx: ExtensionContext) => {
     lastCtx = ctx;
+    const probe = jevHolder.probe(ctx);
+    jevModel = probe.model;
+    state.update((s) => (s.jev === probe.availability ? s : { ...s, jev: probe.availability }));
     const entries = ctx.sessionManager
       .getBranch()
       .flatMap((e) => (e.type === "custom" ? [{ customType: e.customType, data: e.data }] : []));
@@ -48,14 +54,14 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
     return messages === undefined ? undefined : { messages };
   });
 
-  registerGitGuard({ pi, approvals });
+  registerGitGuard({ pi, approvals, jev: (ctx) => jevHolder.forContext(ctx) });
   pi.registerTool(createRecordDepartureTool({ pi, state }));
   pi.registerTool(createRequestApprovalTool({ pi, approvals }));
 
   pi.registerCommand("devsys-status", {
     description: "Show development-system phase, sizing, slice, departures and Jev status",
     handler: async (_args, ctx) => {
-      ctx.ui.notify(renderStatus(state.get()), "info");
+      ctx.ui.notify(renderStatus(state.get(), jevModel), "info");
     },
   });
 
