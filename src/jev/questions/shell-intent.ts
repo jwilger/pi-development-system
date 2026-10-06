@@ -1,5 +1,6 @@
 import type { ClassifierChoiceQuestion } from "@earendil-works/pi-ai";
 import type { GitIntent } from "../../core/git-intent.ts";
+import { redactSecrets } from "../../core/redact.ts";
 import { err, ok, type Result } from "../../core/result.ts";
 import type { Jev, JevError } from "../client.ts";
 
@@ -43,7 +44,10 @@ export async function judgeShellIntent(
   jev: Jev,
   command: string,
 ): Promise<Result<{ intent: GitIntent; confidence: number }, JevError>> {
-  const asked = await jev.ask({ command }, { intent: SHELL_INTENT_QUESTION });
+  const asked = await jev.ask(
+    { command: redactSecrets(command) },
+    { intent: SHELL_INTENT_QUESTION },
+  );
   if (!asked.ok) return asked;
   const answer = asked.value.intent;
   if (answer?.type !== "choice")

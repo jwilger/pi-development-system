@@ -1,7 +1,7 @@
 export type TestPathProfile = { readonly testGlobs?: readonly string[] };
 
 const PATTERNS: readonly RegExp[] = [
-  /(^|\/)(test|tests|__tests__|spec|specs|e2e)\//,
+  /(^|\/)(test|tests|__tests__|spec|specs|e2e)(\/|$)/,
   /\.(test|spec|cy)\.[cm]?[jt]sx?$/,
   /_test\.(go|rb|py|exs?|rs)$/,
   /(^|\/)test_[^/]+\.py$/,

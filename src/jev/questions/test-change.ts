@@ -1,4 +1,5 @@
 import type { ClassifierBoolQuestion, ClassifierChoiceQuestion } from "@earendil-works/pi-ai";
+import { redactSecrets } from "../../core/redact.ts";
 import { err, ok, type Result } from "../../core/result.ts";
 import type { Jev, JevError } from "../client.ts";
 
@@ -53,7 +54,7 @@ export async function judgeTestChange(
   jev: Jev,
   input: TestChangeInput,
 ): Promise<Result<{ weakens: number; motive: TestChangeMotive; confidence: number }, JevError>> {
-  const clip = (text: string | undefined): string => (text ?? "").slice(0, 6000);
+  const clip = (text: string | undefined): string => redactSecrets(text ?? "").slice(0, 6000);
   const state = {
     path: input.path,
     before: clip(input.before),

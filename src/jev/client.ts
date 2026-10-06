@@ -23,8 +23,7 @@ type Classifier = ClassifierModel<ClassifierApi>;
 /** The slice of pi's `ctx.modelRegistry` that Jev needs; tests pass a fake. */
 export interface ClassifierRegistry {
   findOfType(type: "classifier", provider: string, modelId: string): Classifier | undefined;
-  // biome-ignore lint/suspicious/noExplicitAny: structural bridge to the host's Model<Api> parameter
-  hasConfiguredAuth(model: any): boolean;
+  hasConfiguredAuth(model: unknown): boolean;
   classify(
     model: Classifier,
     context: ClassifierContext,

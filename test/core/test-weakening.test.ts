@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   applyEdits,
-  bashDeletedPaths,
+  bashMutatedPaths,
   isPureAddition,
   weakeningSignals,
 } from "../../src/core/test-weakening.ts";
@@ -55,11 +55,38 @@ test("isPureAddition: every original line survives", () => {
   assert.equal(isPureAddition("a\na", "a"), false);
 });
 
-test("bashDeletedPaths finds rm / git rm / unlink / mv-away targets", () => {
-  assert.deepEqual(bashDeletedPaths("rm test/a.test.ts"), ["test/a.test.ts"]);
-  assert.deepEqual(bashDeletedPaths("rm -rf test/ && echo ok"), ["test/"]);
-  assert.deepEqual(bashDeletedPaths("git rm --cached x.test.ts y.ts"), ["x.test.ts", "y.ts"]);
-  assert.deepEqual(bashDeletedPaths("unlink a.spec.js"), ["a.spec.js"]);
-  assert.deepEqual(bashDeletedPaths("ls test"), []);
-  assert.deepEqual(bashDeletedPaths("echo rm test/a.test.ts"), []);
+test("bashMutatedPaths finds rm / git rm / unlink / mv-away targets", () => {
+  assert.deepEqual(bashMutatedPaths("rm test/a.test.ts"), ["test/a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("rm -rf test/ && echo ok"), ["test/"]);
+  assert.deepEqual(bashMutatedPaths("git rm --cached x.test.ts y.ts"), ["x.test.ts", "y.ts"]);
+  assert.deepEqual(bashMutatedPaths("unlink a.spec.js"), ["a.spec.js"]);
+  assert.deepEqual(bashMutatedPaths("ls test"), []);
+  assert.deepEqual(bashMutatedPaths("echo rm test/a.test.ts"), []);
+});
+
+test("bashMutatedPaths sees globs, wrappers, absolute rm, bash -c and cd", () => {
+  assert.deepEqual(bashMutatedPaths("rm test/*.ts"), ["test/*.ts"]);
+  assert.deepEqual(bashMutatedPaths("/bin/rm a.test.ts"), ["a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("sudo rm a.test.ts"), ["a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("env FOO=1 command rm a.test.ts"), ["a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("bash -c 'rm a.test.ts'"), ["a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("git -C . rm a.test.ts"), ["a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("cd test && rm foo.ts"), ["test/foo.ts"]);
+});
+
+test("bashMutatedPaths sees move-away, find -delete, truncation, in-place edits and redirects", () => {
+  assert.deepEqual(bashMutatedPaths("mv a.test.ts /tmp"), ["a.test.ts", "/tmp"]);
+  assert.deepEqual(bashMutatedPaths("git mv a.test.ts b.ts"), ["a.test.ts", "b.ts"]);
+  assert.deepEqual(bashMutatedPaths("find . -name '*.test.ts' -delete"), [".", "*.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("truncate -s 0 a.test.ts"), ["a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths(": > a.test.ts"), ["a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("sed -i s/a/b/ a.test.ts"), ["s/a/b/", "a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("cp /dev/null a.test.ts"), ["a.test.ts"]);
+});
+
+test("bashMutatedPaths ignores reads, appends and /dev/null redirects", () => {
+  assert.deepEqual(bashMutatedPaths("cat a.test.ts"), []);
+  assert.deepEqual(bashMutatedPaths("echo hi >> a.test.ts"), []);
+  assert.deepEqual(bashMutatedPaths("npm test > /dev/null"), []);
+  assert.deepEqual(bashMutatedPaths("find . -name '*.ts'"), []);
 });

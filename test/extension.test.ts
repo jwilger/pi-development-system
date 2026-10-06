@@ -84,3 +84,28 @@ test("session_start shows the Jev model when a classifier credential exists", as
   const last = fake.ui.calls.filter((c) => c.kind === "setStatus").at(-1);
   assert.equal(last?.args[1], "devsys: idle · jev online (typesafe/jev-latest)");
 });
+
+test("session_start on a resumed session keeps persisted phase and departures", async () => {
+  const fake = createFakePi();
+  const { state } = createDevelopmentSystem(fake.api);
+  const departure = {
+    id: "dep-1",
+    gate: "tests.weaken",
+    tier: "soft",
+    default: "never weaken tests",
+    chosen: "remove obsolete test",
+    why: "feature removed",
+    costIfWrong: "lost coverage",
+    approver: "agent",
+    scope: { kind: "session" },
+    recordedAt: "2026-10-06T17:12:00Z",
+  };
+  fake.api.appendEntry("devsys-state", {
+    phase: "implementing",
+    openDepartures: [departure],
+    jev: "online",
+  });
+  await fake.emit({ type: "session_start", reason: "resume" });
+  assert.equal(state.get().phase, "implementing");
+  assert.equal(state.get().openDepartures.length, 1);
+});

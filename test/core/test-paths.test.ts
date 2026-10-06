@@ -15,6 +15,9 @@ const yes = [
   "src/Foo.test.tsx",
   "e2e/login.cy.ts",
   "./test/deep/x.ts",
+  "test",
+  "tests",
+  "src/__tests__",
 ];
 const no = [
   "src/main.ts",

@@ -102,6 +102,13 @@ test("pure additions to a test file never need Jev", async () => {
   assert.equal(r, undefined);
 });
 
+test("adding a skip marker line is not a harmless addition (Rust #[ignore])", async () => {
+  const { call } = setup(offlineJev);
+  const r = await call("write", { path: TEST_FILE, content: `#[ignore]\n${ORIGINAL}` });
+  assert.equal(r?.block, true);
+  assert.match(r?.reason ?? "", /tests\.weaken/);
+});
+
 test("Jev: weakens ≥ 0.7 with a non-gaming motive requires a departure", async () => {
   const { call } = setup(jevJudging(0.8, "requirement-change"));
   const r = await call("write", {
@@ -153,4 +160,51 @@ test("a once-scoped departure covers exactly one weakening", async () => {
     ((await call("bash", { command: `rm ${TEST_FILE}` })) as { block: boolean }).block,
     true,
   );
+});
+
+test("a deterministic weakening signal plus a gate-gaming motive is a hard stop even when weakens is low", async () => {
+  const { call } = setup(jevJudging(0.3, "gate-gaming"));
+  const r = await call("bash", { command: `rm ${TEST_FILE}` });
+  assert.equal(r?.block, true);
+  assert.match(r?.reason ?? "", /hard stop tests\.weaken/);
+});
+
+test("Jev never receives secrets from the changed test file", async () => {
+  const seen: string[] = [];
+  const spy: Jev = {
+    ask: async (state) => {
+      seen.push(JSON.stringify(state));
+      return err({ kind: "no-model" });
+    },
+    availability: () => "online",
+    model: () => "fake/jev",
+  };
+  const { call } = setup(spy);
+  await call("write", {
+    path: TEST_FILE,
+    content: "const TOKEN=ghp_abcdefghijklmnopqrstuv1234;\n",
+  });
+  assert.ok(seen.length > 0);
+  assert.doesNotMatch(seen.join(""), /ghp_abcdefghijklmnop/);
+});
+
+test("one once-scoped departure covers every test path in a single command", async () => {
+  const { call, record, cwd } = setup(offlineJev);
+  writeFileSync(join(cwd, "test/b.test.ts"), ORIGINAL);
+  await record.execute(
+    "r1",
+    { gate: "tests.weaken", chosen: "x", why: "y", costIfWrong: "z", scope: "once" } as never,
+    undefined,
+    undefined,
+    { cwd } as never,
+  );
+  assert.equal(await call("bash", { command: `rm ${TEST_FILE} test/b.test.ts` }), undefined);
+});
+
+test("shell bypass forms (glob, mv, redirect truncation) are blocked without a departure", async () => {
+  const { call } = setup(offlineJev);
+  for (const command of ["rm test/*.ts", `mv ${TEST_FILE} /tmp/x`, `: > ${TEST_FILE}`]) {
+    const r = await call("bash", { command });
+    assert.equal(r?.block, true, command);
+  }
 });

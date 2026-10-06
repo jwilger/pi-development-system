@@ -34,7 +34,7 @@ const registry = (opts: {
     findOfType: (_t, provider, id) =>
       opts.models?.includes(`${provider}/${id}`) ? fakeModel(provider, id) : undefined,
     hasConfiguredAuth: () => opts.authed ?? true,
-    classify: (model, context) => {
+    classify: (_model, context) => {
       calls.push(context);
       return (opts.classify ?? (async () => result()))();
     },

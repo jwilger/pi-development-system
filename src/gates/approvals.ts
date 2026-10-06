@@ -65,6 +65,8 @@ export type HardStopRequest = {
   command: string;
   why: string;
   toolCallId: string;
+  /** What goes wrong if the approved action is a mistake; defaults to the irreversible-git wording. */
+  costIfWrong?: string;
   now?: () => Date;
 };
 
@@ -89,7 +91,7 @@ export async function requestHardStop(req: HardStopRequest): Promise<HardStopOut
     default: lookupGate(req.gate)?.default ?? "hard stop",
     chosen: redactSecrets(req.command),
     why: redactSecrets(req.why),
-    costIfWrong: "an irreversible git operation is performed",
+    costIfWrong: redactSecrets(req.costIfWrong ?? "an irreversible git operation is performed"),
     approver: "user",
     scope: { kind: "once", toolCallId: req.toolCallId },
     recordedAt: at.toISOString().replace(/\.\d{3}Z$/, "Z"),

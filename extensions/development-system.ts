@@ -31,14 +31,15 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
 
   const rebuild = (ctx: ExtensionContext) => {
     lastCtx = ctx;
-    const probe = jevHolder.probe(ctx);
-    jevModel = probe.model;
-    state.update((s) => (s.jev === probe.availability ? s : { ...s, jev: probe.availability }));
     const entries = ctx.sessionManager
       .getBranch()
       .flatMap((e) => (e.type === "custom" ? [{ customType: e.customType, data: e.data }] : []));
+    // Restore persisted state first: updating before it would append an empty state entry that wins.
     state.rebuildFrom(entries);
     approvals.rebuildFrom(entries);
+    const probe = jevHolder.probe(ctx);
+    jevModel = probe.model;
+    state.update((s) => (s.jev === probe.availability ? s : { ...s, jev: probe.availability }));
     refreshStatus();
   };
 
