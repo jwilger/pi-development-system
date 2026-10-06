@@ -140,3 +140,12 @@ test("approvals survive a rebuild from session entries and used ones stay used",
   const again = (await bash("git push -f", "call-2")) as { block: boolean };
   assert.equal(again.block, true);
 });
+
+test("credentials in the command never reach the logged departure", async () => {
+  const { fake, bash, logPath } = setup(true);
+  fake.ui.confirmResponses.push(true);
+  await bash("git push https://u:ghp_abcdefghijklmnopqrstuvwx@h/r --force");
+  const log = readFileSync(logPath, "utf8");
+  assert.ok(!log.includes("ghp_"));
+  assert.ok(log.includes("[redacted]"));
+});

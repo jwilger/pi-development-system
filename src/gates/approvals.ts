@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type Departure, parseDeparture } from "../core/departure.ts";
 import { lookupGate } from "../core/gates.ts";
+import { redactSecrets } from "../core/redact.ts";
 import { type GateId, isParseError } from "../core/types.ts";
 import { appendDecision } from "../state/decision-log.ts";
 import { DEPARTURE_ENTRY_TYPE } from "./record-departure-tool.ts";
@@ -77,7 +78,7 @@ export async function requestHardStop(req: HardStopRequest): Promise<HardStopOut
   if (!req.ctx.hasUI) return { kind: "unavailable" };
   const approved = await req.ctx.ui.confirm(
     "Development system — hard stop",
-    `${req.command}\nGate: ${req.gate}\nThis is irreversible. Approve once?`,
+    `${redactSecrets(req.command)}\nGate: ${req.gate}\nThis is irreversible. Approve once?`,
   );
   if (!approved) return { kind: "declined" };
   const at = (req.now ?? (() => new Date()))();
@@ -86,8 +87,8 @@ export async function requestHardStop(req: HardStopRequest): Promise<HardStopOut
     gate: req.gate,
     tier: "hard",
     default: lookupGate(req.gate)?.default ?? "hard stop",
-    chosen: req.command,
-    why: req.why,
+    chosen: redactSecrets(req.command),
+    why: redactSecrets(req.why),
     costIfWrong: "an irreversible git operation is performed",
     approver: "user",
     scope: { kind: "once", toolCallId: req.toolCallId },

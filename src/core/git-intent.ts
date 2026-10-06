@@ -23,15 +23,18 @@ const SEVERITY: ReadonlyArray<GitIntent> = [
 const worst = (a: GitIntent, b: GitIntent): GitIntent =>
   SEVERITY.indexOf(a) <= SEVERITY.indexOf(b) ? a : b;
 
-/** Splits a command string on newlines that are outside quotes. */
+/** Splits a command string on newlines that are outside quotes; backslash-newline is a continuation. */
 function splitLines(command: string): string[] {
   const lines: string[] = [];
   let current = "";
   let quote: "'" | '"' | undefined;
-  for (const ch of command) {
+  for (let i = 0; i < command.length; i++) {
+    const ch = command.charAt(i);
     if (quote !== undefined) {
       if (ch === quote) quote = undefined;
       current += ch;
+    } else if (ch === "\\" && command.charAt(i + 1) === "\n") {
+      i++;
     } else if (ch === "'" || ch === '"') {
       quote = ch;
       current += ch;
@@ -46,18 +49,34 @@ function splitLines(command: string): string[] {
   return lines;
 }
 
+const isRedirect = (op: string): boolean => /^[<>]/.test(op) && !op.endsWith("(");
+
 /** Tokens of one line grouped into simple commands (operators separate segments). */
 function segments(line: string): string[][] {
   const result: string[][] = [[]];
   for (const token of parse(line, (name) => `$${name}`)) {
     if (typeof token === "string") result[result.length - 1]?.push(token);
     else if ("pattern" in token) result[result.length - 1]?.push(token.pattern);
+    else if ("op" in token && isRedirect(token.op)) continue;
     else if (!("comment" in token)) result.push([]);
   }
   return result.filter((s) => s.length > 0);
 }
 
 const WRAPPERS = new Set(["command", "sudo", "env", "time", "nohup", "exec", "builtin", "nice"]);
+const KEYWORDS = new Set(["then", "do", "else", "elif", "if", "while", "until", "{", "!", "time"]);
+const DATA_ONLY = new Set([
+  "echo",
+  "printf",
+  "cat",
+  "grep",
+  "rg",
+  "man",
+  "which",
+  "type",
+  "head",
+  "tail",
+]);
 const SHELLS = new Set(["bash", "sh", "zsh", "dash", "ksh"]);
 const OPAQUE = new Set(["xargs", "ssh", "find", "parallel", "watch"]);
 const GLOBAL_WITH_VALUE = new Set(["-c", "-C", "--git-dir", "--work-tree", "--namespace"]);
@@ -116,7 +135,7 @@ function classifySegment(tokens: string[]): GitIntent {
     if (isAssignment(t)) {
       if (HOOK_SKIP_ENV.has(t)) hookSkip = true;
       i++;
-    } else if (WRAPPERS.has(t)) {
+    } else if (WRAPPERS.has(t) || KEYWORDS.has(t)) {
       i++;
     } else {
       break;
@@ -129,13 +148,18 @@ function classifySegment(tokens: string[]): GitIntent {
     hookSkip ? worst(intent, "no-verify") : intent;
   if (head.startsWith("$") || base === "$GIT") return "unknown";
   if (SHELLS.has(base)) {
-    const c = rest.indexOf("-c");
+    const c = rest.findIndex((t) => /^-[A-Za-z]*c[A-Za-z]*$/.test(t));
     const script = c >= 0 ? rest[c + 1] : undefined;
     return script !== undefined ? classifyGitCommand(script) : "ordinary";
   }
   if (base === "eval") return classifyGitCommand(rest.join(" "));
   if (OPAQUE.has(base)) return rest.some((t) => basename(t) === "git") ? "unknown" : "ordinary";
-  if (base !== "git") return "ordinary";
+  if (base !== "git") {
+    if (DATA_ONLY.has(base)) return "ordinary";
+    // Wrapper with options (`sudo -E git ...`, `timeout 5 git ...`): classify from the git token.
+    const at = rest.findIndex((t) => basename(t) === "git");
+    return at >= 0 ? withHookSkip(classifySegment(rest.slice(at))) : "ordinary";
+  }
   const globals: string[] = [];
   let j = 0;
   while (j < rest.length && (rest[j] ?? "").startsWith("-")) {
@@ -148,7 +172,13 @@ function classifySegment(tokens: string[]): GitIntent {
     }
   }
   const sub = rest[j];
-  return withHookSkip(classifyGitArgs(globals, sub, rest.slice(j + 1)));
+  const args = rest.slice(j + 1);
+  const dynamic =
+    (sub ?? "").startsWith("$") ||
+    (["push", "reset", "rebase"].includes(sub ?? "") &&
+      args.some((t) => t.startsWith("$") || t.includes("`")));
+  const intent = classifyGitArgs(globals, sub, args);
+  return withHookSkip(dynamic ? worst(intent, "unknown") : intent);
 }
 
 /** Classifies the most severe git intent in a shell command (deterministic fast path). */
