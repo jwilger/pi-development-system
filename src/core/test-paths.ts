@@ -14,6 +14,8 @@ const PATTERNS: readonly RegExp[] = [
   /_test\.(go|rb|py|exs?|rs)$/,
   /(^|\/)test_[^/]+\.py$/,
   /_spec\.rb$/,
+  /(^|\/)tests?\.rs$/,
+  /_tests\.rs$/,
 ];
 
 /** Glob match without building a RegExp: `**` spans directories, `*` stays within a segment. */

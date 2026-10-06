@@ -27,6 +27,8 @@ function isRunner(words: readonly string[]): boolean {
   if (head === undefined) return false;
   const args = rest.filter((w) => !w.startsWith("+"));
   const first = args[0];
+  // Compile-only and listing runs prove nothing about RED/GREEN, so they must not overwrite a real result.
+  if (rest.some((w) => /^--(?:no-run|list|help)$/.test(w) || w === "-h")) return false;
   if (head === "cargo") return first === "test" || first === "nextest";
   if (head === "go" || head === "deno") return first === "test";
   if (head === "node") return rest.includes("--test");
@@ -59,7 +61,7 @@ export type ResultLike = {
 /** A pipe or sequence makes the shell report the last command's status, not the runner's. */
 const MASKS_STATUS = /\||;/;
 const FAILURE_MARKERS =
-  /^# fail [1-9]|test result: FAILED|\b[1-9]\d* (?:failed|failing)\b|^FAILED\b|^FAIL\b|\bnot ok\b/m;
+  /^(?:# |ℹ )fail [1-9]|test result: FAILED|\b[1-9]\d* (?:failed|failing)\b|^FAILED\b|^FAIL\b|\bnot ok\b/m;
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);

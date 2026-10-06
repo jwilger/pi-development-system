@@ -141,3 +141,9 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 - `test-runner`: misses `pnpm -r test`, `pnpm exec vitest`, `pnpm vitest`, `make test`, `uv run pytest`, `bash -c 'npm test'`; `node build.js --test` matches wrongly. A miss costs one extra departure per slice.
 - `profile`: an invalid `[profiles] override` silently falls back to detection; tell the user.
 - Profile detection uses `ctx.cwd`, not the repo root, so a session started in a subdirectory finds no profile.
+
+## From I4 review rounds 2–3 (nits; unscheduled)
+
+- `TOOL_CONFIG` classes any `*.config.ts` (even `src/app.config.ts`) as config; `*.test-d.ts` and `test-utils/**` are source; `.vue/.svelte/.astro` fall into `other` (never guarded).
+- `parseProfileList`: an unknown persisted profile name rejects the whole state (matters on version rollback).
+- Whole-file write exemption in `red-first-guard` counts markers only, so moving an existing test marker while editing production code passes.

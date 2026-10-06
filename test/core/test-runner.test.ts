@@ -94,3 +94,13 @@ test("a piped run with no failure markers stays green and an unpiped zero exit i
   );
   assert.equal(exitCodeOf({ isError: false, text: "# fail 2", command: "npm test" }), 0);
 });
+
+test("node's own failure summary counts as a failure marker when the status is masked", () => {
+  const text = "ℹ pass 0\nℹ fail 1\n✖ failing tests:";
+  assert.equal(exitCodeOf({ isError: false, text, command: "npm test 2>&1 | tail -20" }), 1);
+});
+
+test("compile-only and listing runs are not test runs", () => {
+  assert.equal(isTestRunnerCommand("cargo test --no-run"), false);
+  assert.equal(isTestRunnerCommand("cargo test"), true);
+});
