@@ -1,0 +1,8 @@
+# Copy to .envrc.local (gitignored) and adjust. Needed for local Jev
+# (TypeSafe) calls in the pre-commit hook.
+
+# Option A: literal key
+# export TYPESAFE_API_KEY="..."
+
+# Option B: fetch from 1Password via the `op` CLI (no secret on disk)
+# export TYPESAFE_API_KEY="$(op read --account <account> 'op://<vault>/<item>/credential')"

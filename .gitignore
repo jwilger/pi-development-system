@@ -2,3 +2,6 @@ node_modules/
 .direnv/
 result
 *.log
+.envrc.local
+# .envrc is committed (overrides the global ignore); local overrides are not
+!.envrc
