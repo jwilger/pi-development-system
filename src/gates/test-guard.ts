@@ -90,10 +90,13 @@ export function registerTestGuard(deps: TestGuardDeps): void {
 
   const consumeOpenDeparture = (): void => {
     const { openDepartures, activeSlice } = deps.state.get();
-    const used = openDepartures.find(
+    const applicable = openDepartures.filter(
       (d) => d.gate === gate && (d.scope.kind !== "slice" || d.scope.slice === activeSlice),
     );
-    if (used?.scope.kind !== "once") return;
+    // A broader departure covers the call without being spent; only a lone once-scoped one is used up.
+    if (applicable.some((d) => d.scope.kind !== "once")) return;
+    const used = applicable[0];
+    if (used === undefined) return;
     deps.state.update((s) => ({
       ...s,
       openDepartures: s.openDepartures.filter((d) => d.id !== used.id),

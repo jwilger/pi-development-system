@@ -1,4 +1,4 @@
-import { parse } from "shell-quote";
+import { parseShell } from "./shell-parse.ts";
 
 export type GitIntent =
   | "history-rewrite"
@@ -58,7 +58,7 @@ const isRedirect = (op: string): boolean => /^[<>]/.test(op) && !op.endsWith("("
 /** Tokens of one line grouped into simple commands (operators separate segments). */
 function segments(line: string): string[][] {
   const result: string[][] = [[]];
-  for (const token of parse(line, (name) => `$${name}`)) {
+  for (const token of parseShell(line, (name) => `$${name}`)) {
     if (typeof token === "string") result[result.length - 1]?.push(token);
     else if ("pattern" in token) result[result.length - 1]?.push(token.pattern);
     else if ("op" in token && isRedirect(token.op)) continue;

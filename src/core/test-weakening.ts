@@ -1,5 +1,5 @@
 import { posix } from "node:path";
-import { parse } from "shell-quote";
+import { parseShell } from "./shell-parse.ts";
 
 export type WeakeningSignals = { addsSkip: boolean; emptied: boolean; commentedOut: boolean };
 
@@ -151,7 +151,7 @@ function splitLines(command: string): string {
 
 /** Boundary decode of shell-quote's output into domain tokens; globs count as words. */
 function tokenize(command: string): Token[] {
-  return parse(splitLines(command)).flatMap((entry): Token[] => {
+  return parseShell(splitLines(command)).flatMap((entry): Token[] => {
     if (typeof entry === "string") return [{ kind: "word", value: entry }];
     if ("pattern" in entry) return [{ kind: "word", value: entry.pattern }];
     if ("op" in entry) return [{ kind: "op", op: entry.op }];

@@ -40,3 +40,10 @@ Nits and deferred items from reviews (append only).
 - Not parsed: `perl -pi -e`, `patch`, `git apply`, `python -c` rewrites; `$VAR` paths resolve to empty.
 - Redaction does not cover unquoted `password: x`, `AKIA…` or JWTs.
 - Go `testing.Short()` + `t.Skip` guards are flagged (goes via departure flow).
+
+## From I2 review round 6 (nits, unscheduled)
+
+- Missed skip markers: vitest `it.skipIf(`, `test.fixme(`, C# `[Ignore]`/`[Fact(Skip=…)]`, Python `@skip(`.
+- `rm -rf dist/test`, `node_modules/pkg/test` and paths outside the repo (`/tmp/x.test.ts`) count as test paths.
+- `src/jev/client.ts`: a cache hit does not update `availability`.
+- `test/jev/fixture-runner.ts` casts parsed JSON `as Fixture` without a parse function.
