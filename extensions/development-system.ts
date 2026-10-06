@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { renderStatus, renderStatusLine, STATUS_KEY } from "../src/context/status.ts";
 import { applyPromptSection } from "../src/context/system-prompt.ts";
+import { createApprovalStore } from "../src/gates/approvals.ts";
+import { registerGitGuard } from "../src/gates/git-guard.ts";
+import { createRecordDepartureTool } from "../src/gates/record-departure-tool.ts";
+import { createRequestApprovalTool } from "../src/gates/request-approval-tool.ts";
 import { createSessionState } from "../src/state/session-state.ts";
 
 const nonNegotiables = readFileSync(
@@ -12,6 +16,7 @@ const nonNegotiables = readFileSync(
 /** Composition root: wires modules, holds no logic. */
 export function createDevelopmentSystem(pi: ExtensionAPI) {
   const state = createSessionState(pi);
+  const approvals = createApprovalStore(pi);
 
   let lastCtx: ExtensionContext | undefined;
 
@@ -21,11 +26,11 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
 
   const rebuild = (ctx: ExtensionContext) => {
     lastCtx = ctx;
-    state.rebuildFrom(
-      ctx.sessionManager
-        .getBranch()
-        .flatMap((e) => (e.type === "custom" ? [{ customType: e.customType, data: e.data }] : [])),
-    );
+    const entries = ctx.sessionManager
+      .getBranch()
+      .flatMap((e) => (e.type === "custom" ? [{ customType: e.customType, data: e.data }] : []));
+    state.rebuildFrom(entries);
+    approvals.rebuildFrom(entries);
     refreshStatus();
   };
 
@@ -36,6 +41,10 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   pi.on("before_agent_start", (event) => {
     applyPromptSection(event, state.get(), nonNegotiables);
   });
+
+  registerGitGuard({ pi, approvals });
+  pi.registerTool(createRecordDepartureTool({ pi, state }));
+  pi.registerTool(createRequestApprovalTool({ pi, approvals }));
 
   pi.registerCommand("devsys-status", {
     description: "Show development-system phase, sizing, slice, departures and Jev status",

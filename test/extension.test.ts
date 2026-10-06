@@ -49,3 +49,17 @@ test("a state update refreshes the status line using the last seen context", asy
   const statuses = fake.ui.calls.filter((c) => c.kind === "setStatus").map((c) => c.args[1]);
   assert.equal(statuses.at(-1), "devsys: planning · jev online");
 });
+
+test("loading registers the departure and approval tools and guards force pushes", async () => {
+  const fake = createFakePi({ hasUI: false });
+  developmentSystem(fake.api);
+  assert.ok(fake.tools.has("devsys_record_departure"));
+  assert.ok(fake.tools.has("devsys_request_approval"));
+  const result = (await fake.emit({
+    type: "tool_call",
+    toolName: "bash",
+    toolCallId: "c",
+    input: { command: "git push --force" },
+  } as never)) as { block: boolean };
+  assert.equal(result.block, true);
+});
