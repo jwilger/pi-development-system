@@ -38,7 +38,7 @@ less careful model than the one that wrote this):**
 ## Progress
 
 - [x] I0 Foundation, principles, harness
-- [ ] I1 Departure ledger + hard-stop git guard
+- [x] I1 Departure ledger + hard-stop git guard
 - [ ] I2 Jev runtime core
 - [ ] I3 Delivery discipline (commit/push/CI gates, repo policy)
 - [ ] I4 Engineering skills + language profiles + TDD/test gates
