@@ -208,3 +208,36 @@ test("shell bypass forms (glob, mv, redirect truncation) are blocked without a d
     assert.equal(r?.block, true, command);
   }
 });
+
+test("@-prefixed, absolute and file:// paths are guarded like the plain path", async () => {
+  const { call, cwd } = setup(offlineJev);
+  const skip = [{ oldText: "test('adds'", newText: "test.skip('adds'" }];
+  for (const path of [`@${TEST_FILE}`, join(cwd, TEST_FILE), `file://${join(cwd, TEST_FILE)}`]) {
+    const r = await call("edit", { path, edits: skip });
+    assert.equal(r?.block, true, path);
+  }
+  const written = await call("write", { path: `@${TEST_FILE}`, content: "" });
+  assert.equal(written?.block, true);
+});
+
+test("a multi-line bash script that deletes a test later is blocked", async () => {
+  const { call } = setup(offlineJev);
+  const r = await call("bash", { command: `echo start\nrm ${TEST_FILE}\necho done` });
+  assert.equal(r?.block, true);
+});
+
+test("commenting out the whole file or adding it.only is not a harmless addition", async () => {
+  const { call } = setup(offlineJev);
+  const commented = await call("write", { path: TEST_FILE, content: `/*\n${ORIGINAL}*/\n` });
+  assert.equal(commented?.block, true);
+  const only = await call("write", {
+    path: TEST_FILE,
+    content: `${ORIGINAL}it.only('x', () => {});\n`,
+  });
+  assert.equal(only?.block, true);
+});
+
+test("removing a path that does not exist touches nothing and is allowed", async () => {
+  const { call } = setup(offlineJev);
+  assert.equal(await call("bash", { command: "rm -f test/missing.test.ts" }), undefined);
+});

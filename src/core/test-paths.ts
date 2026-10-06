@@ -1,3 +1,6 @@
+import { isAbsolute, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
 export type TestPathProfile = { readonly testGlobs?: readonly string[] };
 
 const PATTERNS: readonly RegExp[] = [
@@ -24,4 +27,16 @@ export function isTestPath(path: string, profile?: TestPathProfile): boolean {
   const normalized = path.replace(/^\.\//, "");
   if (PATTERNS.some((p) => p.test(normalized))) return true;
   return (profile?.testGlobs ?? []).some((g) => globToRegExp(g).test(normalized));
+}
+
+/**
+ * Repo-relative form of a path exactly as pi would resolve it: a leading `@` is dropped, `~` expands
+ * to the home directory and `file://` URLs are decoded, so guards see the file that is really touched.
+ */
+export function normalizeRepoPath(cwd: string, input: string, home: string): string {
+  let path = input.startsWith("@") ? input.slice(1) : input;
+  if (path === "~") path = home;
+  else if (path.startsWith("~/")) path = join(home, path.slice(2));
+  else if (/^file:\/\//.test(path)) path = fileURLToPath(path);
+  return isAbsolute(path) ? relative(cwd, path) : relative(cwd, resolve(cwd, path)) || ".";
 }

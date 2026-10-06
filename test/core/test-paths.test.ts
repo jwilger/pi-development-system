@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isTestPath } from "../../src/core/test-paths.ts";
+import { isTestPath, normalizeRepoPath } from "../../src/core/test-paths.ts";
 
 const yes = [
   "test/a.test.ts",
@@ -34,4 +34,16 @@ for (const p of no) test(`not a test path ${p}`, () => assert.equal(isTestPath(p
 
 test("a profile can add extra test globs", () => {
   assert.equal(isTestPath("checks/a.chk", { testGlobs: ["checks/**"] }), true);
+});
+
+test("normalizeRepoPath resolves @, ~, file:// and absolute forms the way pi does", () => {
+  const cwd = "/work/repo";
+  const home = "/home/me";
+  assert.equal(normalizeRepoPath(cwd, "@test/a.test.ts", home), "test/a.test.ts");
+  assert.equal(normalizeRepoPath(cwd, "./test/a.test.ts", home), "test/a.test.ts");
+  assert.equal(normalizeRepoPath(cwd, "/work/repo/test/a.test.ts", home), "test/a.test.ts");
+  assert.equal(normalizeRepoPath(cwd, "file:///work/repo/test/a.test.ts", home), "test/a.test.ts");
+  assert.equal(normalizeRepoPath(cwd, "~/x/a.test.ts", home), "../../home/me/x/a.test.ts");
+  assert.equal(normalizeRepoPath(cwd, "test/../test/a.test.ts", home), "test/a.test.ts");
+  assert.equal(normalizeRepoPath("/home/me/repo", "~/repo/test/a.test.ts", home), "test/a.test.ts");
 });

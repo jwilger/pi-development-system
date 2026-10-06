@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  addedLines,
   applyEdits,
   bashMutatedPaths,
   isPureAddition,
@@ -11,10 +12,12 @@ test("adding a skip marker is a signal; unchanged skips are not", () => {
   assert.deepEqual(weakeningSignals("it('a', () => {})", "it.skip('a', () => {})"), {
     addsSkip: true,
     emptied: false,
+    commentedOut: false,
   });
   assert.deepEqual(weakeningSignals("it.skip('a', f)", "it.skip('a', f)\nit('b', f)"), {
     addsSkip: false,
     emptied: false,
+    commentedOut: false,
   });
 });
 
@@ -89,4 +92,49 @@ test("bashMutatedPaths ignores reads, appends and /dev/null redirects", () => {
   assert.deepEqual(bashMutatedPaths("echo hi >> a.test.ts"), []);
   assert.deepEqual(bashMutatedPaths("npm test > /dev/null"), []);
   assert.deepEqual(bashMutatedPaths("find . -name '*.ts'"), []);
+});
+
+test("bashMutatedPaths splits newline-separated commands and sees through shell keywords", () => {
+  assert.deepEqual(bashMutatedPaths("echo hi\nrm test/a.test.ts"), ["test/a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("echo hi \\\n  && rm a.test.ts"), ["a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("if true; then rm a.test.ts; fi"), ["a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("for f in x; do rm a.test.ts; done"), ["a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("{ rm a.test.ts; }"), ["a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("! rm a.test.ts"), ["a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("(rm a.test.ts)"), ["a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("timeout 5 rm a.test.ts"), ["a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("eval 'rm a.test.ts'"), ["a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("echo 'a\nrm b'"), []);
+});
+
+test("bashMutatedPaths sees &> redirects, dd of=, cp onto a path, and cd with flags", () => {
+  assert.deepEqual(bashMutatedPaths("echo x &> a.test.ts"), ["a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("dd if=/dev/null of=a.test.ts"), ["a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("cp src/x.ts a.test.ts"), ["a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("cd -P test && rm a.ts"), ["test/a.ts"]);
+  assert.deepEqual(bashMutatedPaths("cd -- test && rm a.ts"), ["test/a.ts"]);
+});
+
+test("addedLines lists lines present after but not before", () => {
+  assert.deepEqual(addedLines("a\nb", "a\nx\nb\ny"), ["x", "y"]);
+  assert.deepEqual(addedLines("a", "a"), []);
+});
+
+test("skip markers cover .only, fit/fdescribe and pytest skipif/xfail", () => {
+  for (const added of [
+    "it.only('a', f)",
+    "fit('a', f)",
+    "fdescribe('a', f)",
+    "@pytest.mark.skipif(x)",
+    "@pytest.mark.xfail",
+  ]) {
+    assert.equal(weakeningSignals("x", `x\n${added}`).addsSkip, true, added);
+  }
+});
+
+test("wrapping existing code in a block comment is a commentedOut signal; a doc comment is not", () => {
+  const code = "it('a', () => {\n  assert.ok(1);\n});\n";
+  assert.equal(weakeningSignals(code, `/*\n${code}*/\n`).commentedOut, true);
+  assert.equal(weakeningSignals(code, `/** adds */\n${code}`).commentedOut, false);
+  assert.equal(weakeningSignals(code, `${code}// note\n`).commentedOut, false);
 });

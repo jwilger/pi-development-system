@@ -1,13 +1,14 @@
 import { posix } from "node:path";
 import { parse } from "shell-quote";
 
-export type WeakeningSignals = { addsSkip: boolean; emptied: boolean };
+export type WeakeningSignals = { addsSkip: boolean; emptied: boolean; commentedOut: boolean };
 
 const SKIP_MARKERS: readonly RegExp[] = [
-  /\b(?:it|test|describe|context)\.(?:skip|todo)\b/,
+  /\b(?:it|test|describe|context)\.(?:skip|todo|only)\b/,
+  /\bf(?:it|describe)\(/,
   /\bx(?:it|describe|test)\(/,
   /#\[ignore\b/,
-  /@pytest\.mark\.skip|@unittest\.skip|\bpytest\.skip\(/,
+  /@pytest\.mark\.(?:skip|skipif|xfail)|@unittest\.skip|\bpytest\.skip\(/,
   /\bt\.Skip(?:Now|f)?\(/,
   /@Disabled\b|@Ignore\b/,
   /\bprocess\.exit\(/,
@@ -16,11 +17,43 @@ const SKIP_MARKERS: readonly RegExp[] = [
 const countSkips = (text: string): number =>
   SKIP_MARKERS.reduce((n, re) => n + (text.match(new RegExp(re.source, "g"))?.length ?? 0), 0);
 
+/** Lines that are neither blank, inside a C-style block comment, nor a line comment. */
+function codeLineCount(text: string): number {
+  let inBlock = false;
+  let count = 0;
+  for (const raw of text.split("\n")) {
+    let line = raw.trim();
+    let code = false;
+    while (line !== "") {
+      if (inBlock) {
+        const end = line.indexOf("*/");
+        if (end < 0) break;
+        inBlock = false;
+        line = line.slice(end + 2).trim();
+      } else if (line.startsWith("//") || line.startsWith("#")) {
+        break;
+      } else if (line.startsWith("/*")) {
+        inBlock = true;
+        line = line.slice(2);
+      } else {
+        code = true;
+        const start = line.indexOf("/*");
+        if (start < 0) break;
+        inBlock = true;
+        line = line.slice(start + 2);
+      }
+    }
+    if (code) count++;
+  }
+  return count;
+}
+
 /** Deterministic weakening signals between two versions of a test file. */
 export function weakeningSignals(before: string, after: string): WeakeningSignals {
   return {
     addsSkip: countSkips(after) > countSkips(before),
     emptied: before.trim() !== "" && after.trim() === "",
+    commentedOut: codeLineCount(after) < codeLineCount(before) && isPureAddition(before, after),
   };
 }
 
@@ -47,12 +80,49 @@ export function isPureAddition(before: string, after: string): boolean {
   return true;
 }
 
+/** Lines of `after` not matched by a line of `before` (multiset difference, order preserved). */
+export function addedLines(before: string, after: string): string[] {
+  const remaining = new Map<string, number>();
+  for (const line of before.split("\n")) remaining.set(line, (remaining.get(line) ?? 0) + 1);
+  return after.split("\n").filter((line) => {
+    const left = remaining.get(line) ?? 0;
+    if (left === 0) return true;
+    remaining.set(line, left - 1);
+    return false;
+  });
+}
+
 type Segment = { words: string[]; truncates: string[] };
 type Token = { kind: "word"; value: string } | { kind: "op"; op: string };
 
+/** Turns unquoted newlines into `;` (and joins backslash continuations) so shell-quote sees every command. */
+function splitLines(command: string): string {
+  let out = "";
+  let quote: "'" | '"' | undefined;
+  for (let i = 0; i < command.length; i++) {
+    const c = command.charAt(i);
+    if (quote === undefined && c === "\\" && command.charAt(i + 1) === "\n") {
+      out += " ";
+      i++;
+    } else if (quote === undefined && c === "\\") {
+      out += c + command.charAt(i + 1);
+      i++;
+    } else if (quote === undefined && (c === "'" || c === '"')) {
+      quote = c;
+      out += c;
+    } else if (quote === c) {
+      quote = undefined;
+      out += c;
+    } else if (quote === undefined && c === "\n") {
+      out += ";";
+    } else out += c;
+  }
+  return out;
+}
+
 /** Boundary decode of shell-quote's output into domain tokens; globs count as words. */
 function tokenize(command: string): Token[] {
-  return parse(command).flatMap((entry): Token[] => {
+  return parse(splitLines(command)).flatMap((entry): Token[] => {
     if (typeof entry === "string") return [{ kind: "word", value: entry }];
     if ("pattern" in entry) return [{ kind: "word", value: entry.pattern }];
     if ("op" in entry) return [{ kind: "op", op: entry.op }];
@@ -60,8 +130,8 @@ function tokenize(command: string): Token[] {
   });
 }
 
-const TRUNCATING = new Set([">", ">|"]);
-const NON_TRUNCATING_REDIRECTS = new Set([">>", "<", ">&", "<&"]);
+const TRUNCATING = new Set([">", ">|", "&>"]);
+const NON_TRUNCATING_REDIRECTS = new Set([">>", "&>>", "<", ">&", "<&"]);
 
 /** Splits a shell line into simple commands; `>` targets are kept apart from arguments. */
 function segments(command: string): Segment[] {
@@ -104,24 +174,32 @@ const KNOWN = new Set([
   "sed",
   "tee",
   "cp",
+  "dd",
   "cd",
+  "eval",
 ]);
 
 const base = (word: string): string => word.slice(word.lastIndexOf("/") + 1);
 const operands = (words: readonly string[]): string[] => words.filter((w) => !w.startsWith("-"));
 
-/** Strips env assignments and wrappers so the real command is first. */
+const KEYWORDS = new Set(["then", "do", "else", "elif", "if", "while", "until", "{", "!"]);
+
+/** Strips env assignments, shell keywords and wrappers so the real command is first. */
 function realCommand(words: readonly string[]): string[] {
   let rest = [...words];
   for (;;) {
-    while (rest[0] !== undefined && /^\w+=/.test(rest[0])) rest = rest.slice(1);
     const head = rest[0];
-    if (head === undefined || !WRAPPERS.has(base(head))) return rest;
-    const next = rest.findIndex((w, i) => i > 0 && KNOWN.has(base(w)) && !WRAPPERS.has(base(w)));
-    const nextWrapper = rest.findIndex((w, i) => i > 0 && WRAPPERS.has(base(w)));
-    if (nextWrapper > 0 && (next < 0 || nextWrapper < next)) rest = rest.slice(nextWrapper);
-    else if (next > 0) return rest.slice(next);
-    else return [];
+    if (head === undefined) return rest;
+    if (/^\w+=/.test(head) || KEYWORDS.has(head)) rest = rest.slice(1);
+    else if (base(head) === "timeout") {
+      const at = rest.findIndex((w, i) => i > 0 && /^\d+[smhd]?$/.test(w));
+      rest = at < 0 ? [] : rest.slice(at + 1);
+    } else if (WRAPPERS.has(base(head))) {
+      const next = rest.findIndex((w, i) => i > 0 && KNOWN.has(base(w)) && !WRAPPERS.has(base(w)));
+      const nextWrapper = rest.findIndex((w, i) => i > 0 && WRAPPERS.has(base(w)));
+      if (nextWrapper > 0 && (next < 0 || nextWrapper < next)) rest = rest.slice(nextWrapper);
+      else return next > 0 ? rest.slice(next) : [];
+    } else return rest;
   }
 }
 
@@ -154,8 +232,11 @@ const gitTargets = (args: readonly string[]): string[] => {
 const sedTargets = (args: readonly string[]): string[] =>
   args.some((a) => /^-[A-Za-z]*i|^--in-place/.test(a)) ? operands(args) : [];
 
-const cpTargets = (args: readonly string[]): string[] =>
-  args.includes("/dev/null") ? operands(args).slice(-1) : [];
+/** The destination operand is overwritten, whatever the source is. */
+const cpTargets = (args: readonly string[]): string[] => operands(args).slice(-1);
+
+const ddTargets = (args: readonly string[]): string[] =>
+  args.flatMap((a) => (a.startsWith("of=") ? [a.slice(3)] : []));
 
 const truncateTargets = (args: readonly string[]): string[] =>
   operands(args).filter((a) => !/^[+\-<>/%]?\d+$/.test(a));
@@ -171,6 +252,7 @@ const TARGETS: Readonly<Record<string, (args: readonly string[]) => string[]>> =
   find: findTargets,
   sed: sedTargets,
   cp: cpTargets,
+  dd: ddTargets,
   git: gitTargets,
 };
 
@@ -190,8 +272,12 @@ function collect(command: string, startCwd: string, depth: number): string[] {
   for (const seg of segments(command)) {
     const words = realCommand(seg.words);
     const head = words[0] === undefined ? "" : base(words[0]);
-    if (head === "cd" && words[1] !== undefined) {
-      cwd = joinCwd(cwd, words[1]);
+    if (head === "cd") {
+      cwd = joinCwd(cwd, operands(words.slice(1))[0] ?? "~");
+      continue;
+    }
+    if (head === "eval" && depth < 3) {
+      found.push(...collect(words.slice(1).join(" "), cwd, depth + 1));
       continue;
     }
     if (SHELLS.has(head) && depth < 3) {

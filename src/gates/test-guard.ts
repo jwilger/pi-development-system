@@ -1,16 +1,19 @@
-import { readFileSync } from "node:fs";
-import { isAbsolute, join, relative } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import {
   type ExtensionAPI,
   type ExtensionContext,
   isToolCallEventType,
   type ToolCallEvent,
 } from "@earendil-works/pi-coding-agent";
-import { isTestPath } from "../core/test-paths.ts";
+import { isTestPath, normalizeRepoPath } from "../core/test-paths.ts";
 import {
+  addedLines,
   applyEdits,
   bashMutatedPaths,
   isPureAddition,
+  type WeakeningSignals,
   weakeningSignals,
 } from "../core/test-weakening.ts";
 import { type GateId, isParseError, parseGateId } from "../core/types.ts";
@@ -36,13 +39,11 @@ type Verdict =
 
 const GATE_ID = "tests.weaken";
 
-const describeSignals = (
-  deleted: boolean,
-  signals: { addsSkip: boolean; emptied: boolean },
-): string | undefined => {
+const describeSignals = (deleted: boolean, signals: WeakeningSignals): string | undefined => {
   if (deleted) return "deletes the test file";
   if (signals.addsSkip) return "skips tests";
   if (signals.emptied) return "empties the test file";
+  if (signals.commentedOut) return "comments out test code";
   return undefined;
 };
 
@@ -54,8 +55,12 @@ const readIfExists = (file: string): string | undefined => {
   }
 };
 
-const repoPath = (cwd: string, path: string): string =>
-  isAbsolute(path) ? relative(cwd, path) : path;
+const repoPath = (cwd: string, path: string): string => normalizeRepoPath(cwd, path, homedir());
+
+/** Added lines that can disable tests without matching a skip marker (block comments, early exits). */
+const RISKY_ADDITION = /\/\*|<!--|=begin\b|"""|'''|\breturn\b|\bthrow\b|\bexit\b|\bpanic\(/;
+
+const GLOB = /[*?[\]{]/;
 
 /**
  * Soft gate `tests.weaken`: deleting, skipping, emptying or loosening tests needs a recorded
@@ -90,10 +95,17 @@ export function registerTestGuard(deps: TestGuardDeps): void {
   const judge = async (change: Change, ctx: ExtensionContext): Promise<Verdict> => {
     const deleted = change.after === undefined;
     const signals = deleted
-      ? { addsSkip: false, emptied: false }
+      ? { addsSkip: false, emptied: false, commentedOut: false }
       : weakeningSignals(change.before, change.after ?? "");
     // Adding lines never weakens a test unless the added line itself is a skip marker.
-    if (!deleted && !signals.addsSkip && isPureAddition(change.before, change.after ?? "")) {
+    const after = change.after ?? "";
+    if (
+      !deleted &&
+      !signals.addsSkip &&
+      !signals.commentedOut &&
+      isPureAddition(change.before, after) &&
+      !addedLines(change.before, after).some((line) => RISKY_ADDITION.test(line))
+    ) {
       return { kind: "allow" };
     }
     const deterministic = describeSignals(deleted, signals);
@@ -127,7 +139,9 @@ export function registerTestGuard(deps: TestGuardDeps): void {
     if (isToolCallEventType("bash", event)) {
       return bashMutatedPaths(event.input.command).flatMap((raw) => {
         const path = repoPath(ctx.cwd, raw);
-        return isTestPath(path)
+        // Missing plain paths have nothing to weaken; globs and directories may still hide tests.
+        const touched = GLOB.test(path) || existsSync(join(ctx.cwd, path));
+        return isTestPath(path) && touched
           ? [{ path, before: readIfExists(join(ctx.cwd, path)) ?? "", after: undefined }]
           : [];
       });
