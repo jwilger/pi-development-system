@@ -152,6 +152,13 @@ export function registerCommitGuard(deps: CommitGuardDeps): void {
 
     const known = messages.flatMap((m) => (m === undefined ? [] : [m]));
     const all: Need[] = [];
+    // A -F file that cannot be read now (written by this same command, or stdin) cannot be checked.
+    if (extractions.some((e, i) => e.kind === "file" && messages[i] === undefined)) {
+      all.push({
+        gate: RATIONALE,
+        why: "the message file cannot be read before the commit runs, so its rationale cannot be checked; use -m or a heredoc",
+      });
+    }
     for (const message of known) {
       for (const need of await needsOf(deps, ctx, message)) {
         if (!all.some((n) => n.gate === need.gate)) all.push(need);

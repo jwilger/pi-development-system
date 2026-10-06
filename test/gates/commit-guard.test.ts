@@ -155,11 +155,11 @@ test("an empty diff skips Jev", async () => {
   assert.equal(asked, 0);
 });
 
-test("-F reads the message file; an unreadable or unknown message is not blocked", async () => {
+test("-F reads the message file; an unreadable one cannot be checked and is blocked", async () => {
   const { bash, cwd } = setup(offlineJev);
   writeFileSync(join(cwd, "msg.txt"), "fix: tiny");
   assert.equal((await bash("git commit -F msg.txt"))?.block, true);
-  assert.equal(await bash("git commit -F missing.txt"), undefined);
+  assert.equal((await bash("git commit -F missing.txt"))?.block, true);
   assert.equal(await bash("git commit"), undefined);
 });
 
@@ -187,4 +187,12 @@ test("AI trailers hidden in --trailer=, amends, heredoc-written files and wrappe
   ]) {
     assert.equal((await bash(c))?.block, true, c);
   }
+});
+
+test("a Signed-off-by AI trailer piped through stdin is blocked", async () => {
+  const { bash } = setup(offlineJev);
+  const result = await bash(
+    "cat <<'EOF' | git commit -F -\nfeat: x\n\nwhy because things\n\nSigned-off-by: Claude <n@a.com>\nEOF",
+  );
+  assert.equal(result?.block, true);
 });

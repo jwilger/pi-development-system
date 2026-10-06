@@ -122,7 +122,29 @@ test("abbreviated long options are read like git does", () => {
 
 test("stdin message files are heredoc-fed, not read from disk", () => {
   assert.equal(extractCommit("git commit -F /dev/stdin <<'EOF'\nfix: a\nEOF").kind, "message");
-  assert.equal(extractCommit("printf 'x' | git commit -F -").kind, "unknown");
+  assert.deepEqual(extractCommit("printf 'x' | git commit -F -"), { kind: "file", path: "-" });
+});
+
+test("a commit on the heredoc-opening line reads that heredoc", () => {
+  const c = "cat <<'EOF' | git commit -F -\nfeat: x\n\nwhy it matters\nEOF";
+  assert.deepEqual(extractCommit(c), { kind: "message", message: "feat: x\n\nwhy it matters" });
+});
+
+test("each commit pairs with its own heredoc", () => {
+  const c = "git commit -F - <<'A'\nfeat: one\nA\ngit commit -F - <<'B'\nwip\nB";
+  const all = extractCommits(c);
+  assert.equal(all[0]?.kind === "message" && all[0].message, "feat: one");
+  assert.equal(all[1]?.kind === "message" && all[1].message, "wip");
+});
+
+test("two-letter option abbreviations resolve like git", () => {
+  assert.equal(extractCommit("git commit --me=wip").kind, "message");
+  const t = extractCommit("git commit -m 'feat: a' --tr='Signed-off-by: Claude'");
+  assert.equal(t.kind === "message" && t.message.includes("Signed-off-by"), true);
+});
+
+test("a variable message is opaque, not a literal", () => {
+  assert.equal(extractCommit('git commit -m "$MSG"').kind, "unknown");
 });
 
 test("the heredoc after `commit` is the message, not an earlier notes heredoc", () => {

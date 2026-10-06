@@ -206,3 +206,9 @@ test("a fix commit is not exempt when there is no failure log to compare against
   const result = await w.push("git push origin main");
   assert.equal(result?.block, true);
 });
+
+test("a push whose directory cannot be resolved is treated as a trunk push in pull-request mode", async () => {
+  const w = setup({ mode: "pull-request" });
+  const result = await w.push("cd ~/nowhere && git push");
+  assert.equal(result?.block, true);
+});

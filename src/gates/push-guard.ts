@@ -32,6 +32,7 @@ const gate = (id: string): GateId => {
   if (isParseError(parsed)) throw new Error(parsed.message);
   return parsed;
 };
+const FIX_DIFF_LIMIT = 8000;
 const RED_TRUNK = gate("push.red-trunk");
 const DELIVERY_MODE = gate("push.delivery-mode");
 
@@ -54,7 +55,11 @@ async function pushesTrunk(
   for (const t of targets) {
     if (t.allBranches || t.branches.includes(trunk)) return true;
     const where = t.dir === undefined ? cwd : resolve(cwd, t.dir);
-    if (t.branches.length === 0 && (await currentBranch(exec, where)) === trunk) return true;
+    if (t.branches.length === 0) {
+      // No refspec: the current branch decides. When it cannot be read, assume it is the trunk.
+      const branch = await currentBranch(exec, where);
+      if (branch === undefined || branch === trunk) return true;
+    }
   }
   return false;
 }
@@ -74,7 +79,10 @@ async function repairsRedTrunk(
   if (message.code !== 0 || !parsed.ok || parsed.value.type !== "fix") return false;
   const range = `${config.delivery.remote}/${config.delivery.trunk}..HEAD`;
   const diff = await deps.exec("git", ["diff", range], { cwd: ctx.cwd, timeout: 10_000 });
-  if (diff.code !== 0 || diff.stdout.trim() === "") return false;
+  // Jev only reads a bounded diff; a longer range could hide unrelated change past what it sees.
+  if (diff.code !== 0 || diff.stdout.trim() === "" || diff.stdout.length > FIX_DIFF_LIMIT) {
+    return false;
+  }
   const failingLog = await getFailureLog(deps.exec, ctx.cwd, runId);
   if (failingLog.trim() === "") return false; // nothing to compare the diff against: fail closed
   const judged = await judgeFixRelated(deps.jev(ctx), {

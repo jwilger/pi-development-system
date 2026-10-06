@@ -80,3 +80,8 @@ Nits and deferred items from reviews (append only).
 - `loadConfig(ctx.cwd)` ignores a repo-root policy when pi starts in a subdirectory.
 - Commit guard's Jev diff is `git diff HEAD`; unstaged files in `git add -A && git commit` are not seen.
 - "If an hour passes without a push" is in the skill but nothing reads `lastPushAt` yet (I7 cadence).
+
+## From I3 review round 3 (unscheduled)
+
+- Command-wide AI-trailer scan hard-stops prose that merely mentions `Co-Authored-By:` or "generated with the OpenAI SDK"; reword to proceed. Consider anchoring to line start/quote.
+- `findForbiddenTrailers(message, extraKeys)` has no config field yet (I3.2 "configurable list").

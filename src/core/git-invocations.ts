@@ -19,6 +19,8 @@ export type GitInvocation = {
   readonly args: readonly string[];
   /** Directory the command runs in, relative to the starting one (from `cd` and `git -C`), when it moved. */
   readonly dir?: string;
+  /** Index of the (newline-split) line of the top-level command this invocation sits on. */
+  readonly line: number;
 };
 
 export type GitResolution = {
@@ -27,7 +29,12 @@ export type GitResolution = {
   readonly opaque: boolean;
 };
 
-type Collector = { invocations: GitInvocation[]; opaque: boolean; dir: string | undefined };
+type Collector = {
+  invocations: GitInvocation[];
+  opaque: boolean;
+  dir: string | undefined;
+  line: number;
+};
 
 const firstCommand = (tokens: readonly string[]): number => {
   const at = tokens.findIndex((t) => !(isAssignment(t) || WRAPPERS.has(t) || KEYWORDS.has(t)));
@@ -53,7 +60,8 @@ function visitGit(rest: readonly string[], into: Collector): void {
   if (sub.startsWith("$")) into.opaque = true;
   else {
     const args = rest.slice(j + 1);
-    into.invocations.push(dir === undefined ? { sub, args } : { sub, args, dir });
+    const line = into.line;
+    into.invocations.push(dir === undefined ? { sub, args, line } : { sub, args, dir, line });
   }
 }
 
@@ -85,14 +93,17 @@ function visitSegment(tokens: readonly string[], into: Collector): void {
   else if (SHELLS.has(base) || base === "eval") visitScript(base, rest, into);
   else if (OPAQUE.has(base)) into.opaque = into.opaque || gitIndex(rest) >= 0;
   else if (base === "git") visitGit(rest, into);
-  else if (!DATA_ONLY.has(base) && gitIndex(rest) >= 0) {
-    // Wrapper with options (`sudo -E git …`, `timeout 5 git …`): resolve from the git token.
-    visitSegment(rest.slice(gitIndex(rest)), into);
-  }
+  else visitWrapped(base, rest, into);
+}
+
+/** Wrapper with options (`sudo -E git …`, `timeout 5 git …`): resolve from the git token. */
+function visitWrapped(base: string, rest: readonly string[], into: Collector): void {
+  const at = gitIndex(rest);
+  if (!DATA_ONLY.has(base) && at >= 0) visitSegment(rest.slice(at), into);
 }
 
 function merge(into: Collector, other: GitResolution): void {
-  into.invocations.push(...other.invocations);
+  into.invocations.push(...other.invocations.map((g) => ({ ...g, line: into.line })));
   if (other.opaque) into.opaque = true;
 }
 
@@ -101,9 +112,11 @@ function merge(into: Collector, other: GitResolution): void {
  * `timeout`, `if … then`), `bash -c`/`eval` scripts and `$(…)` substitutions. Heredoc bodies are data.
  */
 export function resolveGit(command: string): GitResolution {
-  const into: Collector = { invocations: [], opaque: false, dir: undefined };
+  const into: Collector = { invocations: [], opaque: false, dir: undefined, line: 0 };
   let heredocEnd: string | undefined;
-  for (const line of splitLines(command)) {
+  const lines = splitLines(command);
+  for (const [index, line] of lines.entries()) {
+    into.line = index;
     if (heredocEnd !== undefined) {
       if (line.trim() === heredocEnd) heredocEnd = undefined;
       continue;

@@ -93,7 +93,8 @@ export function findForbiddenTrailers(
     });
 }
 
-const AI_TRAILER_ANYWHERE = /(?:co-authored-by|generated-by)\s*[:=]/gi;
+const AI_TRAILER_ANYWHERE =
+  /(?:co-authored-by|generated-by)\s*[:=]|signed-off-by\s*[:=][^\n]*\b(?:ai|claude|copilot|codex|gpt|chatgpt|openai|anthropic|gemini|llm)\b/gi;
 
 /** AI-attribution trailer keys anywhere in free text (command lines, quoted strings, printf bodies). */
 export function findForbiddenTrailerKeys(text: string): string[] {

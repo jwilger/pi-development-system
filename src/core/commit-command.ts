@@ -1,3 +1,4 @@
+import { splitLines } from "./git-intent.ts";
 import { resolveGit } from "./git-invocations.ts";
 
 export type CommitExtraction =
@@ -7,19 +8,20 @@ export type CommitExtraction =
   | { readonly kind: "unknown"; readonly trailers: readonly string[] };
 
 const HEREDOC =
-  /<<-?[ \t]*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1[^\n]*\n([\s\S]*?)\n[ \t]*\2[ \t]*(?:\n|$)/g;
+  /<<-?[ \t]*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1([^\n]*)\n([\s\S]*?)\n[ \t]*\2[ \t]*(?:\n|$)/g;
 
-/** Heredoc bodies are data: take them out so their quotes cannot confuse line splitting. */
-function stripHeredocs(command: string): { rest: string; bodies: Heredoc[] } {
-  const bodies: Heredoc[] = [];
+/**
+ * Heredoc bodies are data: take them out so their quotes cannot confuse line splitting. The rest of
+ * the opening line stays (`| git commit -F -`) with a `#HD<n>` marker naming the removed body.
+ */
+function stripHeredocs(command: string): { rest: string; bodies: string[] } {
+  const bodies: string[] = [];
   const rest = command.replace(HEREDOC, (...m: unknown[]) => {
-    bodies.push({ body: String(m[3]), at: Number(m[m.length - 2]) });
-    return "\n";
+    bodies.push(String(m[4]).trim());
+    return `${String(m[3])} #HD${bodies.length - 1}\n`;
   });
   return { rest, bodies };
 }
-
-type Heredoc = { readonly body: string; readonly at: number };
 
 type Options = {
   messages: string[];
@@ -35,10 +37,11 @@ type Parsed = {
   readonly next: number;
 };
 
-const LONG: ReadonlyArray<readonly [string, Parsed["kind"]]> = [
-  ["--message", "message"],
-  ["--file", "file"],
-  ["--trailer", "trailer"],
+/** Option, kind and the shortest prefix git still resolves uniquely (`--fi` would be `--fixup`). */
+const LONG: ReadonlyArray<readonly [string, Parsed["kind"], number]> = [
+  ["--message", "message", 4],
+  ["--file", "file", 5],
+  ["--trailer", "trailer", 4],
 ];
 
 /** The option a `--name`/`--na=value` spelling means; git accepts any unambiguous prefix (3+ chars). */
@@ -46,11 +49,9 @@ function longOption(arg: string): { kind: Parsed["kind"]; inline: string | undef
   if (!arg.startsWith("--")) return undefined;
   const eq = arg.indexOf("=");
   const name = eq < 0 ? arg : arg.slice(0, eq);
-  if (name.length < 5) return undefined;
-  const hit = LONG.find(([long]) => long.startsWith(name));
-  return hit === undefined
-    ? undefined
-    : { kind: hit[1], inline: eq < 0 ? undefined : arg.slice(eq + 1) };
+  const hit = LONG.find(([long, , min]) => name.length >= min && long.startsWith(name));
+  if (hit === undefined) return undefined;
+  return { kind: hit[1], inline: eq < 0 ? undefined : arg.slice(eq + 1) };
 }
 
 /** Reads the message/file/trailer option starting at args[i], in any of its spellings. */
@@ -71,17 +72,21 @@ function parseArg(args: readonly string[], i: number): Parsed | undefined {
   return undefined;
 }
 
+const OPAQUE_VALUE = /\$\(|`|^\$\{?\w+\}?$/;
+
+function record(options: Options, parsed: Parsed): void {
+  if (parsed.kind === "file") options.file = parsed.value;
+  else if (parsed.kind === "trailer") options.trailers.push(parsed.value ?? "");
+  else if (parsed.value === undefined || OPAQUE_VALUE.test(parsed.value)) options.opaque = true;
+  else options.messages.push(parsed.value);
+}
+
 function readOptions(args: readonly string[]): Options {
   const options: Options = { messages: [], trailers: [], file: undefined, opaque: false };
-  let i = 0;
-  while (i < args.length) {
+  for (let i = 0; i < args.length; ) {
     const parsed = parseArg(args, i);
+    if (parsed !== undefined) record(options, parsed);
     i = parsed?.next ?? i + 1;
-    if (parsed === undefined) continue;
-    if (parsed.kind === "file") options.file = parsed.value;
-    else if (parsed.kind === "trailer") options.trailers.push(parsed.value ?? "");
-    else if (parsed.value === undefined || /\$\(|`/.test(parsed.value)) options.opaque = true;
-    else options.messages.push(parsed.value);
   }
   return options;
 }
@@ -92,18 +97,22 @@ const unknown = (trailers: readonly string[] = []): CommitExtraction => ({
 });
 
 const STDIN_PATHS = new Set(["-", "/dev/stdin", "/proc/self/fd/0"]);
+const MARKER = /#HD(\d+)/g;
 
-/** The heredoc that is this commit's input: the first one written after the word `commit`. */
-const heredocFor = (command: string, bodies: readonly Heredoc[]): string | undefined => {
-  const from = command.search(/\bcommit\b/);
-  return bodies.find((h) => h.at >= from)?.body.trim();
+/** Body of the first heredoc opened on this line or later (its stdin, or the `$(cat <<EOF)` message). */
+const heredocFrom = (lines: readonly string[], line: number, bodies: readonly string[]) => {
+  for (const text of lines.slice(line)) {
+    const hit = [...text.matchAll(MARKER)][0];
+    if (hit !== undefined) return bodies[Number(hit[1])];
+  }
+  return undefined;
 };
 
 function extractOne(args: readonly string[], heredoc: string | undefined): CommitExtraction {
   const options = readOptions(args);
   if (options.file !== undefined && STDIN_PATHS.has(options.file)) {
     return heredoc === undefined
-      ? unknown(options.trailers)
+      ? { kind: "file", path: "-" }
       : { kind: "message", message: heredoc };
   }
   if (options.file !== undefined) return { kind: "file", path: options.file };
@@ -121,9 +130,10 @@ function extractOne(args: readonly string[], heredoc: string | undefined): Commi
 export function extractCommits(command: string): CommitExtraction[] {
   const { rest, bodies } = stripHeredocs(command);
   const resolution = resolveGit(rest);
-  const heredoc = heredocFor(command, bodies);
-  const commits = resolution.invocations.filter((g) => g.sub === "commit");
-  const found = commits.map((g) => extractOne(g.args, heredoc));
+  const lines = splitLines(rest);
+  const found = resolution.invocations.flatMap((g) =>
+    g.sub === "commit" ? [extractOne(g.args, heredocFrom(lines, g.line, bodies))] : [],
+  );
   const hidden = resolution.opaque && /\bcommit\b/.test(command);
   return hidden ? [...found, unknown()] : found;
 }
