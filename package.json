@@ -21,7 +21,6 @@
     "@earendil-works/pi-coding-agent": "*"
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   }
 }
