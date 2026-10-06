@@ -1,0 +1,65 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { classifyGitCommand, type GitIntent } from "../../src/core/git-intent.ts";
+
+const table: ReadonlyArray<readonly [string, GitIntent]> = [
+  ["git status", "ordinary"],
+  ["git log --oneline -n 5", "ordinary"],
+  ["git push", "ordinary"],
+  ["git push origin main", "ordinary"],
+  ["git push -u origin feature", "ordinary"],
+  ["git commit -m 'fix: x'", "ordinary"],
+  ["git reset --soft HEAD~1", "ordinary"],
+  ["git rebase --abort", "ordinary"],
+  ["ls -la && npm test", "ordinary"],
+  ["echo git push --force", "ordinary"],
+  ["git push --force", "force-push"],
+  ["git push -f origin main", "force-push"],
+  ["git push origin main --force-with-lease", "force-push"],
+  ["git push -fu origin main", "force-push"],
+  ["git push origin +main", "force-push"],
+  ["git -c x=y push -f", "force-push"],
+  ["git -C ../other push --force", "force-push"],
+  ["command git push --force", "force-push"],
+  ["sudo env FOO=1 git push -f", "force-push"],
+  ["/usr/bin/git push -f", "force-push"],
+  ["\\git push --force", "force-push"],
+  ['g""it push -f', "force-push"],
+  ["npm test && git push -f", "force-push"],
+  ["(git push -f)", "force-push"],
+  ["echo $(git push -f)", "force-push"],
+  ["git status\ngit push -f", "force-push"],
+  ["bash -c 'git push --force'", "force-push"],
+  ['eval "git push -f"', "force-push"],
+  ["git push origin --delete feature", "branch-delete-remote"],
+  ["git push origin :feature", "branch-delete-remote"],
+  ["git commit --amend", "history-rewrite"],
+  ["git commit --amend --no-edit", "history-rewrite"],
+  ["git rebase -i HEAD~3", "history-rewrite"],
+  ["git rebase main", "history-rewrite"],
+  ["git filter-branch --all", "history-rewrite"],
+  ["git filter-repo --path x", "history-rewrite"],
+  ["git reset --hard", "destructive-reset"],
+  ["git reset --hard origin/main", "destructive-reset"],
+  ["git commit --no-verify -m x", "no-verify"],
+  ["git commit -nm x", "no-verify"],
+  ["git push --no-verify", "no-verify"],
+  ["git -c core.hooksPath=/dev/null commit -m x", "no-verify"],
+  ["LEFTHOOK=0 git commit -m x", "no-verify"],
+  ["HUSKY=0 git commit -m x", "no-verify"],
+  ["$GIT push -f", "unknown"],
+  ["xargs git push -f", "unknown"],
+  ["ssh host git push -f", "unknown"],
+  ['git commit -m "a && b"', "ordinary"],
+  ['git commit -m "note about git push -f"', "ordinary"],
+];
+
+for (const [command, expected] of table) {
+  test(`classifyGitCommand ${JSON.stringify(command)} → ${expected}`, () => {
+    assert.equal(classifyGitCommand(command), expected);
+  });
+}
+
+test("the most severe intent in a compound command wins", () => {
+  assert.equal(classifyGitCommand("git commit --amend && git push -f"), "force-push");
+});
