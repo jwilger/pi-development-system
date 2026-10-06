@@ -106,3 +106,21 @@ test("redirects are not push arguments", () => {
   }
   assert.equal(pushTargets("git push origin 2>&1").at(0)?.remote, "origin");
 });
+
+test("an unrelated opaque segment does not make an explicit push hit every branch", () => {
+  for (const c of [
+    "git push origin feat && git branch --merged | xargs git branch -d",
+    "git diff --name-only | xargs git add && git push origin feat",
+    "$HOME/bin/lint && git push origin feat",
+    'eval "$(ssh-agent -s)" && ssh-add k && git push origin feat',
+    "git push origin feat; $EDITOR x",
+  ]) {
+    const targets = pushTargets(c);
+    assert.equal(targets.length, 1, c);
+    assert.equal(targets[0]?.allBranches, false, c);
+  }
+  assert.equal(
+    pushTargets("$GIT push origin feat").some((t) => t.allBranches),
+    true,
+  );
+});

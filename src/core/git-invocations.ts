@@ -27,12 +27,13 @@ export type GitInvocation = {
 export type GitResolution = {
   readonly invocations: readonly GitInvocation[];
   /** True when git may run through something the parser cannot see into (xargs, `$CMD`, …). */
-  readonly opaque: boolean;
+  /** Words of segments that may run git in a way that cannot be read (`$GIT push`, `xargs git …`). */
+  readonly opaque: readonly string[];
 };
 
 type Collector = {
   invocations: GitInvocation[];
-  opaque: boolean;
+  opaque: string[];
   dir: string | undefined;
   line: number;
 };
@@ -58,7 +59,7 @@ function visitGit(rest: readonly string[], into: Collector): void {
   }
   const sub = rest[j];
   if (sub === undefined) return;
-  if (sub.startsWith("$")) into.opaque = true;
+  if (sub.startsWith("$")) into.opaque.push(...rest);
   else {
     const args = rest.slice(j + 1);
     const line = into.line;
@@ -89,11 +90,12 @@ function visitSegment(tokens: readonly string[], into: Collector): void {
   if (head === undefined) return;
   const rest = tokens.slice(firstCommand(tokens) + 1);
   const base = basename(head);
-  if (head.startsWith("$")) into.opaque = true;
+  if (head.startsWith("$")) into.opaque.push(...tokens);
   else if (base === "cd") visitCd(rest, into);
   else if (SHELLS.has(base) || base === "eval") visitScript(base, rest, into);
-  else if (OPAQUE.has(base)) into.opaque = into.opaque || gitIndex(rest) >= 0;
-  else if (base === "git") visitGit(rest, into);
+  else if (OPAQUE.has(base)) {
+    if (gitIndex(rest) >= 0) into.opaque.push(...rest);
+  } else if (base === "git") visitGit(rest, into);
   else visitWrapped(base, rest, into);
 }
 
@@ -105,7 +107,7 @@ function visitWrapped(base: string, rest: readonly string[], into: Collector): v
 
 function merge(into: Collector, other: GitResolution): void {
   into.invocations.push(...other.invocations.map((g) => ({ ...g, line: into.line })));
-  if (other.opaque) into.opaque = true;
+  into.opaque.push(...other.opaque);
 }
 
 /**
@@ -113,7 +115,7 @@ function merge(into: Collector, other: GitResolution): void {
  * `timeout`, `if … then`), `bash -c`/`eval` scripts and `$(…)` substitutions. Heredoc bodies are data.
  */
 export function resolveGit(command: string): GitResolution {
-  const into: Collector = { invocations: [], opaque: false, dir: undefined, line: 0 };
+  const into: Collector = { invocations: [], opaque: [], dir: undefined, line: 0 };
   let heredocEnd: string | undefined;
   // Heredoc bodies are data (an apostrophe in one must not unbalance quote tracking).
   const lines = splitLines(stripHeredocs(command).rest);
@@ -129,3 +131,7 @@ export function resolveGit(command: string): GitResolution {
   }
   return into;
 }
+
+/** Whether something unreadable in the command may be running `git <subcommand>`. */
+export const opaqueMentions = (resolution: GitResolution, subcommand: string): boolean =>
+  resolution.opaque.includes(subcommand);

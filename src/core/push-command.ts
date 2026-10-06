@@ -1,4 +1,4 @@
-import { resolveGit } from "./git-invocations.ts";
+import { opaqueMentions, resolveGit } from "./git-invocations.ts";
 
 export type PushTarget = {
   readonly remote: string | undefined;
@@ -73,7 +73,7 @@ export function pushTargets(command: string): PushTarget[] {
     g.sub === "push" && !isDryRun(g.args) ? [toTarget(g.args, g.dir)] : [],
   );
   // git run through something opaque (xargs, `$CMD`): a push cannot be ruled out, so assume the worst.
-  const opaquePush = resolution.opaque && /\bpush\b/.test(command);
+  const opaquePush = opaqueMentions(resolution, "push");
   return opaquePush
     ? [
         ...targets,

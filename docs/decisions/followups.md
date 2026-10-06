@@ -102,3 +102,8 @@ Nits and deferred items from reviews (append only).
 
 - `/devsys-ci` expects HEAD's sha; on an unpushed or feature-branch HEAD the trunk run never matches and polling runs its full budget (pull-request mode).
 - `withoutComments` drops body lines starting with `#` (`#123 …`) that `git commit -m` would keep.
+
+## From I3 review round 7 (unscheduled)
+
+- A once-scoped departure for a commit is spent before the chained push guard runs (`git commit … && git push` in pull-request mode).
+- `Exec` drops pi's `killed` flag: a timed-out command reads as success with partial output.

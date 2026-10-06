@@ -1,5 +1,5 @@
 import { splitLines } from "./git-intent.ts";
-import { resolveGit } from "./git-invocations.ts";
+import { opaqueMentions, resolveGit } from "./git-invocations.ts";
 import { stripHeredocs } from "./heredoc.ts";
 
 export type CommitExtraction =
@@ -120,7 +120,7 @@ export function extractCommits(command: string): CommitExtraction[] {
   const found = resolution.invocations.flatMap((g) =>
     g.sub === "commit" ? [extractOne(g.args, heredocFrom(lines, g.line, bodies))] : [],
   );
-  const hidden = resolution.opaque && /\bcommit\b/.test(command);
+  const hidden = opaqueMentions(resolution, "commit");
   return hidden ? [...found, unknown()] : found;
 }
 

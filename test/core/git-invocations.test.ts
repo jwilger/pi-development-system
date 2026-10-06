@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveGit } from "../../src/core/git-invocations.ts";
+import { opaqueMentions, resolveGit } from "../../src/core/git-invocations.ts";
 
 const subs = (command: string): string[] => resolveGit(command).invocations.map((g) => g.sub);
 
@@ -23,7 +23,8 @@ test("git inside a heredoc body is data, not a command", () => {
 });
 
 test("an opaque runner is flagged", () => {
-  assert.equal(resolveGit("echo main | xargs git push origin").opaque, true);
+  assert.equal(opaqueMentions(resolveGit("echo main | xargs git push origin"), "push"), true);
+  assert.equal(opaqueMentions(resolveGit("$GIT push origin"), "push"), true);
 });
 
 test("cd and -C record the directory; each invocation knows its line", () => {
