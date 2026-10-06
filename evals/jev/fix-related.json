@@ -1,0 +1,69 @@
+{
+  "questionHash": "ab8f5008e9467310",
+  "cases": [
+    {
+      "state": {
+        "failingLog": "FAIL test/cart.test.ts: expected total 12 got 10 (discount applied twice)",
+        "message": "fix: apply discount once",
+        "diff": "-  return sum(items) - discount(items) - discount(items);\n+  return sum(items) - discount(items);"
+      },
+      "expected": "related"
+    },
+    {
+      "state": {
+        "failingLog": "TypeError: Cannot read properties of undefined (reading 'id') at src/user.ts:14",
+        "message": "fix: guard missing user",
+        "diff": "-  return user.id;\n+  return user?.id;"
+      },
+      "expected": "related"
+    },
+    {
+      "state": {
+        "failingLog": "error TS2322: Type 'string' is not assignable to type 'number' src/price.ts:9",
+        "message": "fix: correct price type",
+        "diff": "-const price: number = '10';\n+const price: number = 10;"
+      },
+      "expected": "related"
+    },
+    {
+      "state": {
+        "failingLog": "lint: src/a.ts:3 unused variable 'tmp' (no-unused-vars)",
+        "message": "fix: drop unused variable",
+        "diff": "-  const tmp = 1;"
+      },
+      "expected": "related"
+    },
+    {
+      "state": {
+        "failingLog": "FAIL test/cart.test.ts: expected total 12 got 10",
+        "message": "fix: apply discount once",
+        "diff": "-  return a - d - d;\n+  return a - d;\n+export function exportCsv(rows) {\n+  return rows.map((r) => r.join(',')).join('\\n');\n+}"
+      },
+      "expected": "unrelated"
+    },
+    {
+      "state": {
+        "failingLog": "TypeError: Cannot read properties of undefined (reading 'id') at src/user.ts:14",
+        "message": "fix: guard missing user",
+        "diff": "-  return user.id;\n+  return user?.id;\n+// rename everything\n-function getName() {}\n+function readName() {}\n-export const A = 1;\n+export const B = 1;"
+      },
+      "expected": "unrelated"
+    },
+    {
+      "state": {
+        "failingLog": "error TS2322: Type 'string' is not assignable to type 'number'",
+        "message": "fix: types",
+        "diff": "-const price: number = '10';\n+const price: number = 10;\n+function newFeature() { return fetch('/api/v2/orders'); }"
+      },
+      "expected": "unrelated"
+    },
+    {
+      "state": {
+        "failingLog": "FAIL test/a.test.ts: timeout after 5000ms",
+        "message": "chore: tidy build",
+        "diff": "-  timeout: 5000\n+  timeout: 60000\n-  retries: 0\n+  retries: 5\n+  reporter: 'dot'"
+      },
+      "expected": "unrelated"
+    }
+  ]
+}

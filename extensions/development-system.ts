@@ -6,6 +6,7 @@ import { applyPromptSection } from "../src/context/system-prompt.ts";
 import { createApprovalStore } from "../src/gates/approvals.ts";
 import { registerCommitGuard } from "../src/gates/commit-guard.ts";
 import { registerGitGuard } from "../src/gates/git-guard.ts";
+import { registerPushGuard } from "../src/gates/push-guard.ts";
 import { createRecordDepartureTool } from "../src/gates/record-departure-tool.ts";
 import { createRequestApprovalTool } from "../src/gates/request-approval-tool.ts";
 import { registerTestGuard } from "../src/gates/test-guard.ts";
@@ -62,6 +63,13 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   registerCommitGuard({
     pi,
     state,
+    jev: (ctx) => jevHolder.forContext(ctx),
+    exec: (command, args, options) => pi.exec(command, args, options),
+  });
+  registerPushGuard({
+    pi,
+    state,
+    approvals,
     jev: (ctx) => jevHolder.forContext(ctx),
     exec: (command, args, options) => pi.exec(command, args, options),
   });

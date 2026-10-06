@@ -98,3 +98,17 @@ export function extractCommit(command: string): CommitExtraction {
   }
   return { kind: "not-commit" };
 }
+
+export type GitInvocation = { readonly sub: string; readonly args: readonly string[] };
+
+/** Every `git <sub> <args…>` simple command in a shell command string (heredoc bodies excluded). */
+export function gitInvocations(command: string): GitInvocation[] {
+  const { rest } = stripHeredocs(command);
+  return splitLines(rest).flatMap((line) =>
+    segmentsOf(line).flatMap((segment): GitInvocation[] => {
+      const at = subcommandIndex(segment);
+      const sub = at === undefined ? undefined : segment[at];
+      return at === undefined || sub === undefined ? [] : [{ sub, args: segment.slice(at + 1) }];
+    }),
+  );
+}
