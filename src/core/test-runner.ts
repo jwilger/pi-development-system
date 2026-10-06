@@ -59,7 +59,7 @@ export type ResultLike = {
 };
 
 /** A pipe or sequence makes the shell report the last command's status, not the runner's. */
-const MASKS_STATUS = /\||;/;
+const MASKS_STATUS = /[|;\n]/;
 const FAILURE_MARKERS =
   /^(?:# |ℹ )fail [1-9]|test result: FAILED|\b[1-9]\d* (?:failed|failing)\b|^FAILED\b|^FAIL\b|\bnot ok\b/m;
 

@@ -15,6 +15,8 @@ const GATE_ID = "tdd.red-first";
 /** Test code written inside a source file (Rust `#[cfg(test)]`/`#[test]`): that edit is the RED step itself. */
 const INLINE_TEST = /#\[(?:cfg\(test\)|test|test_case|rstest|proptest|\w+::test)\b/g;
 
+const INLINE_MODULE = /#\[cfg\(test\)\]\s*(?:#\[[^\]]*\]\s*)*mod\s+\w+\s*\{/;
+
 const countInlineTests = (text: string): number => text.match(INLINE_TEST)?.length ?? 0;
 
 const existing = (cwd: string, path: string): string => {
@@ -31,7 +33,8 @@ type EditInput =
 
 /** Is every edit inside the file's existing `#[cfg(test)]` module? Changing a test's expectation is RED itself. */
 const insideTestModule = (edits: ReadonlyArray<{ oldText: string }>, file: string): boolean => {
-  const start = file.indexOf("#[cfg(test)]");
+  // Only an inline module body counts: `mod tests;`, `#[cfg(test)] use ...` and fns are not test code.
+  const start = INLINE_MODULE.exec(file)?.index ?? -1;
   return start >= 0 && edits.every((e) => e.oldText !== "" && file.indexOf(e.oldText) > start);
 };
 

@@ -111,3 +111,16 @@ test("a structured exit_code of 0 from a piped run does not hide failure output"
   assert.equal(exitCodeOf({ isError: false, text, structured, command: "npm test | tail -5" }), 1);
   assert.equal(exitCodeOf({ isError: false, text, structured, command: "npm test" }), 0);
 });
+
+test("a newline-separated command masks the runner's status like a semicolon", () => {
+  const text = "test result: FAILED. 0 passed; 1 failed";
+  assert.equal(
+    exitCodeOf({
+      isError: false,
+      text,
+      structured: { exit_code: 0 },
+      command: "cargo test\necho done",
+    }),
+    1,
+  );
+});

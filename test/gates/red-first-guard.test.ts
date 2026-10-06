@@ -185,3 +185,16 @@ test("attribute macros like #[tokio::test(flavor = ...)] and #[test_case(1)] cou
     assert.equal(await call("edit", input), undefined, attr);
   }
 });
+
+test("a #[cfg(test)] declaration that is not an inline module does not exempt later production edits", async () => {
+  const { call, cwd } = setup({ exitCode: 0 });
+  const layouts = [
+    "#[cfg(test)]\nmod tests;\n\npub fn price() -> u32 { 1 }\n",
+    "#[cfg(test)]\nuse c::D;\n\npub fn price() -> u32 { 1 }\n",
+  ];
+  for (const file of layouts) {
+    writeFileSync(join(cwd, "src/lib.rs"), file);
+    const input = { path: "src/lib.rs", edits: [{ oldText: "{ 1 }", newText: "{ 2 }" }] };
+    assert.equal((await call("edit", input))?.block, true, file);
+  }
+});
