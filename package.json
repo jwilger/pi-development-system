@@ -1,6 +1,6 @@
 {
   "name": "@jwilger/pi-development-system",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "A pi extension package representing a seasoned approach to software development using a full AI SDLC.",
   "keywords": [
     "pi-package"
@@ -13,12 +13,33 @@
   "type": "module",
   "files": [
     "extensions",
+    "src",
     "skills",
     "prompts",
+    "principles",
+    "agents",
     "themes"
   ],
+  "pi": {
+    "extensions": [
+      "./extensions/development-system.ts"
+    ],
+    "skills": [
+      "./skills"
+    ],
+    "prompts": [
+      "./prompts"
+    ]
+  },
+  "dependencies": {
+    "smol-toml": "^1.4.0"
+  },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*"
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-agent-core": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
   },
   "publishConfig": {
     "access": "public"
@@ -29,7 +50,7 @@
     "typescript": "^7.0.2"
   },
   "scripts": {
-    "test": "node --test \"test/*.test.ts\"",
+    "test": "node --test \"test/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",

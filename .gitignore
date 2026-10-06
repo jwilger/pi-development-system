@@ -5,3 +5,4 @@ result
 .envrc.local
 # .envrc is committed (overrides the global ignore); local overrides are not
 !.envrc
+.pi/
