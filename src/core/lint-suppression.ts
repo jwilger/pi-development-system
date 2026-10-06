@@ -26,7 +26,7 @@ const KINDS: readonly Kind[] = [
     inline: (line, after) =>
       lastGroup(/reason\s*=\s*"([^"]*)"/, line) ??
       lastGroup(/\)\]\s*\/\/\s*(.+)$/, after) ??
-      lastGroup(/\)\]\s*\/\*\s*(.+?)\s*\*\/\s*$/, after),
+      lastGroup(/\)\]\s*\/\*\s*([^*]+?)\*\/\s*$/, after),
   },
   {
     marker: "#![allow(",

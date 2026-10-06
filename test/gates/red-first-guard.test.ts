@@ -150,3 +150,38 @@ test("rewriting a Rust file that already has tests, adding none, is still blocke
   const more = { path: "src/lib.rs", content: `${rewrite.content}#[test]\nfn b() {}\n` };
   assert.equal(await call("write", more), undefined);
 });
+
+const RUST_FILE =
+  "fn f() -> i32 { 1 }\n#[cfg(test)]\nmod tests {\n  #[test]\n  fn a() { assert_eq!(super::f(), 1); }\n}\n";
+
+test("changing an existing Rust test's expectation is the RED step and is allowed", async () => {
+  const { call, cwd } = setup({ exitCode: 0 });
+  writeFileSync(join(cwd, "src/lib.rs"), RUST_FILE);
+  const input = {
+    path: "src/lib.rs",
+    edits: [{ oldText: "assert_eq!(super::f(), 1)", newText: "assert_eq!(super::f(), 2)" }],
+  };
+  assert.equal(await call("edit", input), undefined);
+});
+
+test("an edit that only uses the test marker as an anchor does not exempt production code", async () => {
+  const { call, cwd } = setup({ exitCode: 0 });
+  writeFileSync(join(cwd, "src/lib.rs"), RUST_FILE);
+  const input = {
+    path: "src/lib.rs",
+    edits: [{ oldText: "{ 1 }\n#[cfg(test)]", newText: "{ 2 }\n#[cfg(test)]" }],
+  };
+  assert.equal((await call("edit", input))?.block, true);
+});
+
+test("attribute macros like #[tokio::test(flavor = ...)] and #[test_case(1)] count as tests", async () => {
+  const { call, cwd } = setup({ exitCode: 0 });
+  writeFileSync(join(cwd, "src/lib.rs"), "fn f() {}\n");
+  for (const attr of ['#[tokio::test(flavor = "multi_thread")]', "#[test_case(1)]"]) {
+    const input = {
+      path: "src/lib.rs",
+      edits: [{ oldText: "fn f() {}", newText: `fn f() {}\n${attr}\nasync fn t() {}` }],
+    };
+    assert.equal(await call("edit", input), undefined, attr);
+  }
+});

@@ -13,7 +13,7 @@ export type RedFirstGuardDeps = { pi: ExtensionAPI; state: SessionState };
 const GATE_ID = "tdd.red-first";
 
 /** Test code written inside a source file (Rust `#[cfg(test)]`/`#[test]`): that edit is the RED step itself. */
-const INLINE_TEST = /#\[(?:cfg\(test\)|test|tokio::test|rstest)\]/g;
+const INLINE_TEST = /#\[(?:cfg\(test\)|test|test_case|rstest|proptest|\w+::test)\b/g;
 
 const countInlineTests = (text: string): number => text.match(INLINE_TEST)?.length ?? 0;
 
@@ -25,14 +25,29 @@ const existing = (cwd: string, path: string): string => {
   }
 };
 
-/** Does this edit add test code? A whole-file write counts only markers beyond those already on disk. */
-const addsInlineTest = (
-  input: { content: string } | { edits: ReadonlyArray<{ newText: string }> },
-  before: () => string,
-): boolean =>
-  "content" in input
-    ? countInlineTests(input.content) > countInlineTests(before())
-    : countInlineTests(input.edits.map((e) => e.newText).join("\n")) > 0;
+type EditInput =
+  | { content: string }
+  | { edits: ReadonlyArray<{ oldText: string; newText: string }> };
+
+/** Is every edit inside the file's existing `#[cfg(test)]` module? Changing a test's expectation is RED itself. */
+const insideTestModule = (edits: ReadonlyArray<{ oldText: string }>, file: string): boolean => {
+  const start = file.indexOf("#[cfg(test)]");
+  return start >= 0 && edits.every((e) => e.oldText !== "" && file.indexOf(e.oldText) > start);
+};
+
+/**
+ * Does this edit write or change test code? A write counts markers beyond those on disk, an edit
+ * counts markers beyond those it replaces (an anchor line is not a new test), or must sit wholly
+ * inside the existing test module.
+ */
+const touchesInlineTest = (input: EditInput, before: () => string): boolean => {
+  if ("content" in input) return countInlineTests(input.content) > countInlineTests(before());
+  const added = input.edits.reduce(
+    (n, e) => n + Math.max(0, countInlineTests(e.newText) - countInlineTests(e.oldText)),
+    0,
+  );
+  return added > 0 || insideTestModule(input.edits, before());
+};
 
 /** Exemption classes a machine cannot see; the departure names which one applies (research 02). */
 const JUDGED_EXEMPTIONS =
@@ -58,7 +73,7 @@ export function registerRedFirstGuard(deps: RedFirstGuardDeps): void {
     if (lastTestRun !== undefined && lastTestRun.exitCode !== 0) return undefined;
     const path = normalizeRepoPath(ctx.cwd, event.input.path, homedir());
     if (classifyPath(path) !== "source") return undefined;
-    if (addsInlineTest(event.input, () => existing(ctx.cwd, path))) return undefined;
+    if (touchesInlineTest(event.input, () => existing(ctx.cwd, path))) return undefined;
     if (departure.hasOpen()) {
       departure.consume();
       return undefined;

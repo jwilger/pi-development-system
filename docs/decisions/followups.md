@@ -153,3 +153,9 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 - A once-scoped departure is consumed by the first guard that allows an edit even if a later guard blocks it (same class as I3 round 7).
 - `tdd.red-first` is dormant in real sessions until I8.3 (`/devsys-start`) sets phase `implementing`; mention in release notes.
 - `conftest.py` and `__mocks__/*` classify as source.
+
+## From I4 review round 5 (nits; unscheduled)
+
+- `pytest --collect-only`, `jest --listTests`, `go test -list`, `vitest list` count as test runs; `npm -s test`, `npm run -s test`, `npx --no-install vitest`, `yarn test:unit` are missed.
+- A timed-out or aborted test run (`isError`) is recorded as exit 1, i.e. RED.
+- `refreshProfiles` runs only on session events; a `Cargo.toml`/`package.json` created mid-session appears later.
