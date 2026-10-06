@@ -45,3 +45,9 @@ test("hasUI false is reflected on the context", () => {
   assert.equal(fake.ctx.hasUI, false);
   assert.equal(fake.ui.hasUI, false);
 });
+
+test("ctx.hasUI follows later changes to fake.ui.hasUI", () => {
+  const fake = createFakePi();
+  fake.ui.hasUI = false;
+  assert.equal(fake.ctx.hasUI, false);
+});

@@ -187,20 +187,20 @@ they need a place to live and a way to be tested. Cite: research 04 §1–2, §6
 
 Tasks:
 
-- [ ] **I0.1 Package manifest.**
+- [x] **I0.1 Package manifest.**
   Files: `package.json`, `tsconfig.json`, `biome.json`.
   Change: add `pi` manifest block (layout §2); peerDependencies for all five
   host libs with `"*"`; `dependencies` add `smol-toml`; keep existing scripts;
   `files` must include `extensions`, `src`, `skills`, `prompts`, `principles`,
   `agents`. Run: `npm run typecheck && npm run lint && npm test`.
   Expected: all green (zero tests is fine at this step).
-- [ ] **I0.2 Fake pi harness.**
+- [x] **I0.2 Fake pi harness.**
   Files: `test/harness/fake-pi.ts`, `test/harness/fake-pi.test.ts`.
   Interfaces (Appendix G): `createFakePi(): { api: ExtensionAPI; emit<E extends ExtensionEvent>(event: E, ctx?: Partial<ExtensionContext>): Promise<unknown>; tools: Map<string, ToolDefinition>; commands: Map<string, RegisteredCommand>; entries: Array<{customType: string; data: unknown}>; ui: FakeUi }` where `FakeUi` has `confirmResponses: boolean[]`, `selectResponses: string[]`, `calls: Array<{kind: string; args: unknown[]}>`, and `hasUI: boolean`.
   First test: registering a handler via `api.on("tool_call", h)` and calling
   `emit({type:"tool_call", toolName:"bash", input:{command:"ls"}, toolCallId:"1"})`
   invokes `h` and returns its result. Run: `npm test`. Expected: pass.
-- [ ] **I0.3 Core types.**
+- [x] **I0.3 Core types.**
   Files: `src/core/types.ts`, `test/core/types.test.ts`.
   Interfaces: `type Tier = "hard" | "soft" | "advisory"`;
   `type GateDecision = {kind:"allow"} | {kind:"block"; reason:string} | {kind:"require-departure"; gate:GateId; reason:string} | {kind:"require-user"; gate:GateId; reason:string}`;
@@ -209,21 +209,21 @@ Tasks:
   `type Sizing = "fix" | "change" | "capability" | "product"`;
   `type DevsysState = { phase: Phase; sizing?: Sizing; activeSlice?: SliceRef; openDepartures: Departure[]; jev: "online" | "offline" | "unknown"; lastPushAt?: string }`.
   First test: `parseGateId("")` returns a `ParseError`; `parseGateId("git.history-rewrite")` returns a branded id. Run/Expected: `npm test` pass.
-- [ ] **I0.4 State store on session entries.**
+- [x] **I0.4 State store on session entries.**
   Files: `src/state/session-state.ts`, `test/state/session-state.test.ts`.
   Interfaces: `createSessionState(api: ExtensionAPI): { get(): DevsysState; update(fn:(s:DevsysState)=>DevsysState): void; rebuildFrom(entries: ReadonlyArray<{customType:string; data:unknown}>): void }`. `update` appends a `devsys-state` custom entry with the full new state (small; last entry wins on rebuild). `rebuildFrom` is called from `session_start`/`session_tree` handlers using `ctx.sessionManager.getBranch()` (research 04 §2).
   First test: after two `update`s and `rebuildFrom(entries)`, `get()` equals the second state. Run/Expected: pass.
-- [ ] **I0.5 Principles files + system-prompt section.**
+- [x] **I0.5 Principles files + system-prompt section.**
   Files: `principles/NON-NEGOTIABLES.md` (the ten items from synthesis §6, verbatim, ≤ 60 lines), `principles/DEFAULTS.md` (synthesis §7, one line each with rationale), `src/context/system-prompt.ts`, `test/context/system-prompt.test.ts`.
   Interfaces: `buildPromptSection(state: DevsysState, nonNegotiables: string): string` (pure); handler for `before_agent_start` sets `event.systemPromptOptions.sections["development-system"]` (mutate sections, do not return `systemPrompt`).
   First test: section contains all ten non-negotiable headings and the current phase. Run/Expected: pass.
-- [ ] **I0.6 `/devsys-status` command + status line.**
+- [x] **I0.6 `/devsys-status` command + status line.**
   Files: `src/context/status.ts`, `extensions/development-system.ts`, `prompts/devsys-status.md` (not needed if the command renders directly — prefer `pi.registerCommand("devsys-status", …)`).
   Behaviour: prints phase, sizing, active slice, open departures count, Jev status; `ctx.ui.setStatus("devsys", "devsys: <phase> · jev <status>")` on session start and state change.
   Test via harness: after `emit(session_start)`, `fakePi.ui.calls` contains a `setStatus` with key `devsys`. Run/Expected: pass.
-- [ ] **I0.7 ADR scaffolding for this repo.**
+- [x] **I0.7 ADR scaffolding for this repo.**
   Files: `docs/adr/0000-template.md` (Status/Date/Context/Decision/Consequences ±/Alternatives "Rejected because"/Revisit when/Related — research 03 §5), `docs/adr/0001-three-tier-enforcement.md`, `docs/adr/0002-jev-as-runtime-judgement.md`, `docs/adr/0003-vendor-subagent-manager.md`, `docs/decisions/followups.md` (empty list), `docs/decisions/README.md` (Appendix A format).
-- [ ] **I0.8 Composition root + smoke test.**
+- [x] **I0.8 Composition root + smoke test.**
   Files: `extensions/development-system.ts`, `test/extension.test.ts`.
   Test: loading the default export against the fake pi registers `devsys-status` and handlers for `session_start`, `before_agent_start`. Run/Expected: pass.
 

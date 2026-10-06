@@ -13,19 +13,25 @@ const nonNegotiables = readFileSync(
 export default function developmentSystem(pi: ExtensionAPI): void {
   const state = createSessionState(pi);
 
-  const refreshStatus = (ctx: ExtensionContext) => {
-    ctx.ui.setStatus(STATUS_KEY, renderStatusLine(state.get()));
+  let lastCtx: ExtensionContext | undefined;
+
+  const refreshStatus = () => {
+    lastCtx?.ui.setStatus(STATUS_KEY, renderStatusLine(state.get()));
   };
 
-  pi.on("session_start", (_event, ctx) => {
-    state.rebuildFrom(ctx.sessionManager.getBranch().flatMap(toCustomEntry));
-    refreshStatus(ctx);
-  });
+  const rebuild = (ctx: ExtensionContext) => {
+    lastCtx = ctx;
+    state.rebuildFrom(
+      ctx.sessionManager
+        .getBranch()
+        .flatMap((e) => (e.type === "custom" ? [{ customType: e.customType, data: e.data }] : [])),
+    );
+    refreshStatus();
+  };
 
-  pi.on("session_tree", (_event, ctx) => {
-    state.rebuildFrom(ctx.sessionManager.getBranch().flatMap(toCustomEntry));
-    refreshStatus(ctx);
-  });
+  state.onChange(refreshStatus);
+  pi.on("session_start", (_event, ctx) => rebuild(ctx));
+  pi.on("session_tree", (_event, ctx) => rebuild(ctx));
 
   pi.on("before_agent_start", (event) => {
     applyPromptSection(event, state.get(), nonNegotiables);
@@ -37,12 +43,4 @@ export default function developmentSystem(pi: ExtensionAPI): void {
       ctx.ui.notify(renderStatus(state.get()), "info");
     },
   });
-}
-
-function toCustomEntry(entry: unknown): Array<{ customType: string; data: unknown }> {
-  if (typeof entry !== "object" || entry === null) return [];
-  const e = entry as { type?: unknown; customType?: unknown; data?: unknown };
-  return e.type === "custom" && typeof e.customType === "string"
-    ? [{ customType: e.customType, data: e.data }]
-    : [];
 }

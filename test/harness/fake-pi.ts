@@ -44,7 +44,9 @@ export function createFakePi(init: FakePiOptions = {}) {
   };
 
   const ctx = {
-    hasUI: ui.hasUI,
+    get hasUI() {
+      return ui.hasUI;
+    },
     cwd: init.cwd ?? process.cwd(),
     ui: {
       confirm: async (...args: unknown[]) => {
@@ -106,8 +108,9 @@ export function createFakePi(init: FakePiOptions = {}) {
   /** Runs every handler for `event.type`; the last defined result wins. */
   async function emit(event: ExtensionEvent, overrides?: Partial<ExtensionContext>) {
     let result: unknown;
+    const effective = overrides ? Object.assign(Object.create(ctx), overrides) : ctx;
     for (const handler of handlers.get(event.type) ?? []) {
-      const next = await handler(event, { ...ctx, ...overrides } as ExtensionContext);
+      const next = await handler(event, effective as ExtensionContext);
       if (next !== undefined) result = next;
     }
     return result;

@@ -34,3 +34,18 @@ test("parseDevsysState rejects non-objects and unknown phases", () => {
     true,
   );
 });
+
+test("parseDevsysState rejects openDepartures whose elements are not records", () => {
+  const base = { phase: "idle", jev: "online" };
+  assert.equal(isParseError(parseDevsysState({ ...base, openDepartures: [null] })), true);
+  assert.equal(isParseError(parseDevsysState({ ...base, openDepartures: [1, "x"] })), true);
+});
+
+test("onChange listeners run after every update", () => {
+  const store = createSessionState(createFakePi().api);
+  const seen: string[] = [];
+  store.onChange((s) => seen.push(s.phase));
+  store.update((s) => ({ ...s, phase: "planning" }));
+  store.update((s) => ({ ...s, phase: "reviewing" }));
+  assert.deepEqual(seen, ["planning", "reviewing"]);
+});

@@ -34,7 +34,9 @@ export function parseDevsysState(input: unknown): DevsysState | ParseError {
   const { phase, sizing, activeSlice, openDepartures, jev, lastPushAt } = input;
   if (!PHASES.includes(phase as Phase)) return parseError(`unknown phase: ${String(phase)}`);
   if (!JEV.includes(jev as JevStatus)) return parseError(`unknown jev status: ${String(jev)}`);
-  if (!Array.isArray(openDepartures)) return parseError("openDepartures must be an array");
+  if (!Array.isArray(openDepartures) || !openDepartures.every(isRecord)) {
+    return parseError("openDepartures must be an array of objects");
+  }
   if (sizing !== undefined && !SIZINGS.includes(sizing as Sizing)) {
     return parseError(`unknown sizing: ${String(sizing)}`);
   }
@@ -58,6 +60,8 @@ export type SessionState = {
   get(): DevsysState;
   update(fn: (s: DevsysState) => DevsysState): void;
   rebuildFrom(entries: ReadonlyArray<{ customType: string; data: unknown }>): void;
+  /** Registers a listener run after every update(); returns an unsubscribe function. */
+  onChange(listener: (state: DevsysState) => void): () => void;
 };
 
 /**
@@ -66,11 +70,19 @@ export type SessionState = {
  */
 export function createSessionState(api: ExtensionAPI): SessionState {
   let current: DevsysState = initialState();
+  const listeners = new Set<(state: DevsysState) => void>();
   return {
     get: () => current,
     update(fn) {
       current = fn(current);
       api.appendEntry(STATE_ENTRY_TYPE, current);
+      for (const listener of listeners) listener(current);
+    },
+    onChange(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
     },
     rebuildFrom(entries) {
       let rebuilt: DevsysState = initialState();

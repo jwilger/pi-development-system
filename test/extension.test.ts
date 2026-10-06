@@ -40,3 +40,20 @@ test("/devsys-status notifies with the status report", async () => {
   const call = fake.ui.calls.find((c) => c.kind === "notify");
   assert.match(String(call?.args[0]), /phase: idle/);
 });
+
+test("a state change refreshes the status line using the last seen context", async () => {
+  const fake = createFakePi();
+  developmentSystem(fake.api);
+  await fake.emit({ type: "session_start", reason: "startup" });
+  const toolEntries = fake.handlers.get("session_start") ?? [];
+  assert.ok(toolEntries.length > 0);
+  // simulate another module updating state through a persisted entry + new session_start
+  fake.api.appendEntry("devsys-state", {
+    phase: "planning",
+    jev: "online",
+    openDepartures: [],
+  });
+  await fake.emit({ type: "session_start", reason: "reload" });
+  const statuses = fake.ui.calls.filter((c) => c.kind === "setStatus").map((c) => c.args[1]);
+  assert.equal(statuses.at(-1), "devsys: planning · jev online");
+});
