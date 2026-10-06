@@ -5,16 +5,15 @@ export type WeakeningSignals = { addsSkip: boolean; emptied: boolean; commentedO
 
 const SKIP_MARKERS: readonly RegExp[] = [
   /\b(?:it|test|describe|context)\.(?:skip|only)\b/,
-  /\.skip\(/,
+  /\b(?:this|t|self|ctx)\.skip\(/,
   /\bskip:\s*true\b/,
   /\bskipTest\(/,
-  /\bf(?:it|describe)\(/,
-  /\bx(?:it|describe|test)\(/,
+  /(?<![.\w])f(?:it|describe)\(/,
+  /(?<![.\w])x(?:it|describe|test)\(/,
   /#\[ignore\b/,
   /@pytest\.mark\.(?:skip|skipif|xfail)|@unittest\.skip|\bpytest\.skip\(/,
   /\bt\.Skip(?:Now|f)?\(/,
   /@Disabled\b|@Ignore\b/,
-  /\bprocess\.exit\(/,
 ];
 
 const countSkips = (text: string): number =>
@@ -39,11 +38,9 @@ function codeLineCount(text: string): number {
         inBlock = true;
         line = line.slice(2);
       } else {
+        // A `/*` after code is more likely inside a string than a comment opener.
         code = true;
-        const start = line.indexOf("/*");
-        if (start < 0) break;
-        inBlock = true;
-        line = line.slice(start + 2);
+        break;
       }
     }
     if (code) count++;
@@ -234,10 +231,17 @@ function findTargets(args: readonly string[]): string[] {
       ? [args[i + 1] ?? ""]
       : [],
   );
-  return [...starts, ...patterns];
+  // With name patterns the start directory is only where to look, not what is deleted.
+  return patterns.length > 0 ? patterns : starts;
 }
 
 const removers = (args: readonly string[]): string[] => operands(args);
+
+/** `mv src… dir/`: the trailing-slash destination is a directory receiving files, not a removal. */
+const moveSources = (args: readonly string[]): string[] => {
+  const ops = operands(args);
+  return ops.length > 1 && ops.at(-1)?.endsWith("/") ? ops.slice(0, -1) : ops;
+};
 
 export type MutationKind = "remove" | "overwrite";
 export type Mutation = { readonly path: string; readonly kind: MutationKind };
@@ -273,7 +277,7 @@ const TARGETS: Readonly<Record<string, (args: readonly string[]) => string[]>> =
   unlink: removers,
   trash: removers,
   rmdir: removers,
-  mv: removers,
+  mv: moveSources,
   tee: removers,
   truncate: truncateTargets,
   find: findTargets,
@@ -320,12 +324,11 @@ function collect(command: string, startCwd: string, depth: number): Mutation[] {
       if (script !== undefined) found.push(...collect(script, cwd, depth + 1));
       continue;
     }
+    const redirectKind: MutationKind = PRODUCES_NOTHING.has(head) ? "remove" : "overwrite";
     found.push(...commandTargets(words).map((m) => ({ ...m, path: joinCwd(cwd, m.path) })));
     found.push(
       ...seg.truncates.flatMap((p): Mutation[] =>
-        p === "/dev/null"
-          ? []
-          : [{ path: joinCwd(cwd, p), kind: PRODUCES_NOTHING.has(head) ? "remove" : "overwrite" }],
+        p === "/dev/null" ? [] : [{ path: joinCwd(cwd, p), kind: redirectKind }],
       ),
     );
   }

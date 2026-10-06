@@ -25,3 +25,11 @@ Nits and deferred items from reviews (append only).
 - Shell mutations that are not statically visible stay best-effort: `find … | xargs rm`, `for f in …; do rm "$f"`, subshell `cd` leaks, `cd -`.
 - In-place shell rewrites (`sed -i`, `tee`, `cat > f`) of a test file are judged by Jev only; with Jev offline they are allowed (no deterministic signal exists without the new content).
 - Jev offline is not short-circuited: each judged test edit can wait up to the 15 s timeout.
+
+## From I2 review round 4 (nits, unscheduled)
+
+- Heredoc bodies are parsed as shell, so `cat > NOTES.md <<'EOF'\nrm test/a.test.ts\nEOF` reads as a removal (reuse `heredocDelimiter` from `src/core/git-intent.ts`).
+- `recentFailure` is never passed to `judgeTestChange`, so the Jev gate-gaming hard stop rarely fires on its own; capture the last failing check output in I3/I7.
+- Jev cache key omits the resolved model (`src/jev/client.ts` `hashOf`).
+- `applyEdits` applies edits sequentially while pi matches each `oldText` against the original file.
+- `mv a b/` without a trailing slash still flags `b`.

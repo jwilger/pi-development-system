@@ -83,7 +83,7 @@ test("bashMutatedPaths sees globs, wrappers, absolute rm, bash -c and cd", () =>
 test("bashMutatedPaths sees move-away, find -delete, truncation, in-place edits and redirects", () => {
   assert.deepEqual(bashMutatedPaths("mv a.test.ts /tmp"), ["a.test.ts", "/tmp"]);
   assert.deepEqual(bashMutatedPaths("git mv a.test.ts b.ts"), ["a.test.ts", "b.ts"]);
-  assert.deepEqual(bashMutatedPaths("find . -name '*.test.ts' -delete"), [".", "*.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("find . -name '*.test.ts' -delete"), ["*.test.ts"]);
   assert.deepEqual(bashMutatedPaths("truncate -s 0 a.test.ts"), ["a.test.ts"]);
   assert.deepEqual(bashMutatedPaths(": > a.test.ts"), ["a.test.ts"]);
   assert.deepEqual(bashMutatedPaths("sed -i s/a/b/ a.test.ts"), ["a.test.ts"]);
@@ -167,4 +167,25 @@ test("bashMutations tags removals and in-place rewrites; computed cd is ignored"
     bashMutatedPaths('cd "$(git rev-parse --show-toplevel)" && rm tests/a.test.ts'),
     ["tests/a.test.ts"],
   );
+});
+
+test("ordinary code that resembles skip or comment markers is not a weakening signal", () => {
+  const base = "def test_a():\n    assert 1\n";
+  for (const added of [
+    "clf.fit(X, y)",
+    "docs = coll.find().skip(10)",
+    "process.exit(1)",
+    "const route = '/api/*'; run()",
+  ]) {
+    const s = weakeningSignals(base, `${base}${added}\ndef test_b():\n    assert 2\n`);
+    assert.equal(s.addsSkip, false, added);
+    assert.equal(s.commentedOut, false, added);
+  }
+});
+
+test("find with name patterns flags the patterns, not the start dir; mv into a dir keeps the dir", () => {
+  assert.deepEqual(bashMutatedPaths("find tests -name '*.pyc' -delete"), ["*.pyc"]);
+  assert.deepEqual(bashMutatedPaths("find tests -type f -delete"), ["tests"]);
+  assert.deepEqual(bashMutatedPaths("mv helper.ts test/"), ["helper.ts"]);
+  assert.deepEqual(bashMutatedPaths("mv test/a.test.ts /tmp/x"), ["test/a.test.ts", "/tmp/x"]);
 });
