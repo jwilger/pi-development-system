@@ -170,6 +170,12 @@ export function registerCommitGuard(deps: CommitGuardDeps): void {
         why: "the message file cannot be read before the commit runs, so its rationale cannot be checked; use -m or a heredoc",
       });
     }
+    if (extractions.some((e) => e.kind === "unknown" && e.opaqueMessage)) {
+      all.push({
+        gate: RATIONALE,
+        why: "the message is built by a substitution or variable and cannot be checked; use a literal -m or a heredoc",
+      });
+    }
     for (const message of known) {
       for (const need of await needsOf(deps, ctx, message, command)) {
         if (!all.some((n) => n.gate === need.gate)) all.push(need);

@@ -96,7 +96,11 @@ test("a glob argument does not hide the message", () => {
 
 test("unknown messages still expose --trailer values; -F- and --trailer= work", () => {
   const r = extractCommit("git commit --amend --no-edit --trailer 'Co-Authored-By: Claude'");
-  assert.deepEqual(r, { kind: "unknown", trailers: ["Co-Authored-By: Claude"] });
+  assert.deepEqual(r, {
+    kind: "unknown",
+    trailers: ["Co-Authored-By: Claude"],
+    opaqueMessage: false,
+  });
   assert.deepEqual(extractCommit("git commit -F- <<'EOF'\nfix: a\nEOF").kind, "message");
   assert.deepEqual(extractCommit("git commit -Fmsg.txt"), { kind: "file", path: "msg.txt" });
 });
@@ -162,4 +166,9 @@ test("backticks and dollar signs inside prose are checked as text, not treated a
   assert.equal(extractCommit("git commit -m 'fix: handle `null` ids'").kind, "message");
   assert.equal(extractCommit("git commit -m 'fix: cost $5 now'").kind, "message");
   assert.equal(extractCommit('git commit -m "$(date)"').kind, "unknown");
+});
+
+test("an opaque -m value is flagged so the guard can refuse to guess", () => {
+  const r = extractCommit('git commit -m "fix: x" -m "$(cat /tmp/m)"');
+  assert.equal(r.kind === "unknown" && r.opaqueMessage, true);
 });

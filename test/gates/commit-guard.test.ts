@@ -208,3 +208,28 @@ test("the Jev diff is the staged one, or the whole tree when the command stages 
   assert.deepEqual(await diffArgs(`git add -A; ${commit(GOOD)}`), ["git", "diff", "HEAD"]);
   assert.deepEqual(await diffArgs(`git commit -a -m '${GOOD}'`), ["git", "diff", "HEAD"]);
 });
+
+test("a message built by a substitution cannot be checked, so it needs a departure", async () => {
+  const { bash } = setup(offlineJev);
+  for (const c of [
+    'git commit -m "fix: x" -m "$(cat /tmp/msg.txt)"',
+    'git commit -m "wip" -m "$BODY"',
+    'git commit -m "$MSG"',
+  ]) {
+    const result = await bash(c);
+    assert.equal(result?.block, true, c);
+    assert.match(result?.reason ?? "", /commit\.rationale/, c);
+  }
+});
+
+test("commits that legitimately have no inline message are not blocked as opaque", async () => {
+  const { bash } = setup(offlineJev);
+  for (const c of [
+    "git commit --amend --no-edit",
+    "git commit -C HEAD",
+    "git commit --fixup HEAD",
+  ]) {
+    const result = await bash(c);
+    assert.equal(result?.reason?.includes("substitution"), undefined, c);
+  }
+});

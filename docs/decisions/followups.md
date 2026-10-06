@@ -107,3 +107,12 @@ Nits and deferred items from reviews (append only).
 
 - A once-scoped departure for a commit is spent before the chained push guard runs (`git commit … && git push` in pull-request mode).
 - `Exec` drops pi's `killed` flag: a timed-out command reads as success with partial output.
+
+## From I3 review round 8 (unscheduled)
+
+- redact.ts unquoted-secret pattern over-redacts prose (`monkey: patch`) and TS (`key: string,`).
+- Heredoc delimiter class rejects `COMMIT-MSG`; an indented terminator is accepted on a non-`<<-` heredoc.
+- `cat > f <<EOF … && git commit -F f` reads a stale `f`; `-F ~/x` and `-F` after `cd` resolve against ctx.cwd (fails closed).
+- `pushesTrunk` ignores the remote: `git push fork main` hard-stops in pull-request mode.
+- `THINKING_LEVELS` lacks `max` (plan I5.2 lists it) — add when routing needs it.
+- `chooseSlot` in models-command accumulates duplicate pins on repeated runs.

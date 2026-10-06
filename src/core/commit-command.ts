@@ -6,7 +6,12 @@ export type CommitExtraction =
   | { readonly kind: "not-commit" }
   | { readonly kind: "message"; readonly message: string }
   | { readonly kind: "file"; readonly path: string }
-  | { readonly kind: "unknown"; readonly trailers: readonly string[] };
+  | {
+      readonly kind: "unknown";
+      readonly trailers: readonly string[];
+      /** A `-m` value is a substitution or variable: the message exists but cannot be read. */
+      readonly opaqueMessage: boolean;
+    };
 
 type Options = {
   messages: string[];
@@ -77,9 +82,10 @@ function readOptions(args: readonly string[]): Options {
   return options;
 }
 
-const unknown = (trailers: readonly string[] = []): CommitExtraction => ({
+const unknown = (trailers: readonly string[] = [], opaqueMessage = false): CommitExtraction => ({
   kind: "unknown",
   trailers,
+  opaqueMessage,
 });
 
 const STDIN_PATHS = new Set(["-", "/dev/stdin", "/proc/self/fd/0"]);
@@ -104,7 +110,7 @@ function extractOne(args: readonly string[], heredoc: string | undefined): Commi
   if (options.file !== undefined) return { kind: "file", path: options.file };
   const parts = [...options.messages];
   if (options.opaque) {
-    if (heredoc === undefined) return unknown(options.trailers);
+    if (heredoc === undefined) return unknown(options.trailers, true);
     parts.push(heredoc);
   }
   if (parts.length === 0) return unknown(options.trailers);
