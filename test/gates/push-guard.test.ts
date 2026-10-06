@@ -219,3 +219,9 @@ test("dry runs and tag-only pushes are not trunk pushes in pull-request mode", a
   assert.equal(await w.push("git push --tags"), undefined);
   assert.equal((await w.push("git push origin HEAD feat"))?.block, true);
 });
+
+test("a push with a redirect and no refspec still checks the current branch", async () => {
+  const w = setup({ mode: "pull-request" });
+  assert.equal((await w.push("git push 2>&1"))?.block, true);
+  assert.equal((await w.push("git push >/dev/null 2>&1"))?.block, true);
+});

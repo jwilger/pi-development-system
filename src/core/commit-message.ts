@@ -101,10 +101,15 @@ export function findForbiddenTrailerKeys(text: string): string[] {
   return [...text.matchAll(AI_TRAILER_ANYWHERE)].map((m) => m[0].trim());
 }
 
-const isBullets = (paragraph: string): boolean =>
-  paragraph.split("\n").every((line) => /^\s*(?:[-*+]|\d+[.)])\s/.test(line));
-
+const BULLET = /^\s*(?:[-*+]|\d+[.)])\s+/;
 const wordCount = (text: string): number => text.split(/\s+/).filter((w) => w !== "").length;
+const SHORT_BULLET_WORDS = 5;
+
+/** A list of file names or other terse items; bullets that explain themselves are prose. */
+const isTerseList = (paragraph: string): boolean =>
+  paragraph
+    .split("\n")
+    .every((line) => BULLET.test(line) && wordCount(line.replace(BULLET, "")) < SHORT_BULLET_WORDS);
 
 const PROSE_TRAILER_WORDS = 5;
 
@@ -124,6 +129,6 @@ export function hasRationaleBody(message: string): boolean {
       ?.split("\n") ?? [];
   const proseTrailer = trailers.length > 0 && trailerBlockLines.some(isProseTrailer);
   return (
-    proseTrailer || body.some((paragraph) => !isBullets(paragraph) && wordCount(paragraph) >= 5)
+    proseTrailer || body.some((paragraph) => !isTerseList(paragraph) && wordCount(paragraph) >= 5)
   );
 }

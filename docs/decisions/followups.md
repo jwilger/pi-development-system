@@ -90,3 +90,10 @@ Nits and deferred items from reviews (append only).
 
 - `lastPushAt` is recorded when a bash command exits 0 even if the push inside failed (`git push; echo done`).
 - `Assisted-by:` style trailers are not forbidden (configurable key list still unwired).
+
+## From I3 review round 5 (unscheduled)
+
+- `git push -u origin $(git branch --show-current)` / `$BRANCH` count as all-branches and false-stop on feature branches in pull-request mode.
+- `git switch -c feat && git push -u origin HEAD` reads the branch before the chained switch runs.
+- `/devsys-models` Esc on a slot select is treated as accept.
+- `routing` table keys are not validated.

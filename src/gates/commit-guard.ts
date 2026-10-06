@@ -63,7 +63,9 @@ function messageNeeds(message: string): Need[] {
 
 /** `-a`/`--all`, or a `git add` in the same command, widen the commit beyond what is staged. */
 const stagesEverything = (command: string): boolean =>
-  /(?:^|\s)(?:-[a-zA-Z]*a[a-zA-Z]*|--all|--include)(?:\s|$)|\bgit\s+add\b/.test(command);
+  /\bgit\b[^;&|\n]*\bcommit\b[^;&|\n]*\s(?:-[a-zA-Z]*a[a-zA-Z]*|--all|--include)(?:\s|$)|\bgit\s+add\s+(?:-A|--all|-u|\.)(?:\s|$)/.test(
+    command,
+  );
 
 /** What is about to be committed: the staged changes, or every tracked change when the commit stages them itself. */
 async function pendingDiff(

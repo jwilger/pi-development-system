@@ -66,7 +66,7 @@ async function pushesTrunk(
 }
 
 /** Whether the unpushed work is a `fix` commit whose diff Jev reads as only repairing the red build. */
-async function repairsRedTrunk(
+async function judgeRepair(
   deps: PushGuardDeps,
   ctx: ExtensionContext,
   config: DevsysConfig,
@@ -92,6 +92,20 @@ async function repairsRedTrunk(
     message: message.stdout,
   });
   return judged.ok && judged.value >= FIX_RELATED_THRESHOLD;
+}
+
+/** Fails closed: any exec failure means the push is not shown to repair the red build. */
+async function repairsRedTrunk(
+  deps: PushGuardDeps,
+  ctx: ExtensionContext,
+  config: DevsysConfig,
+  runId: number | undefined,
+): Promise<boolean> {
+  try {
+    return await judgeRepair(deps, ctx, config, runId);
+  } catch {
+    return false;
+  }
 }
 
 type HardStop = {

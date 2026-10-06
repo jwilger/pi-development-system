@@ -110,3 +110,10 @@ test("AI trailer keys are found anywhere in free text", () => {
   assert.equal(findForbiddenTrailerKeys(`printf 'x\\nCo-Authored-By: Claude'`).length, 1);
   assert.equal(findForbiddenTrailerKeys("fix: mention co-authored-by handling").length, 0);
 });
+
+test("bullets that explain the change are a rationale; terse file lists are not", () => {
+  const why =
+    "fix: x\n\n- Expired tokens were accepted because the clock check used issue time\n- Sessions outliving their grant is a security defect";
+  assert.equal(hasRationaleBody(why), true);
+  assert.equal(hasRationaleBody("fix: x\n\n1. src/a.ts\n2. src/b.ts"), false);
+});

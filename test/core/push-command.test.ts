@@ -93,3 +93,16 @@ test("dry runs push nothing; tag-only pushes name no branch; HEAD alongside a br
   assert.equal(pushTargets("git push --follow-tags").at(0)?.tagsOnly, false);
   assert.equal(pushTargets("git push origin HEAD feat").at(0)?.usesHead, true);
 });
+
+test("redirects are not push arguments", () => {
+  for (const c of [
+    "git push 2>&1",
+    "git push >/dev/null 2>&1",
+    "git push 2> err.txt",
+    "timeout 60 git push 2>&1",
+  ]) {
+    assert.deepEqual(pushTargets(c).at(0)?.branches, [], c);
+    assert.equal(pushTargets(c).at(0)?.remote, undefined, c);
+  }
+  assert.equal(pushTargets("git push origin 2>&1").at(0)?.remote, "origin");
+});

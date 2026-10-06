@@ -58,14 +58,24 @@ export function splitLines(command: string): string[] {
 
 const isRedirect = (op: string): boolean => /^[<>]/.test(op) && !op.endsWith("(");
 
-/** Tokens of one line grouped into simple commands (operators separate segments). */
+/** Tokens of one line grouped into simple commands (operators separate segments; redirects and their operands are dropped). */
 export function segments(line: string): string[][] {
   const result: string[][] = [[]];
+  let skipOperand = false;
   for (const token of parseShell(line, (name) => `$${name}`)) {
-    if (typeof token === "string") result[result.length - 1]?.push(token);
-    else if ("pattern" in token) result[result.length - 1]?.push(token.pattern);
-    else if ("op" in token && isRedirect(token.op)) continue;
-    else if (!("comment" in token)) result.push([]);
+    const current = result[result.length - 1];
+    if (typeof token === "string" || "pattern" in token) {
+      const text = typeof token === "string" ? token : token.pattern;
+      if (!skipOperand) current?.push(text);
+      skipOperand = false;
+    } else if ("op" in token && isRedirect(token.op)) {
+      // `2>&1`, `>/dev/null`: the file descriptor before it and the target after it are not arguments.
+      if (/^\d+$/.test(current?.at(-1) ?? "")) current?.pop();
+      skipOperand = true;
+    } else if (!("comment" in token)) {
+      result.push([]);
+      skipOperand = false;
+    }
   }
   return result.filter((s) => s.length > 0);
 }
