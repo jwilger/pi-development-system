@@ -1,0 +1,85 @@
+{
+  "questionHash": "2ab85feddaa8b167",
+  "cases": [
+    {
+      "state": {
+        "message": "fix(cache): evict on write\n\nStale reads appeared because writes updated the database but left the cached entry, so readers saw old values until the TTL expired. Evicting on write trades one extra miss for correctness.",
+        "diffStat": "src/cache.ts | 6 ++++--",
+        "diff": "-  db.save(k, v);\n+  db.save(k, v);\n+  cache.delete(k);"
+      },
+      "expected": "rationale"
+    },
+    {
+      "state": {
+        "message": "fix: update cache\n\n- src/cache.ts",
+        "diffStat": "src/cache.ts | 6 ++++--",
+        "diff": "-  db.save(k, v);\n+  db.save(k, v);\n+  cache.delete(k);"
+      },
+      "expected": "none"
+    },
+    {
+      "state": {
+        "message": "feat(auth): add refresh tokens\n\nSessions expired mid-task for users on long runs. Short-lived access tokens stay (limits leak exposure) and a rotating refresh token renews them; rejected a longer access TTL because revocation would lag.",
+        "diffStat": "src/auth.ts | 40 ++++++++++++++++++++++++++++++++++++++++",
+        "diff": "+export function refresh(token: string) { /* ... */ }"
+      },
+      "expected": "rationale"
+    },
+    {
+      "state": {
+        "message": "chore: update stuff",
+        "diffStat": "package.json | 2 +-",
+        "diff": "-  \"version\": \"1.0.0\"\n+  \"version\": \"1.0.1\""
+      },
+      "expected": "none"
+    },
+    {
+      "state": {
+        "message": "refactor(parser): split tokenizer from parser\n\nThe tokenizer and parser shared mutable state, which made the error-recovery tests order-dependent. Separating them lets each be tested alone; behaviour is unchanged.",
+        "diffStat": "src/parser.ts | 80 +++++---\n src/tokenizer.ts | 60 +++++",
+        "diff": "+export function tokenize(src: string): Token[] { /* moved */ }"
+      },
+      "expected": "rationale"
+    },
+    {
+      "state": {
+        "message": "fix: bug in login",
+        "diffStat": "src/login.ts | 2 +-",
+        "diff": "-  if (user = null)\n+  if (user === null)"
+      },
+      "expected": "none"
+    },
+    {
+      "state": {
+        "message": "docs: explain why trunk delivery is the default\n\nContributors kept opening pull requests for one-line fixes. The README now states that trunk-based delivery with CI on every push is the default because it keeps feedback fast; PRs remain opt-in per repo.",
+        "diffStat": "README.md | 8 ++++++++",
+        "diff": "+Trunk-based delivery is the default."
+      },
+      "expected": "rationale"
+    },
+    {
+      "state": {
+        "message": "feat: add export\n\n- adds export function\n- adds tests\n- updates readme",
+        "diffStat": "src/export.ts | 20 ++++\n test/export.test.ts | 15 ++\n README.md | 3 +",
+        "diff": "+export function exportAll() {}"
+      },
+      "expected": "none"
+    },
+    {
+      "state": {
+        "message": "perf(search): index titles at write time\n\nProfiling showed 70% of request time scanning titles per query. Indexing on write moves cost to the rarer operation; the index adds about 2 MB per 100k documents, which is acceptable.",
+        "diffStat": "src/search.ts | 30 ++++++++",
+        "diff": "+index.add(doc.title, doc.id);"
+      },
+      "expected": "rationale"
+    },
+    {
+      "state": {
+        "message": "fix: handle null",
+        "diffStat": "src/a.ts | 1 +",
+        "diff": "+  if (x == null) return;"
+      },
+      "expected": "none"
+    }
+  ]
+}

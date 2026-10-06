@@ -1,0 +1,73 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { extractCommit } from "../../src/core/commit-command.ts";
+
+const msg = (command: string) => {
+  const r = extractCommit(command);
+  return r.kind === "message" ? r.message : r;
+};
+
+test("non-commit commands are not commits", () => {
+  for (const c of ["ls", "git status", "git log -m", "echo git commit -m x", "git push"]) {
+    assert.equal(extractCommit(c).kind, "not-commit", c);
+  }
+});
+
+test("-m with one or several messages", () => {
+  assert.equal(msg('git commit -m "feat: a"'), "feat: a");
+  assert.equal(msg("git commit -m 'feat: a' -m 'why we did it'"), "feat: a\n\nwhy we did it");
+  assert.equal(msg("git commit -am 'fix: b'"), "fix: b");
+  assert.equal(msg("git commit --message='fix: c'"), "fix: c");
+  assert.equal(msg("git commit --message 'fix: d'"), "fix: d");
+  assert.equal(msg("git commit -m'fix: e'"), "fix: e");
+});
+
+test("commit found after cd, &&, globals and wrappers", () => {
+  assert.equal(msg("cd sub && git add -A && git commit -m 'fix: f'"), "fix: f");
+  assert.equal(msg("git -C /tmp/x -c user.name=a commit -m 'fix: g'"), "fix: g");
+  assert.equal(msg("cd a\ngit commit -m 'fix: h'"), "fix: h");
+  assert.equal(msg("GIT_AUTHOR_NAME=x git commit -m 'fix: i'"), "fix: i");
+});
+
+test("heredoc inside command substitution is the message", () => {
+  const command = [
+    "git commit -m \"$(cat <<'EOF'",
+    "feat(x): add thing",
+    "",
+    "Because the thing needs adding, for reasons that are explained.",
+    "EOF",
+    ')"',
+  ].join("\n");
+  assert.equal(
+    msg(command),
+    "feat(x): add thing\n\nBecause the thing needs adding, for reasons that are explained.",
+  );
+});
+
+test("a plain heredoc via -F - is the message", () => {
+  const command = "git commit -F - <<'EOF'\nfix: j\n\nbody words here for the reason\nEOF";
+  assert.equal(msg(command), "fix: j\n\nbody words here for the reason");
+});
+
+test("-F file reports the path; no message source is unknown", () => {
+  assert.deepEqual(extractCommit("git commit -F msg.txt"), { kind: "file", path: "msg.txt" });
+  assert.deepEqual(extractCommit("git commit --file=msg.txt"), { kind: "file", path: "msg.txt" });
+  assert.equal(extractCommit("git commit").kind, "unknown");
+  assert.equal(extractCommit("git commit --amend --no-edit").kind, "unknown");
+  assert.equal(extractCommit('git commit -m "$(./make-msg.sh)"').kind, "unknown");
+});
+
+test("an apostrophe in a heredoc body does not hide a later commit", () => {
+  const command = ["cat > notes.txt <<'EOF'", "it's fine", "EOF", 'git commit -m "fix: k"'].join(
+    "\n",
+  );
+  assert.equal(msg(command), "fix: k");
+});
+
+test("--trailer values are appended to the message", () => {
+  assert.equal(
+    msg("git commit -m 'fix: a' --trailer 'Co-Authored-By: X <x@y.z>'"),
+    "fix: a\n\nCo-Authored-By: X <x@y.z>",
+  );
+  assert.equal(msg("git commit -m 'fix: a' --trailer='Refs: 1'"), "fix: a\n\nRefs: 1");
+});

@@ -4,6 +4,7 @@ import { appendContextTail, renderContextTail } from "../src/context/context-tai
 import { renderStatus, renderStatusLine, STATUS_KEY } from "../src/context/status.ts";
 import { applyPromptSection } from "../src/context/system-prompt.ts";
 import { createApprovalStore } from "../src/gates/approvals.ts";
+import { registerCommitGuard } from "../src/gates/commit-guard.ts";
 import { registerGitGuard } from "../src/gates/git-guard.ts";
 import { createRecordDepartureTool } from "../src/gates/record-departure-tool.ts";
 import { createRequestApprovalTool } from "../src/gates/request-approval-tool.ts";
@@ -58,6 +59,12 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   });
 
   registerGitGuard({ pi, approvals, jev: (ctx) => jevHolder.forContext(ctx) });
+  registerCommitGuard({
+    pi,
+    state,
+    jev: (ctx) => jevHolder.forContext(ctx),
+    exec: (command, args, options) => pi.exec(command, args, options),
+  });
   registerTestGuard({ pi, state, approvals, jev: (ctx) => jevHolder.forContext(ctx) });
   pi.registerTool(createRecordDepartureTool({ pi, state }));
   pi.registerTool(createRequestApprovalTool({ pi, approvals }));

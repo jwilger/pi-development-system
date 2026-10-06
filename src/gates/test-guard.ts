@@ -23,6 +23,7 @@ import type { Jev } from "../jev/client.ts";
 import { judgeTestChange, WEAKENS_THRESHOLD } from "../jev/questions/test-change.ts";
 import type { SessionState } from "../state/session-state.ts";
 import { type ApprovalStore, requestHardStop } from "./approvals.ts";
+import { departureUse } from "./departure-use.ts";
 
 export type TestGuardDeps = {
   pi: ExtensionAPI;
@@ -110,27 +111,7 @@ export function registerTestGuard(deps: TestGuardDeps): void {
   })();
   if (gate === undefined) return;
 
-  const hasOpenDeparture = (): boolean => {
-    const { openDepartures, activeSlice } = deps.state.get();
-    return openDepartures.some(
-      (d) => d.gate === gate && (d.scope.kind !== "slice" || d.scope.slice === activeSlice),
-    );
-  };
-
-  const consumeOpenDeparture = (): void => {
-    const { openDepartures, activeSlice } = deps.state.get();
-    const applicable = openDepartures.filter(
-      (d) => d.gate === gate && (d.scope.kind !== "slice" || d.scope.slice === activeSlice),
-    );
-    // A broader departure covers the call without being spent; only a lone once-scoped one is used up.
-    if (applicable.some((d) => d.scope.kind !== "once")) return;
-    const used = applicable[0];
-    if (used === undefined) return;
-    deps.state.update((s) => ({
-      ...s,
-      openDepartures: s.openDepartures.filter((d) => d.id !== used.id),
-    }));
-  };
+  const departure = departureUse(deps.state, gate);
 
   const judge = async (change: Change, ctx: ExtensionContext): Promise<Verdict> => {
     const deleted = change.after === undefined && change.rewritten === undefined;
@@ -225,9 +206,9 @@ export function registerTestGuard(deps: TestGuardDeps): void {
     );
     const first = needing[0];
     if (first === undefined) return undefined;
-    if (hasOpenDeparture()) {
+    if (departure.hasOpen()) {
       // One departure covers every path in this single tool call.
-      consumeOpenDeparture();
+      departure.consume();
       return undefined;
     }
     return {

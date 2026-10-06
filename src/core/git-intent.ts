@@ -24,7 +24,7 @@ const worst = (a: GitIntent, b: GitIntent): GitIntent =>
   SEVERITY.indexOf(a) <= SEVERITY.indexOf(b) ? a : b;
 
 /** Splits a command string on newlines that are outside quotes; backslash-newline is a continuation. */
-function splitLines(command: string): string[] {
+export function splitLines(command: string): string[] {
   const lines: string[] = [];
   let current = "";
   let quote: "'" | '"' | undefined;
