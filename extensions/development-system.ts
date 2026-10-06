@@ -7,6 +7,7 @@ import { createApprovalStore } from "../src/gates/approvals.ts";
 import { registerGitGuard } from "../src/gates/git-guard.ts";
 import { createRecordDepartureTool } from "../src/gates/record-departure-tool.ts";
 import { createRequestApprovalTool } from "../src/gates/request-approval-tool.ts";
+import { registerTestGuard } from "../src/gates/test-guard.ts";
 import { createJevHolder } from "../src/jev/holder.ts";
 import { createSessionState } from "../src/state/session-state.ts";
 
@@ -55,6 +56,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   });
 
   registerGitGuard({ pi, approvals, jev: (ctx) => jevHolder.forContext(ctx) });
+  registerTestGuard({ pi, state, approvals, jev: (ctx) => jevHolder.forContext(ctx) });
   pi.registerTool(createRecordDepartureTool({ pi, state }));
   pi.registerTool(createRequestApprovalTool({ pi, approvals }));
 

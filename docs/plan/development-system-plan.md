@@ -39,7 +39,7 @@ less careful model than the one that wrote this):**
 
 - [x] I0 Foundation, principles, harness
 - [x] I1 Departure ledger + hard-stop git guard
-- [ ] I2 Jev runtime core
+- [x] I2 Jev runtime core
 - [ ] I3 Delivery discipline (commit/push/CI gates, repo policy)
 - [ ] I4 Engineering skills + language profiles + TDD/test gates
 - [ ] I5 Vendored subagents with dynamic model/effort routing
@@ -275,20 +275,20 @@ intent, test-weakening motive) wired into guards with deterministic fallback.
 **Why.** D5, D12; regex-only gates are brittle, prose-only gates are
 write-only. Cite: `$D/docs/models.md` "Use classifier models", `$D/docs/codemode.md` "Classify", `$D/examples/extensions/jev-router.ts`, typesafe skill (question design only), Appendix E.
 
-- [ ] **I2.1 Wrapper over the host classifier.**
+- [x] **I2.1 Wrapper over the host classifier.**
   Files: `src/jev/client.ts`, `src/jev/models.ts`, `test/jev/client.test.ts`.
   Jev is reached through pi, never through an SDK: `ctx.modelRegistry.findOfType("classifier", provider, id)` + `ctx.modelRegistry.hasConfiguredAuth(model)` to pick a model, `ctx.modelRegistry.classify(model, {state, questions})` to ask. `classify()` never rejects — read `result.stopReason` (`"stop"|"error"|"aborted"`) and `result.errorMessage`. Question/answer types come from `@earendil-works/pi-ai` (`ClassifierChoiceQuestion {type:"choice"; instructions; criteria: Record<string,string>}`, `ClassifierBoolQuestion {type:"bool"; instructions; criteria:{true,false}}`, `ClassifierScoreQuestion {type:"score"; instructions; criteria: string[]}`; answers `{type:"choice"; choice; probabilities; confidence}` / `{type:"bool"; probability}` / `{type:"score"; score; confidence}`).
   Interfaces: `type JevAvailability = "online"|"offline"|"unknown"`; `resolveJevModel(registry: ClassifierRegistry, candidates: readonly string[]): ClassifierModel | undefined` (first `provider/id` in `candidates` that exists AND has configured auth; default candidate list in `src/jev/models.ts` = the five ids listed in §2, overridable by Appendix B `[models] jev`); `createJev(opts:{registry: ClassifierRegistry; candidates: readonly string[]; timeoutMs: number; cache: Map<string, ClassifierResult>; now(): number}): { ask(state: JsonObject, questions: Record<string, ClassifierQuestion>): Promise<Result<Record<string, ClassifierAnswer>, JevError>>; availability(): JevAvailability; model(): string | undefined }`. `ClassifierRegistry` is a narrow structural type (`findOfType`, `hasConfiguredAuth`, `classify`) satisfied by `ctx.modelRegistry` so tests pass a fake. `JevError = {kind:"no-model"} | {kind:"timeout"} | {kind:"provider"; message:string} | {kind:"aborted"}`. Caches by SHA-256 of JSON(state, questions). No resolvable model → `offline` immediately, no network.
   First test: fake registry with no authed classifier → `ask` returns `{kind:"no-model"}`, availability `offline`; fake registry with one → two identical asks call `classify` once; `stopReason:"error"` → `{kind:"provider"}`. Run/Expected: pass.
-- [ ] **I2.2 Question: shell intent.**
+- [x] **I2.2 Question: shell intent.**
   Files: `src/jev/questions/shell-intent.ts`, `evals/jev/shell-intent.json`, `test/jev/shell-intent.test.ts`.
   Interface: `judgeShellIntent(jev, command: string): Promise<Result<{intent: GitIntent; confidence: number}, JevError>>` using `choice` over the `GitIntent` set (includes `"ordinary"` as no-match). Policy in code: confidence < 0.6 → `"unknown"`.
   Fixture: ≥ 12 cases `{command, expected}`. Fixture test runs only when `DEVSYS_JEV_FIXTURES=1` is set (`test.skip` otherwise) and asserts ≥ 10/12. The fixture runner needs a real classifier call outside a pi session: first try the SDK (`DefaultResourceLoader` + `createAgentSession` with `SessionManager.inMemory()`, then `session.modelRegistry` — verify the property exists in `$D/dist/core/sdk.d.ts`); if that is impractical, fall back to `pi -p --mode json` with a tiny fixture-runner extension that prints answers. Decide in this task and record the choice in `evals/jev/README.md`. Deterministic test: low-confidence mapping. Run/Expected: `npm test` pass (fixture skipped); `DEVSYS_JEV_FIXTURES=1 npm test` pass with any Jev credential present.
-- [ ] **I2.3 Wire into git guard.** `unknown` from the fast path → Jev; Jev offline/low-confidence → if UI, `ctx.ui.confirm` ("Could not classify this command; approve?"), else block. Status line reflects Jev availability. Test with fake Jev returning `history-rewrite` → hard stop path. Run/Expected: pass.
-- [ ] **I2.4 Question: test-change motive.**
+- [x] **I2.3 Wire into git guard.** `unknown` from the fast path → Jev; Jev offline/low-confidence → if UI, `ctx.ui.confirm` ("Could not classify this command; approve?"), else block. Status line reflects Jev availability. Test with fake Jev returning `history-rewrite` → hard stop path. Run/Expected: pass.
+- [x] **I2.4 Question: test-change motive.**
   Files: `src/jev/questions/test-change.ts`, `evals/jev/test-change.json`, `src/core/test-paths.ts` (`isTestPath(path, profile?)`).
   Interface: `judgeTestChange(jev, input:{path:string; before?: string; after?: string; recentFailure?: string}): Promise<Result<{weakens: number; motive: "requirement-change"|"gate-gaming"|"refactor"|"unclear"; confidence:number}, JevError>>` (noul + choice). Fixture ≥ 10 cases.
-- [ ] **I2.5 Test-change gate (soft → hard escalation).**
+- [x] **I2.5 Test-change gate (soft → hard escalation).**
   Files: `src/gates/test-guard.ts`, `test/gates/test-guard.test.ts`.
   Behaviour on `edit`/`write`/`bash rm` touching a test path: if it deletes the file, adds skip/xit/`#[ignore]`/`.skip(`, or Jev `weakens ≥ 0.7`: motive `gate-gaming` (conf ≥ 0.6) → hard stop (non-negotiable 2, confirm dialog / headless block); otherwise → `require-departure` for gate `tests.weaken` unless a matching pending departure exists → allow. Jev offline → deterministic signals only; deletion/skip → `require-departure`; others allow.
   Tests: deletion without departure → blocked with reason naming `devsys_record_departure` and gate `tests.weaken`; with pending departure → allowed; fake Jev `gate-gaming` → hard stop. Run/Expected: pass.
