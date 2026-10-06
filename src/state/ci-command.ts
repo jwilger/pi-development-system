@@ -53,10 +53,14 @@ export async function runCiWatch(
       deps.pi.appendEntry(CI_ENTRY_TYPE, observed);
     },
   });
-  ctx.ui.notify(
-    `CI on ${config.value.delivery.trunk}: ${final.status}${final.sha === undefined ? "" : ` (${final.sha.slice(0, 7)})`}`,
-    final.status === "red" ? "error" : "info",
-  );
+  try {
+    ctx.ui.notify(
+      `CI on ${config.value.delivery.trunk}: ${final.status}${final.sha === undefined ? "" : ` (${final.sha.slice(0, 7)})`}`,
+      final.status === "red" ? "error" : "info",
+    );
+  } catch {
+    // stale context after a reload: the status line and entries were already updated
+  }
   return final;
 }
 
@@ -67,10 +71,15 @@ export function registerCiCommand(deps: CiCommandDeps): void {
     handler: async (_args, ctx) => {
       ctx.ui.notify("watching CI on the trunk…", "info");
       runCiWatch(deps, ctx).catch((cause: unknown) => {
-        ctx.ui.notify(
-          `CI watch failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          "error",
-        );
+        // ctx goes stale if the session is replaced or reloaded mid-watch; there is nobody left to tell.
+        try {
+          ctx.ui.notify(
+            `CI watch failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+            "error",
+          );
+        } catch {
+          // stale context
+        }
       });
     },
   });

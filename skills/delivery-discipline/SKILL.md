@@ -52,7 +52,7 @@ hides every later failure. A push to a red trunk is a hard stop unless the
 commit is `fix(ci): …` (or another `fix`), touches only what the failing log names, and
 stays small (an unpushed diff over 8000 characters is never exempt); Jev must read it as
 only repairing the failing run, which needs the failing log and Jev online. Otherwise the
-push is a hard stop. If `gh`
+push is a hard stop. A call that commits and pushes together on a red trunk is refused outright (commit in one call, push in the next). If `gh`
 is missing or unauthenticated, CI reads as unknown and the push is allowed:
 check CI by other means before relying on it.
 

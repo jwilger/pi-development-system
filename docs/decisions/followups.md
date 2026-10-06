@@ -121,3 +121,11 @@ Nits and deferred items from reviews (append only).
 
 - `hasRationaleBody("feat: a\n\nChanges:\n- a.ts\n- b.ts")` is true (a short `…:` header defeats isTerseList); Jev catches it online.
 - `OPAQUE_VALUE` treats a single-quoted body starting with a backtick as a substitution (tokenizer drops quote style); heredoc form unaffected.
+
+## From I3 review round 11 (CLEAN; unscheduled nits)
+
+- `bash <<EOF … git push … EOF`, `… | bash` are not resolved as scripts (guards see nothing).
+- `printf … | git commit -F -` without a heredoc is read as an unreadable file named `-` (fails closed).
+- ~25 levels of `$(` nesting overflow the stack in `resolveGit`; add a depth cap.
+- `segments()` pops a real digit before `>` (`git log -n 5 > out`); no effect on commit/push detection.
+- `findForbiddenTrailerKeys` signed-off-by branch scans the rest of the line (`ai-branch` can match).
