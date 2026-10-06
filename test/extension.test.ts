@@ -63,3 +63,16 @@ test("loading registers the departure and approval tools and guards force pushes
   } as never)) as { block: boolean };
   assert.equal(result.block, true);
 });
+
+test("the context handler appends the departure tail at the end only when there is something to say", async () => {
+  const fake = createFakePi();
+  const { state } = createDevelopmentSystem(fake.api);
+  const messages = [{ role: "user", content: "hi", timestamp: 1 }];
+  assert.equal(await fake.emit({ type: "context", messages } as never), undefined);
+  state.update((s) => ({ ...s, phase: "implementing" }));
+  const result = (await fake.emit({ type: "context", messages } as never)) as {
+    messages: Array<{ content: string }>;
+  };
+  assert.equal(result.messages.length, 2);
+  assert.match(result.messages[1]?.content ?? "", /phase: implementing/);
+});

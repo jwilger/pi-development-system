@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { appendContextTail, renderContextTail } from "../src/context/context-tail.ts";
 import { renderStatus, renderStatusLine, STATUS_KEY } from "../src/context/status.ts";
 import { applyPromptSection } from "../src/context/system-prompt.ts";
 import { createApprovalStore } from "../src/gates/approvals.ts";
@@ -40,6 +41,11 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
 
   pi.on("before_agent_start", (event) => {
     applyPromptSection(event, state.get(), nonNegotiables);
+  });
+
+  pi.on("context", (event) => {
+    const messages = appendContextTail(event.messages, renderContextTail(state.get()), Date.now());
+    return messages === undefined ? undefined : { messages };
   });
 
   registerGitGuard({ pi, approvals });
