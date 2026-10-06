@@ -7,11 +7,12 @@ import {
   isToolCallEventType,
   type ToolCallEvent,
 } from "@earendil-works/pi-coding-agent";
+import { redactSecrets } from "../core/redact.ts";
 import { isTestPath, normalizeRepoPath } from "../core/test-paths.ts";
 import {
   addedLines,
   applyEdits,
-  bashMutatedPaths,
+  bashMutations,
   isPureAddition,
   type WeakeningSignals,
   weakeningSignals,
@@ -30,7 +31,13 @@ export type TestGuardDeps = {
   now?: () => Date;
 };
 
-type Change = { path: string; before: string; after: string | undefined };
+type Change = {
+  path: string;
+  before: string;
+  /** `undefined` means the file is gone; an `overwrite` carries the shell command instead. */
+  after: string | undefined;
+  rewritten?: string;
+};
 
 type Verdict =
   | { kind: "allow" }
@@ -93,12 +100,12 @@ export function registerTestGuard(deps: TestGuardDeps): void {
   };
 
   const judge = async (change: Change, ctx: ExtensionContext): Promise<Verdict> => {
-    const deleted = change.after === undefined;
+    const deleted = change.after === undefined && change.rewritten === undefined;
+    const after = change.after ?? change.rewritten ?? "";
     const signals = deleted
       ? { addsSkip: false, emptied: false, commentedOut: false }
-      : weakeningSignals(change.before, change.after ?? "");
+      : weakeningSignals(change.before, after);
     // Adding lines never weakens a test unless the added line itself is a skip marker.
-    const after = change.after ?? "";
     if (
       !deleted &&
       !signals.addsSkip &&
@@ -112,7 +119,7 @@ export function registerTestGuard(deps: TestGuardDeps): void {
     const judged = await judgeTestChange(deps.jev(ctx), {
       path: change.path,
       before: change.before,
-      ...(change.after !== undefined ? { after: change.after } : {}),
+      ...(after !== "" ? { after: redactSecrets(after) } : {}),
     });
     if (judged.ok) {
       const { weakens, motive } = judged.value;
@@ -137,12 +144,22 @@ export function registerTestGuard(deps: TestGuardDeps): void {
 
   const collectChanges = (event: ToolCallEvent, ctx: ExtensionContext): Change[] => {
     if (isToolCallEventType("bash", event)) {
-      return bashMutatedPaths(event.input.command).flatMap((raw) => {
+      const { command } = event.input;
+      return bashMutations(command).flatMap(({ path: raw, kind }) => {
         const path = repoPath(ctx.cwd, raw);
         // Missing plain paths have nothing to weaken; globs and directories may still hide tests.
         const touched = GLOB.test(path) || existsSync(join(ctx.cwd, path));
         return isTestPath(path) && touched
-          ? [{ path, before: readIfExists(join(ctx.cwd, path)) ?? "", after: undefined }]
+          ? [
+              {
+                path,
+                before: readIfExists(join(ctx.cwd, path)) ?? "",
+                after: undefined,
+                ...(kind === "overwrite"
+                  ? { rewritten: `(rewritten by shell command) ${command}` }
+                  : {}),
+              },
+            ]
           : [];
       });
     }

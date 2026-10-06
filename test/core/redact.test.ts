@@ -47,3 +47,11 @@ test("redacts quoted secret values and authorization headers", () => {
     '-c http.extraheader="Authorization: [redacted]" push',
   );
 });
+
+test("redacts quoted assignments to key-like names and PEM private keys", () => {
+  assert.doesNotMatch(redactSecrets("const apiKey = 'abcd1234abcd1234';"), /abcd1234/);
+  assert.doesNotMatch(redactSecrets('{ password: "hunter2" }'), /hunter2/);
+  const pem = "-----BEGIN RSA PRIVATE KEY-----\nMIIEabc\n-----END RSA PRIVATE KEY-----";
+  assert.doesNotMatch(redactSecrets(`x\n${pem}\ny`), /MIIEabc/);
+  assert.match(redactSecrets("const name = 'plain';"), /plain/);
+});

@@ -241,3 +241,24 @@ test("removing a path that does not exist touches nothing and is allowed", async
   const { call } = setup(offlineJev);
   assert.equal(await call("bash", { command: "rm -f test/missing.test.ts" }), undefined);
 });
+
+test("in-place rewrites go to Jev, not to the deletion rule; logs under test dirs are ignored", async () => {
+  const { call } = setup(jevJudging(0.05, "legitimate"));
+  assert.equal(
+    await call("bash", { command: `sed -i 's/adds/adds two/' ${TEST_FILE}` }),
+    undefined,
+  );
+  assert.equal(await call("bash", { command: "npm test 2>test/err.log" }), undefined);
+  assert.equal(await call("bash", { command: "rm -rf tests/__pycache__" }), undefined);
+  const weak = setup(jevJudging(0.95, "convenience")).call;
+  const blocked = await weak("bash", { command: `sed -i 's/assert/# assert/' ${TEST_FILE}` });
+  assert.equal(blocked?.block, true);
+});
+
+test("cd to a computed directory does not hide a deletion", async () => {
+  const { call } = setup(offlineJev);
+  const r = await call("bash", {
+    command: `cd "$(git rev-parse --show-toplevel)" && rm ${TEST_FILE}`,
+  });
+  assert.equal(r?.block, true);
+});

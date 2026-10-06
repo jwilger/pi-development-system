@@ -19,3 +19,9 @@ Nits and deferred items from reviews (append only).
 - Test-path conventions miss `Test/`, `__test__`, `*Test.java`, `*Tests.cs`; profile `testGlobs` arrive with I4.
 - Jev fixture "pins question text" checks are skipped unless `DEVSYS_JEV_FIXTURES=1`; make the hash check unconditional.
 - `state.jev`/status line only refresh on session_start/session_tree; `JevOptions.now` is unused.
+
+## From I2 review round 3 (nits, unscheduled)
+
+- Shell mutations that are not statically visible stay best-effort: `find … | xargs rm`, `for f in …; do rm "$f"`, subshell `cd` leaks, `cd -`.
+- In-place shell rewrites (`sed -i`, `tee`, `cat > f`) of a test file are judged by Jev only; with Jev offline they are allowed (no deterministic signal exists without the new content).
+- Jev offline is not short-circuited: each judged test edit can wait up to the 15 s timeout.

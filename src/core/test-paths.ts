@@ -3,8 +3,13 @@ import { fileURLToPath } from "node:url";
 
 export type TestPathProfile = { readonly testGlobs?: readonly string[] };
 
+const TEST_DIR = /(^|\/)(test|tests|__tests__|spec|specs|e2e)(\/|$)/;
+const TEST_DIR_ITSELF = /(^|\/)(test|tests|__tests__|spec|specs|e2e)\/?$/;
+const SOURCE_EXT =
+  /\.(?:[cm]?[jt]sx?|py|rb|rs|go|java|kt|kts|scala|cs|ex|exs|php|swift|c|cc|cpp|h|hpp|sh|lua|clj|hs|ml)$/;
+const GLOBBY = /[*?[\]{]/;
+
 const PATTERNS: readonly RegExp[] = [
-  /(^|\/)(test|tests|__tests__|spec|specs|e2e)(\/|$)/,
   /\.(test|spec|cy)\.[cm]?[jt]sx?$/,
   /_test\.(go|rb|py|exs?|rs)$/,
   /(^|\/)test_[^/]+\.py$/,
@@ -26,6 +31,13 @@ function globToRegExp(glob: string): RegExp {
 export function isTestPath(path: string, profile?: TestPathProfile): boolean {
   const normalized = path.replace(/^\.\//, "");
   if (PATTERNS.some((p) => p.test(normalized))) return true;
+  // Inside a test directory only source files (or globs that may expand to them) are tests;
+  // logs, caches, snapshots and docs are not. The directory itself is, so `rm -rf tests` is caught.
+  if (TEST_DIR.test(normalized)) {
+    return (
+      TEST_DIR_ITSELF.test(normalized) || SOURCE_EXT.test(normalized) || GLOBBY.test(normalized)
+    );
+  }
   return (profile?.testGlobs ?? []).some((g) => globToRegExp(g).test(normalized));
 }
 

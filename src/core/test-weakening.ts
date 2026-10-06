@@ -4,7 +4,10 @@ import { parse } from "shell-quote";
 export type WeakeningSignals = { addsSkip: boolean; emptied: boolean; commentedOut: boolean };
 
 const SKIP_MARKERS: readonly RegExp[] = [
-  /\b(?:it|test|describe|context)\.(?:skip|todo|only)\b/,
+  /\b(?:it|test|describe|context)\.(?:skip|only)\b/,
+  /\.skip\(/,
+  /\bskip:\s*true\b/,
+  /\bskipTest\(/,
   /\bf(?:it|describe)\(/,
   /\bx(?:it|describe|test)\(/,
   /#\[ignore\b/,
@@ -48,12 +51,26 @@ function codeLineCount(text: string): number {
   return count;
 }
 
+const LINE_COMMENT = /^(?:\/\/+|#+|--|;+)\s?(.*)$/;
+
+/** True when a line that was live code before survives only as a line comment after. */
+function lineCommentedOut(before: string, after: string): boolean {
+  const live = new Set(after.split("\n").map((l) => l.trim()));
+  const beforeLines = new Set(before.split("\n").map((l) => l.trim()));
+  return after.split("\n").some((raw) => {
+    const rest = LINE_COMMENT.exec(raw.trim())?.[1]?.trim();
+    return rest !== undefined && rest.length > 3 && beforeLines.has(rest) && !live.has(rest);
+  });
+}
+
 /** Deterministic weakening signals between two versions of a test file. */
 export function weakeningSignals(before: string, after: string): WeakeningSignals {
   return {
     addsSkip: countSkips(after) > countSkips(before),
     emptied: before.trim() !== "" && after.trim() === "",
-    commentedOut: codeLineCount(after) < codeLineCount(before) && isPureAddition(before, after),
+    commentedOut:
+      lineCommentedOut(before, after) ||
+      (codeLineCount(after) < codeLineCount(before) && isPureAddition(before, after)),
   };
 }
 
@@ -222,6 +239,12 @@ function findTargets(args: readonly string[]): string[] {
 
 const removers = (args: readonly string[]): string[] => operands(args);
 
+export type MutationKind = "remove" | "overwrite";
+export type Mutation = { readonly path: string; readonly kind: MutationKind };
+
+/** Commands whose targets cease to exist (or are emptied); every other target is rewritten in place. */
+const REMOVING = new Set(["rm", "unlink", "trash", "rmdir", "mv", "truncate", "find", "git"]);
+
 const gitTargets = (args: readonly string[]): string[] => {
   let i = 0;
   while (args[i]?.startsWith("-")) i += args[i] === "-C" || args[i] === "-c" ? 2 : 1;
@@ -229,8 +252,12 @@ const gitTargets = (args: readonly string[]): string[] => {
   return sub === "rm" || sub === "mv" ? operands(args.slice(i + 1)) : [];
 };
 
-const sedTargets = (args: readonly string[]): string[] =>
-  args.some((a) => /^-[A-Za-z]*i|^--in-place/.test(a)) ? operands(args) : [];
+const sedTargets = (args: readonly string[]): string[] => {
+  if (!args.some((a) => /^-[A-Za-z]*i|^--in-place/.test(a))) return [];
+  // Without -e/-f the first operand is the script, not a file.
+  const scripted = args.some((a) => /^-[A-Za-z]*[ef]$|^--(?:expression|file)/.test(a));
+  return scripted ? operands(args) : operands(args).slice(1);
+};
 
 /** The destination operand is overwritten, whatever the source is. */
 const cpTargets = (args: readonly string[]): string[] => operands(args).slice(-1);
@@ -256,24 +283,31 @@ const TARGETS: Readonly<Record<string, (args: readonly string[]) => string[]>> =
   git: gitTargets,
 };
 
-function commandTargets(words: readonly string[]): string[] {
+function commandTargets(words: readonly string[]): Mutation[] {
   const [head, ...args] = words;
   if (head === undefined) return [];
-  const targets = Object.hasOwn(TARGETS, base(head)) ? TARGETS[base(head)] : undefined;
-  return targets === undefined ? [] : targets(args);
+  const name = base(head);
+  const targets = Object.hasOwn(TARGETS, name) ? TARGETS[name] : undefined;
+  const kind: MutationKind = REMOVING.has(name) ? "remove" : "overwrite";
+  return targets === undefined ? [] : targets(args).map((path) => ({ path, kind }));
 }
 
 const joinCwd = (cwd: string, path: string): string =>
   cwd === "" || path.startsWith("/") ? path : posix.join(cwd, path);
 
-function collect(command: string, startCwd: string, depth: number): string[] {
-  const found: string[] = [];
+/** With these (or nothing) as the command, a `>` redirect empties its target. */
+const PRODUCES_NOTHING = new Set(["", ":", "true", "false"]);
+
+function collect(command: string, startCwd: string, depth: number): Mutation[] {
+  const found: Mutation[] = [];
   let cwd = startCwd;
   for (const seg of segments(command)) {
     const words = realCommand(seg.words);
     const head = words[0] === undefined ? "" : base(words[0]);
     if (head === "cd") {
-      cwd = joinCwd(cwd, operands(words.slice(1))[0] ?? "~");
+      const target = operands(words.slice(1))[0] ?? "~";
+      // A computed directory cannot be resolved statically; keep the current one.
+      if (!/[$`]/.test(target)) cwd = joinCwd(cwd, target);
       continue;
     }
     if (head === "eval" && depth < 3) {
@@ -286,8 +320,14 @@ function collect(command: string, startCwd: string, depth: number): string[] {
       if (script !== undefined) found.push(...collect(script, cwd, depth + 1));
       continue;
     }
-    found.push(...commandTargets(words).map((p) => joinCwd(cwd, p)));
-    found.push(...seg.truncates.flatMap((p) => (p === "/dev/null" ? [] : [joinCwd(cwd, p)])));
+    found.push(...commandTargets(words).map((m) => ({ ...m, path: joinCwd(cwd, m.path) })));
+    found.push(
+      ...seg.truncates.flatMap((p): Mutation[] =>
+        p === "/dev/null"
+          ? []
+          : [{ path: joinCwd(cwd, p), kind: PRODUCES_NOTHING.has(head) ? "remove" : "overwrite" }],
+      ),
+    );
   }
   return found;
 }
@@ -297,6 +337,10 @@ function collect(command: string, startCwd: string, depth: number): string[] {
  * `git rm|mv`, `find -delete`, truncate, `sed -i`, tee and `>` redirects; sees through wrappers,
  * `bash -c`, `cd` and glob arguments.
  */
-export function bashMutatedPaths(command: string): string[] {
+export function bashMutations(command: string): Mutation[] {
   return collect(command, "", 0);
+}
+
+export function bashMutatedPaths(command: string): string[] {
+  return bashMutations(command).map((m) => m.path);
 }

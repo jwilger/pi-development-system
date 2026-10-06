@@ -6,5 +6,13 @@ export function redactSecrets(text: string): string {
     .replace(/\b(\w*(?:TOKEN|KEY|SECRET|PASSWORD)\w*)=("[^"]*"|'[^']*'|\S+)/gi, "$1=[redacted]")
     .replace(/\b(Authorization:\s*)\w+\s+[^\s'"]+/gi, "$1[redacted]")
     .replace(/\bBearer\s+[^\s'"]+/g, "Bearer [redacted]")
+    .replace(
+      /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)/g,
+      "[redacted private key]",
+    )
+    .replace(
+      /\b(\w*(?:token|key|secret|password|passwd)\w*["']?\s*[:=]\s*)(["'])[^"'\n]+\2/gi,
+      "$1$2[redacted]$2",
+    )
     .replace(/\bsk-[A-Za-z0-9_-]{16,}/g, "[redacted]");
 }

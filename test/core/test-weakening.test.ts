@@ -4,6 +4,7 @@ import {
   addedLines,
   applyEdits,
   bashMutatedPaths,
+  bashMutations,
   isPureAddition,
   weakeningSignals,
 } from "../../src/core/test-weakening.ts";
@@ -29,7 +30,9 @@ test("recognises skip markers across ecosystems", () => {
     "@pytest.mark.skip\ndef test_a(): pass",
     't.Skip("later")',
     "@Disabled\nvoid a() {}",
-    "it.todo('a')",
+    "t.skip('later')",
+    "test('a', { skip: true }, f)",
+    "self.skipTest('later')",
     "@Ignore\npublic void a() {}",
   ]) {
     assert.equal(weakeningSignals("body", after).addsSkip, true, after);
@@ -83,7 +86,7 @@ test("bashMutatedPaths sees move-away, find -delete, truncation, in-place edits 
   assert.deepEqual(bashMutatedPaths("find . -name '*.test.ts' -delete"), [".", "*.test.ts"]);
   assert.deepEqual(bashMutatedPaths("truncate -s 0 a.test.ts"), ["a.test.ts"]);
   assert.deepEqual(bashMutatedPaths(": > a.test.ts"), ["a.test.ts"]);
-  assert.deepEqual(bashMutatedPaths("sed -i s/a/b/ a.test.ts"), ["s/a/b/", "a.test.ts"]);
+  assert.deepEqual(bashMutatedPaths("sed -i s/a/b/ a.test.ts"), ["a.test.ts"]);
   assert.deepEqual(bashMutatedPaths("cp /dev/null a.test.ts"), ["a.test.ts"]);
 });
 
@@ -137,4 +140,31 @@ test("wrapping existing code in a block comment is a commentedOut signal; a doc 
   assert.equal(weakeningSignals(code, `/*\n${code}*/\n`).commentedOut, true);
   assert.equal(weakeningSignals(code, `/** adds */\n${code}`).commentedOut, false);
   assert.equal(weakeningSignals(code, `${code}// note\n`).commentedOut, false);
+});
+
+test("todo placeholders are not skips; line comment-outs of existing code are", () => {
+  assert.equal(weakeningSignals("a\n", "a\nit.todo('b')\n").addsSkip, false);
+  const before = "it('a', () => {\n  assert.equal(f(), 1);\n});\n";
+  const after = "it('a', () => {\n  // assert.equal(f(), 1);\n});\n";
+  assert.equal(weakeningSignals(before, after).commentedOut, true);
+  assert.equal(weakeningSignals(before, `${before}// assert.equal(g(), 2);\n`).commentedOut, false);
+});
+
+test("bashMutations tags removals and in-place rewrites; computed cd is ignored", () => {
+  assert.deepEqual(bashMutations("rm tests/a.test.ts"), [
+    { path: "tests/a.test.ts", kind: "remove" },
+  ]);
+  assert.deepEqual(bashMutations("sed -i s/a/b/ tests/a.test.ts"), [
+    { path: "tests/a.test.ts", kind: "overwrite" },
+  ]);
+  assert.deepEqual(bashMutations("npm test 2>test/err.log"), [
+    { path: "test/err.log", kind: "overwrite" },
+  ]);
+  assert.deepEqual(bashMutations(": > test/a.test.ts"), [
+    { path: "test/a.test.ts", kind: "remove" },
+  ]);
+  assert.deepEqual(
+    bashMutatedPaths('cd "$(git rev-parse --show-toplevel)" && rm tests/a.test.ts'),
+    ["tests/a.test.ts"],
+  );
 });

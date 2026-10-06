@@ -15,11 +15,18 @@ const yes = [
   "src/Foo.test.tsx",
   "e2e/login.cy.ts",
   "./test/deep/x.ts",
+  "tests",
+  "test/",
+  "tests/*",
   "test",
   "tests",
   "src/__tests__",
 ];
 const no = [
+  "tests/__pycache__/a.pyc",
+  "test/out.log",
+  "spec/design.md",
+  "tests/fixtures/data.json",
   "src/main.ts",
   "README.md",
   "src/contest.ts",
