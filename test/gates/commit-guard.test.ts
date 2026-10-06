@@ -196,3 +196,15 @@ test("a Signed-off-by AI trailer piped through stdin is blocked", async () => {
   );
   assert.equal(result?.block, true);
 });
+
+test("the Jev diff is the staged one, or the whole tree when the command stages as it commits", async () => {
+  const diffArgs = async (command: string): Promise<string[]> => {
+    const { bash, execCalls } = setup(jevJudging(0.9, 0.1));
+    await bash(command);
+    return execCalls.find((c) => c[1] === "diff" && !c.includes("--stat")) ?? [];
+  };
+  assert.deepEqual(await diffArgs(commit(GOOD)), ["git", "diff", "--cached"]);
+  assert.deepEqual(await diffArgs(`git add src/a.ts && ${commit(GOOD)}`), ["git", "diff", "HEAD"]);
+  assert.deepEqual(await diffArgs(`git add -A; ${commit(GOOD)}`), ["git", "diff", "HEAD"]);
+  assert.deepEqual(await diffArgs(`git commit -a -m '${GOOD}'`), ["git", "diff", "HEAD"]);
+});

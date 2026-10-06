@@ -97,3 +97,8 @@ Nits and deferred items from reviews (append only).
 - `git switch -c feat && git push -u origin HEAD` reads the branch before the chained switch runs.
 - `/devsys-models` Esc on a slot select is treated as accept.
 - `routing` table keys are not validated.
+
+## From I3 review round 6 (unscheduled)
+
+- `/devsys-ci` expects HEAD's sha; on an unpushed or feature-branch HEAD the trunk run never matches and polling runs its full budget (pull-request mode).
+- `withoutComments` drops body lines starting with `#` (`#123 …`) that `git commit -m` would keep.

@@ -63,7 +63,8 @@ function messageNeeds(message: string): Need[] {
 
 /** `-a`/`--all`, or a `git add` in the same command, widen the commit beyond what is staged. */
 const stagesEverything = (command: string): boolean =>
-  /\bgit\b[^;&|\n]*\bcommit\b[^;&|\n]*\s(?:-[a-zA-Z]*a[a-zA-Z]*|--all|--include)(?:\s|$)|\bgit\s+add\s+(?:-A|--all|-u|\.)(?:\s|$)/.test(
+  /\bgit\s+add\b/.test(command) ||
+  /\bgit\b[^;&|\n]*\bcommit\b[^;&|\n]*\s(?:-[a-zA-Z]*a[a-zA-Z]*|--all|--include)(?=\s|$|[;&|])/.test(
     command,
   );
 

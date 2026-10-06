@@ -13,6 +13,7 @@ import {
   substitutions,
   WRAPPERS,
 } from "./git-intent.ts";
+import { stripHeredocs } from "./heredoc.ts";
 
 export type GitInvocation = {
   readonly sub: string;
@@ -114,7 +115,8 @@ function merge(into: Collector, other: GitResolution): void {
 export function resolveGit(command: string): GitResolution {
   const into: Collector = { invocations: [], opaque: false, dir: undefined, line: 0 };
   let heredocEnd: string | undefined;
-  const lines = splitLines(command);
+  // Heredoc bodies are data (an apostrophe in one must not unbalance quote tracking).
+  const lines = splitLines(stripHeredocs(command).rest);
   for (const [index, line] of lines.entries()) {
     into.line = index;
     if (heredocEnd !== undefined) {

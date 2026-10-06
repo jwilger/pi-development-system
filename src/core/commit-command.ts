@@ -1,27 +1,12 @@
 import { splitLines } from "./git-intent.ts";
 import { resolveGit } from "./git-invocations.ts";
+import { stripHeredocs } from "./heredoc.ts";
 
 export type CommitExtraction =
   | { readonly kind: "not-commit" }
   | { readonly kind: "message"; readonly message: string }
   | { readonly kind: "file"; readonly path: string }
   | { readonly kind: "unknown"; readonly trailers: readonly string[] };
-
-const HEREDOC =
-  /<<-?[ \t]*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1([^\n]*)\n([\s\S]*?)\n[ \t]*\2[ \t]*(?:\n|$)/g;
-
-/**
- * Heredoc bodies are data: take them out so their quotes cannot confuse line splitting. The rest of
- * the opening line stays (`| git commit -F -`) with a `#HD<n>` marker naming the removed body.
- */
-function stripHeredocs(command: string): { rest: string; bodies: string[] } {
-  const bodies: string[] = [];
-  const rest = command.replace(HEREDOC, (...m: unknown[]) => {
-    bodies.push(String(m[4]).trim());
-    return `${String(m[3])} #HD${bodies.length - 1}\n`;
-  });
-  return { rest, bodies };
-}
 
 type Options = {
   messages: string[];
