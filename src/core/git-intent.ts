@@ -35,6 +35,10 @@ function splitLines(command: string): string[] {
       current += ch;
     } else if (ch === "\\" && command.charAt(i + 1) === "\n") {
       i++;
+    } else if (ch === "#" && (current === "" || /\s$/.test(current))) {
+      // A comment runs to the end of the line; quotes inside it do not open a quote.
+      while (i < command.length && command.charAt(i) !== "\n") current += command.charAt(i++);
+      i--;
     } else if (ch === "'" || ch === '"') {
       quote = ch;
       current += ch;
@@ -189,6 +193,31 @@ function classifySegment(tokens: string[]): GitIntent {
   return withHookSkip(dynamic ? worst(intent, "unknown") : intent);
 }
 
+/**
+ * The parts of a line bash may still execute or treat as syntax: single-quoted text and
+ * backslash-escaped characters are dropped; double-quoted text is kept unless `dropDouble`.
+ */
+function live(line: string, dropDouble: boolean): string {
+  let out = "";
+  let quote: "'" | '"' | undefined;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line.charAt(i);
+    if (quote === "'") {
+      if (ch === "'") quote = undefined;
+    } else if (ch === "\\") {
+      i++;
+    } else if (quote === '"') {
+      if (ch === '"') quote = undefined;
+      else if (!dropDouble) out += ch;
+    } else if (ch === "'" || ch === '"') {
+      quote = ch;
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
 /** Bodies of `$(...)` and backtick substitutions anywhere in the text (quoted or not). */
 function substitutions(text: string): string[] {
   const bodies: string[] = [];
@@ -206,7 +235,27 @@ function substitutions(text: string): string[] {
   return bodies;
 }
 
-const HEREDOC = /<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1/;
+const HEREDOC = /^<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1/;
+
+/** The delimiter of a heredoc started by an unquoted `<<` on this line, if any. */
+function heredocDelimiter(line: string): string | undefined {
+  let quote: "'" | '"' | undefined;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line.charAt(i);
+    if (quote !== undefined) {
+      if (ch === quote) quote = undefined;
+    } else if (ch === "\\") {
+      i++;
+    } else if (ch === "'" || ch === '"') {
+      quote = ch;
+    } else if (line.startsWith("<<<", i)) {
+      i += 2;
+    } else if (ch === "<" && line.charAt(i + 1) === "<") {
+      return HEREDOC.exec(line.slice(i))?.[2];
+    }
+  }
+  return undefined;
+}
 
 /** Classifies the most severe git intent in a shell command (deterministic fast path). */
 export function classifyGitCommand(command: string): GitIntent {
@@ -218,9 +267,9 @@ export function classifyGitCommand(command: string): GitIntent {
       continue;
     }
     for (const segment of segments(line)) intent = worst(intent, classifySegment(segment));
-    for (const body of substitutions(line)) intent = worst(intent, classifyGitCommand(body));
-    const here = HEREDOC.exec(line);
-    if (here !== null && !line.includes("<<<")) heredocEnd = here[2];
+    for (const body of substitutions(live(line, false)))
+      intent = worst(intent, classifyGitCommand(body));
+    heredocEnd = heredocDelimiter(line) ?? heredocEnd;
   }
   return intent;
 }

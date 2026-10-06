@@ -36,6 +36,14 @@ test("redacts secret-looking env assignments and bearer tokens", () => {
   assert.equal(redactSecrets("TYPESAFE_API_KEY=ts_abcdef x"), "TYPESAFE_API_KEY=[redacted] x");
   assert.equal(
     redactSecrets("curl -H 'Authorization: Bearer abc.def'"),
-    "curl -H 'Authorization: Bearer [redacted]'",
+    "curl -H 'Authorization: [redacted]'",
+  );
+});
+
+test("redacts quoted secret values and authorization headers", () => {
+  assert.equal(redactSecrets('API_KEY="abc def" git push -f'), "API_KEY=[redacted] git push -f");
+  assert.equal(
+    redactSecrets('-c http.extraheader="Authorization: basic dXNlcjpwYXNz" push'),
+    '-c http.extraheader="Authorization: [redacted]" push',
   );
 });
