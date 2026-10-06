@@ -116,3 +116,8 @@ Nits and deferred items from reviews (append only).
 - `pushesTrunk` ignores the remote: `git push fork main` hard-stops in pull-request mode.
 - `THINKING_LEVELS` lacks `max` (plan I5.2 lists it) — add when routing needs it.
 - `chooseSlot` in models-command accumulates duplicate pins on repeated runs.
+
+## From I3 review round 9 (unscheduled)
+
+- `hasRationaleBody("feat: a\n\nChanges:\n- a.ts\n- b.ts")` is true (a short `…:` header defeats isTerseList); Jev catches it online.
+- `OPAQUE_VALUE` treats a single-quoted body starting with a backtick as a substitution (tokenizer drops quote style); heredoc form unaffected.

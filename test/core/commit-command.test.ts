@@ -172,3 +172,10 @@ test("an opaque -m value is flagged so the guard can refuse to guess", () => {
   const r = extractCommit('git commit -m "fix: x" -m "$(cat /tmp/m)"');
   assert.equal(r.kind === "unknown" && r.opaqueMessage, true);
 });
+
+test("each chained heredoc commit gets its own body", () => {
+  const c =
+    "git commit -m \"$(cat <<'EOF'\nwip\nEOF\n)\" && git commit -m \"$(cat <<'EOF'\nfeat: A\n\nBecause prod broke.\nEOF\n)\"";
+  const all = extractCommits(c).map((e) => (e.kind === "message" ? e.message : e.kind));
+  assert.deepEqual(all, ["wip", "feat: A\n\nBecause prod broke."]);
+});

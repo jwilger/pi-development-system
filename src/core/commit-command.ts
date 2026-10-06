@@ -18,6 +18,8 @@ type Options = {
   trailers: string[];
   file: string | undefined;
   opaque: boolean;
+  /** Heredoc markers found inside opaque `-m` values (`$(cat <<EOF …)`). */
+  markers: number[];
 };
 
 type Parsed = {
@@ -68,12 +70,21 @@ const OPAQUE_VALUE = /^\s*(?:\$\(|`)|^\$\{?\w+\}?$/;
 function record(options: Options, parsed: Parsed): void {
   if (parsed.kind === "file") options.file = parsed.value;
   else if (parsed.kind === "trailer") options.trailers.push(parsed.value ?? "");
-  else if (parsed.value === undefined || OPAQUE_VALUE.test(parsed.value)) options.opaque = true;
-  else options.messages.push(parsed.value);
+  else if (parsed.value === undefined || OPAQUE_VALUE.test(parsed.value)) {
+    options.opaque = true;
+    for (const hit of (parsed.value ?? "").matchAll(/#HD(\d+)/g))
+      options.markers.push(Number(hit[1]));
+  } else options.messages.push(parsed.value);
 }
 
 function readOptions(args: readonly string[]): Options {
-  const options: Options = { messages: [], trailers: [], file: undefined, opaque: false };
+  const options: Options = {
+    messages: [],
+    trailers: [],
+    file: undefined,
+    opaque: false,
+    markers: [],
+  };
   for (let i = 0; i < args.length; ) {
     const parsed = parseArg(args, i);
     if (parsed !== undefined) record(options, parsed);
@@ -100,7 +111,11 @@ const heredocFrom = (lines: readonly string[], line: number, bodies: readonly st
   return undefined;
 };
 
-function extractOne(args: readonly string[], heredoc: string | undefined): CommitExtraction {
+function extractOne(
+  args: readonly string[],
+  heredoc: string | undefined,
+  bodies: readonly string[],
+): CommitExtraction {
   const options = readOptions(args);
   if (options.file !== undefined && STDIN_PATHS.has(options.file)) {
     return heredoc === undefined
@@ -110,8 +125,12 @@ function extractOne(args: readonly string[], heredoc: string | undefined): Commi
   if (options.file !== undefined) return { kind: "file", path: options.file };
   const parts = [...options.messages];
   if (options.opaque) {
-    if (heredoc === undefined) return unknown(options.trailers, true);
-    parts.push(heredoc);
+    // The value's own heredoc, not whichever heredoc opens first on a shared line.
+    const own = options.markers.flatMap((i) => bodies[i] ?? []);
+    const fallback = heredoc === undefined ? [] : [heredoc];
+    const bodiesOfValue = own.length > 0 ? own : fallback;
+    if (bodiesOfValue.length === 0) return unknown(options.trailers, true);
+    parts.push(...bodiesOfValue);
   }
   if (parts.length === 0) return unknown(options.trailers);
   const trailers = options.trailers.length === 0 ? "" : `\n\n${options.trailers.join("\n")}`;
@@ -124,7 +143,7 @@ export function extractCommits(command: string): CommitExtraction[] {
   const resolution = resolveGit(rest);
   const lines = splitLines(rest);
   const found = resolution.invocations.flatMap((g) =>
-    g.sub === "commit" ? [extractOne(g.args, heredocFrom(lines, g.line, bodies))] : [],
+    g.sub === "commit" ? [extractOne(g.args, heredocFrom(lines, g.line, bodies), bodies)] : [],
   );
   const hidden = opaqueMentions(resolution, "commit");
   return hidden ? [...found, unknown()] : found;
