@@ -18,7 +18,7 @@ export const GATES: Readonly<Record<string, GateInfo>> = {
     tier: "soft",
     default: "structural and behavioural changes go in separate commits",
   },
-  "commit.forbidden-trailer": { tier: "soft", default: "no Co-Authored-By or AI trailers" },
+  "commit.forbidden-trailer": { tier: "hard", default: "no Co-Authored-By or AI trailers" },
   "push.red-trunk": { tier: "hard", default: "do not push unrelated work onto a red trunk" },
   "push.delivery-mode": { tier: "hard", default: "follow the repository's delivery mode" },
   "tdd.red-first": { tier: "soft", default: "write a failing test before changing behaviour" },

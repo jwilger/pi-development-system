@@ -176,3 +176,15 @@ test("a once-scoped departure is spent by one commit", async () => {
   assert.equal(await bash(commit("fix: tiny")), undefined);
   assert.equal((await bash(commit("fix: tiny")))?.block, true);
 });
+
+test("AI trailers hidden in --trailer=, amends, heredoc-written files and wrappers are blocked", async () => {
+  const { bash } = setup(offlineJev);
+  for (const c of [
+    `git commit -m 'fix: a thing' --trailer 'Co-Authored-By=Claude <c@x.y>'`,
+    "git commit --amend --no-edit --trailer 'Co-Authored-By: Claude'",
+    "cat > /tmp/m <<'EOF'\nfix: x\n\nbody here is long enough\n\nCo-Authored-By: Claude <c@x.y>\nEOF\ngit commit -F /tmp/m",
+    `bash -c "git commit -m 'fix: x' --trailer 'Co-Authored-By: Claude'"`,
+  ]) {
+    assert.equal((await bash(c))?.block, true, c);
+  }
+});

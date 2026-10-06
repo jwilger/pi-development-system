@@ -124,11 +124,13 @@ const POSITIVE = { min: 1, max: 1_000_000, integer: true };
 
 const MODEL_CANDIDATE = /^(@[a-z]+|[^/\s]+\/\S+)$/;
 
+const knownSlotRef = (c: string): boolean => !c.startsWith("@") || isSlot(c.slice(1));
+
 function candidates(raw: unknown, key: string): Result<readonly string[], ConfigError> {
   const valid =
     Array.isArray(raw) &&
     raw.length > 0 &&
-    raw.every((c) => typeof c === "string" && MODEL_CANDIDATE.test(c));
+    raw.every((c) => typeof c === "string" && MODEL_CANDIDATE.test(c) && knownSlotRef(c));
   return valid
     ? ok(raw.map(String))
     : fail(

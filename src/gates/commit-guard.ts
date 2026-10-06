@@ -1,11 +1,11 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { resolve } from "node:path";
 import {
   type ExtensionAPI,
   type ExtensionContext,
   isToolCallEventType,
 } from "@earendil-works/pi-coding-agent";
-import { extractCommit } from "../core/commit-command.ts";
+import { type CommitExtraction, extractCommit } from "../core/commit-command.ts";
 import {
   findForbiddenTrailers,
   hasRationaleBody,
@@ -38,10 +38,15 @@ const MIXED = gateId("commit.mixed-change");
 
 const readMessageFile = (cwd: string, path: string): string | undefined => {
   try {
-    return readFileSync(join(cwd, path), "utf8");
+    return readFileSync(resolve(cwd, path), "utf8");
   } catch {
     return undefined;
   }
+};
+
+const messageOf = (extracted: CommitExtraction, cwd: string): string | undefined => {
+  if (extracted.kind === "message") return extracted.message;
+  return extracted.kind === "file" ? readMessageFile(cwd, extracted.path) : undefined;
 };
 
 /** Deterministic checks: Conventional subject and a prose rationale body. */
@@ -58,12 +63,16 @@ async function pendingDiff(
   exec: Exec,
   cwd: string,
 ): Promise<{ stat: string; diff: string } | undefined> {
-  const [stat, diff] = await Promise.all([
-    exec("git", ["diff", "HEAD", "--stat"], { cwd, timeout: 10_000 }),
-    exec("git", ["diff", "HEAD"], { cwd, timeout: 10_000 }),
-  ]);
-  if (stat.code !== 0 || diff.code !== 0 || diff.stdout.trim() === "") return undefined;
-  return { stat: stat.stdout, diff: diff.stdout };
+  try {
+    const [stat, diff] = await Promise.all([
+      exec("git", ["diff", "HEAD", "--stat"], { cwd, timeout: 10_000 }),
+      exec("git", ["diff", "HEAD"], { cwd, timeout: 10_000 }),
+    ]);
+    if (stat.code !== 0 || diff.code !== 0 || diff.stdout.trim() === "") return undefined;
+    return { stat: stat.stdout, diff: diff.stdout };
+  } catch {
+    return undefined;
+  }
 }
 
 async function jevNeeds(
@@ -103,16 +112,15 @@ const blockReason = (need: Need): string =>
 export function registerCommitGuard(deps: CommitGuardDeps): void {
   deps.pi.on("tool_call", async (event, ctx) => {
     if (!isToolCallEventType("bash", event)) return undefined;
-    const extracted = extractCommit(event.input.command);
-    const message =
-      extracted.kind === "message"
-        ? extracted.message
-        : extracted.kind === "file"
-          ? readMessageFile(ctx.cwd, extracted.path)
-          : undefined;
-    if (message === undefined) return undefined;
+    const command = event.input.command;
+    const extracted = extractCommit(command);
+    if (extracted.kind === "not-commit") return undefined;
+    const message = messageOf(extracted, ctx.cwd);
 
-    const forbidden = findForbiddenTrailers(message);
+    // Safety net: whatever the message source, the command text itself must not carry an AI trailer
+    // (heredocs written to a file first, --trailer values on amends, messages built elsewhere).
+    const trailers = extracted.kind === "unknown" ? extracted.trailers.join("\n") : "";
+    const forbidden = findForbiddenTrailers(`${message ?? ""}\n${trailers}\n${command}`);
     if (forbidden.length > 0) {
       return {
         block: true,
@@ -122,6 +130,7 @@ export function registerCommitGuard(deps: CommitGuardDeps): void {
           "something to depart from. Remove the trailer and commit again.",
       };
     }
+    if (message === undefined) return undefined;
 
     const needs = messageNeeds(message);
     const bodyPresent = !needs.some((n) => n.why.startsWith("the message has no body"));

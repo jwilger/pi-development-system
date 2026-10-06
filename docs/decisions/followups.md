@@ -64,3 +64,10 @@ Nits and deferred items from reviews (append only).
 - `git-intent` `substitutions` recursion is ~2^depth for nested `$(`; cap depth and treat deeper as `unknown`.
 - `registerGitGuard` doc says absent `jev` = deterministic only, but `unknown` still confirms/blocks with a "Jev not confident" message.
 - Skip markers: `it.todo`, RSpec `pending(`, `pytest.importorskip(`, `raise unittest.SkipTest`; unmatched-edit `addsSkip` compares only against whole-file count.
+
+## From I3 review round 1 (unscheduled)
+
+- `runModelsCommand --check` returns `ok:false`, but the command handler only notifies; `/devsys-status` does not run the check.
+- `config.jev.*` and `models.jev` are parsed and validated but not yet used by `createJevHolder` (still `DEFAULT_JEV_CANDIDATES`, 15 s).
+- While the run for a fix push is pending, any other push is allowed (status `pending` is not red); non-negotiable 4 is only enforced once CI reports red.
+- `git -C ../x push` evaluates the current branch in the guard's cwd, not `../x`.

@@ -41,7 +41,9 @@ check now uses expiry; clock-skew tolerance is deliberately not added.
 
 Do not start unrelated work while trunk CI is red. Fix it first; a red build
 hides every later failure. A push to a red trunk is a hard stop unless the
-commit is `fix(ci): ...` and its diff only repairs the failing build.
+commit is `fix(ci): ...` and its diff only repairs the failing build. If `gh`
+is missing or unauthenticated, CI reads as unknown and the push is allowed:
+check CI by other means before relying on it.
 
 ## Pull-request mode
 

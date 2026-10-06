@@ -35,9 +35,13 @@ const RED_TRUNK = gate("push.red-trunk");
 const DELIVERY_MODE = gate("push.delivery-mode");
 
 async function currentBranch(exec: Exec, cwd: string): Promise<string | undefined> {
-  const r = await exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd, timeout: 5000 });
-  const name = r.code === 0 ? r.stdout.trim() : "";
-  return name === "" || name === "HEAD" ? undefined : name;
+  try {
+    const r = await exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd, timeout: 5000 });
+    const name = r.code === 0 ? r.stdout.trim() : "";
+    return name === "" || name === "HEAD" ? undefined : name;
+  } catch {
+    return undefined;
+  }
 }
 
 async function pushesTrunk(
@@ -58,6 +62,7 @@ async function repairsRedTrunk(
   deps: PushGuardDeps,
   ctx: ExtensionContext,
   config: DevsysConfig,
+  runId: number | undefined,
 ): Promise<boolean> {
   const message = await deps.exec("git", ["log", "-1", "--format=%B"], {
     cwd: ctx.cwd,
@@ -70,7 +75,7 @@ async function repairsRedTrunk(
   if (diff.code !== 0 || diff.stdout.trim() === "") return false;
   const judged = await judgeFixRelated(deps.jev(ctx), {
     diff: diff.stdout,
-    failingLog: await getFailureLog(deps.exec, ctx.cwd),
+    failingLog: await getFailureLog(deps.exec, ctx.cwd, runId),
     message: message.stdout,
   });
   return judged.ok && judged.value >= FIX_RELATED_THRESHOLD;
@@ -145,7 +150,7 @@ export function registerPushGuard(deps: PushGuardDeps): void {
     }
     const status = await getTrunkStatus(deps.exec, { branch: trunk, cwd: ctx.cwd });
     if (status.status !== "red") return undefined;
-    if (await repairsRedTrunk(deps, ctx, loaded.value)) return undefined;
+    if (await repairsRedTrunk(deps, ctx, loaded.value, status.runId)) return undefined;
     return hardStop(deps, {
       ctx,
       toolCallId: event.toolCallId,

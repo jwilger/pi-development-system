@@ -29,7 +29,8 @@ const setup = (results: ReturnType<typeof run>[], trunk = "main") => {
   const state = createSessionState(fake.api);
   let i = 0;
   const branches: string[] = [];
-  const exec: Exec = async (_c, args) => {
+  const exec: Exec = async (cmd, args) => {
+    if (cmd === "git") return { code: 0, stdout: "abcdef1234\n", stderr: "" };
     branches.push(args[args.indexOf("--branch") + 1] ?? "");
     return results[Math.min(i++, results.length - 1)] ?? run("completed", "success");
   };

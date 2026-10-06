@@ -183,3 +183,17 @@ test("upsertModelsTable appends the table when absent and creates it from nothin
   assert.match(appended, /^\[delivery\]\nmode = "trunk"\n\n\[models\]\n/);
   assert.match(upsertModelsTable("", defaultMatrix()), /^\[models\]\n/);
 });
+
+test("hyphenated ISO snapshot dates rank below the alias", () => {
+  assert.equal(compareModelVersions("gpt-4o-2024-08-06", "gpt-4o"), -1);
+  assert.equal(compareModelVersions("gpt-4o-2024-11-20", "gpt-4o-2024-08-06"), 1);
+});
+
+test("upsertModelsTable matches a [models] header with a trailing comment", () => {
+  const out = upsertModelsTable(
+    'version = 1\n[models] # mine\nfast = ["a/b"]\n[delivery]\nmode = "trunk"\n',
+    defaultMatrix(),
+  );
+  assert.equal(out.match(/^\[models\]/gm)?.length, 1);
+  assert.match(out, /\[delivery\]/);
+});

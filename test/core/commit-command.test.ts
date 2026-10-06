@@ -71,3 +71,32 @@ test("--trailer values are appended to the message", () => {
   );
   assert.equal(msg("git commit -m 'fix: a' --trailer='Refs: 1'"), "fix: a\n\nRefs: 1");
 });
+
+test("commits inside shells, keywords and wrappers are found", () => {
+  for (const c of [
+    `bash -c "git commit -m 'fix: z'"`,
+    `eval "git commit -m 'fix: z'"`,
+    "if true; then git commit -m 'fix: z'; fi",
+    "env -i git commit -m 'fix: z'",
+    "timeout 30 git commit -m 'fix: z'",
+    "echo $(git commit -m 'fix: z')",
+  ]) {
+    assert.equal(msg(c), "fix: z", c);
+  }
+});
+
+test("a commit through an opaque runner is unknown, not allowed as not-a-commit", () => {
+  assert.equal(extractCommit("echo x | xargs git commit").kind, "unknown");
+  assert.equal(extractCommit("$GIT commit -m x").kind, "unknown");
+});
+
+test("a glob argument does not hide the message", () => {
+  assert.equal(msg("git commit src/*.ts -m 'fix: g'"), "fix: g");
+});
+
+test("unknown messages still expose --trailer values; -F- and --trailer= work", () => {
+  const r = extractCommit("git commit --amend --no-edit --trailer 'Co-Authored-By: Claude'");
+  assert.deepEqual(r, { kind: "unknown", trailers: ["Co-Authored-By: Claude"] });
+  assert.deepEqual(extractCommit("git commit -F- <<'EOF'\nfix: a\nEOF").kind, "message");
+  assert.deepEqual(extractCommit("git commit -Fmsg.txt"), { kind: "file", path: "msg.txt" });
+});

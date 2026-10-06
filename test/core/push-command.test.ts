@@ -36,3 +36,41 @@ test("pushes inside chains and after cd are found", () => {
   assert.equal(pushTargets("cd x && git add -A && git push origin main").length, 1);
   assert.equal(pushTargets("git -C sub push origin main").length, 1);
 });
+
+test("pushes inside shells, keywords and wrappers are found", () => {
+  for (const c of [
+    "bash -c 'git push origin main'",
+    'sh -c "git push origin main"',
+    "eval 'git push origin main'",
+    "if true; then git push origin main; fi",
+    "{ git push origin main; }",
+    "! git push origin main",
+    "env -i git push origin main",
+    "timeout 30 git push origin main",
+    "for i in 1; do git push origin main; done",
+    "echo $(git push origin main)",
+  ]) {
+    assert.equal(pushTargets(c).at(0)?.branches.at(0), "main", c);
+  }
+});
+
+test("a push through an opaque runner is assumed to hit every branch", () => {
+  assert.equal(pushTargets("echo main | xargs git push origin").at(0)?.allBranches, true);
+  assert.equal(pushTargets("$GIT push origin main").at(0)?.allBranches, true);
+  assert.deepEqual(pushTargets("echo main | xargs echo"), []);
+});
+
+test("dynamic or glob destinations may be any branch", () => {
+  for (const c of [
+    'git push origin "$BRANCH"',
+    "git push origin $(git branch --show-current)",
+    "git push origin 'refs/heads/*:refs/heads/*'",
+    "git push origin HEAD:$B",
+  ]) {
+    assert.equal(pushTargets(c).at(0)?.allBranches, true, c);
+  }
+});
+
+test("--repo=value is not a branch", () => {
+  assert.deepEqual(pushTargets("git push --repo=origin main").at(0)?.branches, ["main"]);
+});

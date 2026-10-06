@@ -86,7 +86,7 @@ export function findForbiddenTrailers(
     .split("\n")
     .filter((line) => {
       const trimmed = line.trim();
-      const key = /^([A-Za-z][A-Za-z-]*):/.exec(trimmed)?.[1]?.toLowerCase();
+      const key = /^([A-Za-z][A-Za-z-]*)\s*[:=]/.exec(trimmed)?.[1]?.toLowerCase();
       if (key !== undefined && keys.includes(key)) return true;
       if (key === "signed-off-by") return AI_NAMES.test(trimmed);
       return GENERATED_BANNER.test(trimmed) && AI_NAMES.test(trimmed);

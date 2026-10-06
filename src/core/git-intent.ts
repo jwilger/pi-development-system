@@ -59,7 +59,7 @@ export function splitLines(command: string): string[] {
 const isRedirect = (op: string): boolean => /^[<>]/.test(op) && !op.endsWith("(");
 
 /** Tokens of one line grouped into simple commands (operators separate segments). */
-function segments(line: string): string[][] {
+export function segments(line: string): string[][] {
   const result: string[][] = [[]];
   for (const token of parseShell(line, (name) => `$${name}`)) {
     if (typeof token === "string") result[result.length - 1]?.push(token);
@@ -70,9 +70,29 @@ function segments(line: string): string[][] {
   return result.filter((s) => s.length > 0);
 }
 
-const WRAPPERS = new Set(["command", "sudo", "env", "time", "nohup", "exec", "builtin", "nice"]);
-const KEYWORDS = new Set(["then", "do", "else", "elif", "if", "while", "until", "{", "!", "time"]);
-const DATA_ONLY = new Set([
+export const WRAPPERS = new Set([
+  "command",
+  "sudo",
+  "env",
+  "time",
+  "nohup",
+  "exec",
+  "builtin",
+  "nice",
+]);
+export const KEYWORDS = new Set([
+  "then",
+  "do",
+  "else",
+  "elif",
+  "if",
+  "while",
+  "until",
+  "{",
+  "!",
+  "time",
+]);
+export const DATA_ONLY = new Set([
   "echo",
   "printf",
   "cat",
@@ -84,13 +104,13 @@ const DATA_ONLY = new Set([
   "head",
   "tail",
 ]);
-const SHELLS = new Set(["bash", "sh", "zsh", "dash", "ksh"]);
-const OPAQUE = new Set(["xargs", "ssh", "find", "parallel", "watch"]);
-const GLOBAL_WITH_VALUE = new Set(["-c", "-C", "--git-dir", "--work-tree", "--namespace"]);
+export const SHELLS = new Set(["bash", "sh", "zsh", "dash", "ksh"]);
+export const OPAQUE = new Set(["xargs", "ssh", "find", "parallel", "watch"]);
+export const GLOBAL_WITH_VALUE = new Set(["-c", "-C", "--git-dir", "--work-tree", "--namespace"]);
 const HOOK_SKIP_ENV = new Set(["LEFTHOOK=0", "HUSKY=0"]);
 
-const basename = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
-const isAssignment = (t: string): boolean => /^[A-Za-z_][A-Za-z0-9_]*=/.test(t);
+export const basename = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
+export const isAssignment = (t: string): boolean => /^[A-Za-z_][A-Za-z0-9_]*=/.test(t);
 
 /** True when `arg` is `name` or an unambiguous-looking git abbreviation of it (`--amen`, `--del=x`). */
 const isLong = (arg: string, ...names: string[]): boolean => {
@@ -200,7 +220,7 @@ function classifySegment(tokens: string[]): GitIntent {
  * The parts of a line bash may still execute or treat as syntax: single-quoted text and
  * backslash-escaped characters are dropped; double-quoted text is kept unless `dropDouble`.
  */
-function live(line: string, dropDouble: boolean): string {
+export function live(line: string, dropDouble: boolean): string {
   let out = "";
   let quote: "'" | '"' | undefined;
   for (let i = 0; i < line.length; i++) {
@@ -222,7 +242,7 @@ function live(line: string, dropDouble: boolean): string {
 }
 
 /** Bodies of `$(...)` and backtick substitutions anywhere in the text (quoted or not). */
-function substitutions(text: string): string[] {
+export function substitutions(text: string): string[] {
   const bodies: string[] = [];
   for (let at = text.indexOf("$("); at >= 0; at = text.indexOf("$(", at + 2)) {
     let depth = 1;
@@ -241,7 +261,7 @@ function substitutions(text: string): string[] {
 const HEREDOC = /^<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1/;
 
 /** The delimiter of a heredoc started by an unquoted `<<` on this line, if any. */
-function heredocDelimiter(line: string): string | undefined {
+export function heredocDelimiter(line: string): string | undefined {
   let quote: "'" | '"' | undefined;
   for (let i = 0; i < line.length; i++) {
     const ch = line.charAt(i);

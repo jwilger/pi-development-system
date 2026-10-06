@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getTrunkStatus, parseRunList } from "../../src/state/ci.ts";
+import type { Exec } from "../../src/core/exec.ts";
+import { getFailureLog, getTrunkStatus, parseRunList } from "../../src/state/ci.ts";
 
 const run = (status: string, conclusion: string) =>
   JSON.stringify([{ status, conclusion, headSha: "abc123" }]);
@@ -53,4 +54,23 @@ test("a failing or throwing gh is unknown, never red", async () => {
     ).status,
     "unknown",
   );
+});
+
+test("getFailureLog asks gh for a specific run id and is empty without one", async () => {
+  const calls: string[][] = [];
+  const exec: Exec = async (_cmd, args) => {
+    calls.push([...args]);
+    return { code: 0, stdout: "boom", stderr: "" };
+  };
+  assert.equal(await getFailureLog(exec, "/x", undefined), "");
+  assert.equal(calls.length, 0);
+  assert.equal(await getFailureLog(exec, "/x", 42), "boom");
+  assert.deepEqual(calls[0], ["run", "view", "42", "--log-failed"]);
+});
+
+test("parseRunList reads the run id", () => {
+  const out = JSON.stringify([
+    { status: "completed", conclusion: "failure", headSha: "abc", databaseId: 7 },
+  ]);
+  assert.equal(parseRunList(out).runId, 7);
 });

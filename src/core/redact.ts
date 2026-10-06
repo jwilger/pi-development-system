@@ -11,8 +11,17 @@ export function redactSecrets(text: string): string {
       "[redacted private key]",
     )
     .replace(
-      /\b(\w*(?:token|key|secret|password|passwd)\w*["']?\s*[:=]\s*)(["'])[^"'\n]+\2/gi,
+      /\b(\w*(?:token|key|secret|password|passwd)\w*["']?\s*(?::=|[:=])\s*)(["'])[^"'\n]+\2/gi,
       "$1$2[redacted]$2",
     )
-    .replace(/\bsk-[A-Za-z0-9_-]{16,}/g, "[redacted]");
+    .replace(
+      /\b(\w*(?:token|key|secret|password|passwd|pwd)\w*\s*(?::=|[:=])[ \t]*)[^\s"'`,;]{4,}/gi,
+      "$1[redacted]",
+    )
+    .replace(/\bsk-[A-Za-z0-9_-]{16,}/g, "[redacted]")
+    .replace(/\bAKIA[0-9A-Z]{16}\b/g, "[redacted]")
+    .replace(/\bxox[abprs]-[A-Za-z0-9-]{10,}/g, "[redacted]")
+    .replace(/\bglpat-[A-Za-z0-9_-]{16,}/g, "[redacted]")
+    .replace(/\bnpm_[A-Za-z0-9]{30,}/g, "[redacted]")
+    .replace(/\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}/g, "[redacted]");
 }

@@ -127,3 +127,8 @@ test("loadConfig returns defaults when the file is absent and parses it when pre
   await writeFile(join(dir, CONFIG_FILE), '[delivery]\nmode = "x"\n');
   assert.equal((await loadConfig(dir)).ok, false);
 });
+
+test("an unknown @slot reference is a config error", () => {
+  const r = parseConfig('version = 1\n[models]\nfast = ["@nope"]\n');
+  assert.equal(r.ok, false);
+});

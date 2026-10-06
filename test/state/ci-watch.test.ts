@@ -67,3 +67,16 @@ test("gh failing reads as unknown and stops polling", async () => {
   const o = options(async () => ({ code: 1, stdout: "", stderr: "no auth" }), observed);
   assert.deepEqual(await watchCi(o.value), { status: "unknown" });
 });
+
+test("a run for a different commit stays pending until the expected commit's run appears", async () => {
+  const observed: CiState[] = [];
+  const o = options(
+    scripted(run("completed", "success"), run("completed", "success")),
+    observed,
+    2,
+  );
+  const final = await watchCi({ ...o.value, expectSha: "ffffffffff" });
+  assert.equal(final.status, "pending");
+  const matching = options(scripted(run("completed", "success")), [], 2);
+  assert.equal((await watchCi({ ...matching.value, expectSha: "abcdef1234" })).status, "green");
+});

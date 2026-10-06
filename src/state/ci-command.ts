@@ -16,6 +16,15 @@ export type CiCommandDeps = {
   maxPolls?: number;
 };
 
+async function headSha(exec: Exec, cwd: string): Promise<string | undefined> {
+  try {
+    const r = await exec("git", ["rev-parse", "HEAD"], { cwd, timeout: 5000 });
+    return r.code === 0 && r.stdout.trim() !== "" ? r.stdout.trim() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 const sameCi = (a: CiState | undefined, b: CiState): boolean =>
   a?.status === b.status && a?.sha === b.sha;
 
@@ -29,7 +38,9 @@ export async function runCiWatch(
     ctx.ui.notify(`cannot read the delivery policy: ${config.error.message}`, "error");
     return undefined;
   }
+  const head = await headSha(deps.exec, ctx.cwd);
   const final = await watchCi({
+    expectSha: head,
     exec: deps.exec,
     branch: config.value.delivery.trunk,
     cwd: ctx.cwd,

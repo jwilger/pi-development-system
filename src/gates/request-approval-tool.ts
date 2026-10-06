@@ -33,6 +33,12 @@ export function createRequestApprovalTool(
     exposure: "direct",
     async execute(toolCallId, params: Static<typeof Parameters>, _signal, _onUpdate, ctx) {
       const gate = parseGateId(params.gate);
+      if (params.gate === "commit.forbidden-trailer") {
+        return text(
+          "commit.forbidden-trailer is never approvable: remove the AI attribution from the commit instead.",
+          true,
+        );
+      }
       if (isParseError(gate) || gate.includes(":") || lookupGate(gate)?.tier !== "hard") {
         const hard = gateIds().filter((id) => lookupGate(id)?.tier === "hard");
         return text(`"${params.gate}" is not a hard gate. Hard gates: ${hard.join(", ")}`, true);

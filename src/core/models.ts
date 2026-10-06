@@ -40,7 +40,10 @@ const MIN_DATE_DIGITS = 6;
 function versionKey(id: string): VersionKey {
   const numbers: number[] = [];
   let date: number | undefined;
-  for (const run of id.match(/\d+/g) ?? []) {
+  // Hyphenated ISO snapshot dates (`-2024-08-06`) collapse to one date, like compact YYYYMMDD.
+  const iso = /-(\d{4})-(\d{2})-(\d{2})(?!\d)/.exec(id);
+  if (iso !== null) date = Number(`${iso[1]}${iso[2]}${iso[3]}`);
+  for (const run of id.replace(/-\d{4}-\d{2}-\d{2}(?!\d)/, "").match(/\d+/g) ?? []) {
     if (run.length >= MIN_DATE_DIGITS) date = Number(run);
     else numbers.push(Number(run));
   }
@@ -208,7 +211,7 @@ export function renderMatrixToml(matrix: ModelMatrix): string {
 export function upsertModelsTable(text: string, matrix: ModelMatrix): string {
   const table = renderMatrixToml(matrix);
   const lines = text.split("\n");
-  const start = lines.findIndex((l) => l.trim() === "[models]");
+  const start = lines.findIndex((l) => /^\[models\]\s*(#.*)?$/.test(l.trim()));
   if (start === -1) {
     const body = text.trimEnd();
     return body === "" ? table : `${body}\n\n${table}`;

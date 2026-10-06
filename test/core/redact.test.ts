@@ -55,3 +55,22 @@ test("redacts quoted assignments to key-like names and PEM private keys", () => 
   assert.doesNotMatch(redactSecrets(`x\n${pem}\ny`), /MIIEabc/);
   assert.match(redactSecrets("const name = 'plain';"), /plain/);
 });
+
+test("redacts unquoted and spaced secrets and well-known token shapes", () => {
+  for (const [input, leaked] of [
+    ["+password = hunter2", "hunter2"],
+    ["+  password: hunter2", "hunter2"],
+    ["+aws_access_key_id = AKIAIOSFODNN7EXAMPLE", "AKIAIOSFODNN7EXAMPLE"],
+    ["token xoxb-1234567890-abcdefghij", "xoxb-1234567890-abcdefghij"],
+    ["glpat-abcdefghij0123456789", "glpat-abcdefghij0123456789"],
+    [`npm_${"a1".repeat(18)}`, "npm_a1"],
+    ["jwt eyJhbGciOi.eyJzdWIiOiIx.SflKxwRJSM", "eyJhbGciOi"],
+    ['secret_token := "abcdefgh"', "abcdefgh"],
+  ] as const) {
+    assert.equal(redactSecrets(input).includes(leaked), false, input);
+  }
+});
+
+test("ordinary code that merely mentions keys is left alone", () => {
+  assert.equal(redactSecrets("const key = 1;"), "const key = 1;");
+});

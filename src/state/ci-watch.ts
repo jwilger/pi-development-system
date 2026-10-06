@@ -11,9 +11,11 @@ export type WatchOptions = {
   sleep: (ms: number) => Promise<void>;
   intervalMs: number;
   maxPolls: number;
+  /** The commit whose run is being waited for; runs of other commits count as still pending. */
+  expectSha?: string | undefined;
 };
 
-/** Observes the trunk's newest run until it settles (not pending) or the poll budget is spent. */
+/** Observes the trunk's newest run (for `expectSha`, when given) until it settles (not pending) or the poll budget is spent. */
 export async function watchCi(options: WatchOptions): Promise<CiState> {
   let last: CiState = { status: "unknown" };
   for (let poll = 0; poll < options.maxPolls; poll++) {
@@ -21,10 +23,9 @@ export async function watchCi(options: WatchOptions): Promise<CiState> {
       branch: options.branch,
       cwd: options.cwd,
     });
-    last =
-      trunk.headSha === undefined
-        ? { status: trunk.status }
-        : { status: trunk.status, sha: trunk.headSha };
+    const stale = options.expectSha !== undefined && trunk.headSha !== options.expectSha;
+    const status = stale ? "pending" : trunk.status;
+    last = trunk.headSha === undefined ? { status } : { status, sha: trunk.headSha };
     options.onObserved(last);
     if (last.status !== "pending") return last;
     await options.sleep(options.intervalMs);
