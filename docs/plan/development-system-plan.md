@@ -238,31 +238,31 @@ escalation channel is what makes gates safe to add (research 05 B3); the git
 guard is the highest-value irreversible-action stop. Cite: research 04 §3,
 synthesis §5 D1/D2/D8, Appendix A.
 
-- [ ] **I1.1 Departure domain.**
+- [x] **I1.1 Departure domain.**
   Files: `src/core/departure.ts`, `test/core/departure.test.ts`.
   Interfaces: `type Departure = { id: DepartureId; gate: GateId; tier: "soft"|"hard"; default: string; chosen: string; why: string; costIfWrong: string; approver: "agent"|"user"; scope: {kind:"slice"; slice: SliceRef} | {kind:"session"} | {kind:"once"; toolCallId: string}; revisitWhen?: string; recordedAt: string }`; `parseDeparture(input: unknown): Departure | ParseError`; `renderDepartureMarkdown(d: Departure): string` (Appendix A); `matchesPending(departures: Departure[], gate: GateId, now: string): Departure | undefined`.
   First test: `renderDepartureMarkdown` output matches the Appendix A fixture byte-for-byte. Run/Expected: pass.
-- [ ] **I1.2 Decision-log writer.**
+- [x] **I1.2 Decision-log writer.**
   Files: `src/state/decision-log.ts`, `test/state/decision-log.test.ts`.
   Interfaces: `appendDecision(repoRoot: string, d: Departure, now: Date): Promise<{path: string}>` → appends to `docs/decisions/YYYY-MM.md`, creating header if absent. Test uses a temp dir. Run/Expected: pass.
-- [ ] **I1.3 `devsys_record_departure` tool.**
+- [x] **I1.3 `devsys_record_departure` tool.**
   Files: `src/gates/record-departure-tool.ts`, `test/gates/record-departure-tool.test.ts`.
   Parameters (TypeBox): `gate: string`, `chosen: string`, `why: string`, `costIfWrong: string`, `scope: "slice"|"session"|"once"`, `revisitWhen?: string`. Behaviour: parses → for `tier:"hard"` gates returns an error result telling the model this gate needs the user (`devsys_request_approval` in I1.5); for soft gates appends to decision log, appends `devsys-departure` entry, updates state `openDepartures`, returns the rendered markdown. `exposure: "always"`.
   First test: calling with a soft gate id results in one new decision-log line and one `devsys-departure` entry. Run/Expected: pass.
-- [ ] **I1.4 Git intent classifier (deterministic fast path).**
+- [x] **I1.4 Git intent classifier (deterministic fast path).**
   Files: `src/core/git-intent.ts`, `test/core/git-intent.test.ts`.
   Interfaces: `type GitIntent = "history-rewrite" | "force-push" | "branch-delete-remote" | "destructive-reset" | "no-verify" | "ordinary" | "unknown"`; `classifyGitCommand(command: string): GitIntent` (tokenise with `shell-quote`, handle `&&`, `;`, `|`; `git push --force|-f|--force-with-lease`, `git commit --amend`, `git rebase`, `git reset --hard`, `git push origin :branch`/`--delete`, `--no-verify`, `git filter-branch`/`filter-repo`). Unknown/complex shell → `"unknown"`.
   First test: table-driven over ≥ 25 commands including obfuscations (`git -c x=y push -f`, `command git push --force`). Run/Expected: pass.
-- [ ] **I1.5 Hard-stop guard + approval tool.**
+- [x] **I1.5 Hard-stop guard + approval tool.**
   Files: `src/gates/git-guard.ts`, `src/gates/request-approval-tool.ts`, `test/gates/git-guard.test.ts`.
   Behaviour: `tool_call` handler on `bash`: classify; `ordinary` → allow; `history-rewrite|force-push|branch-delete-remote|destructive-reset|no-verify` → if a `devsys-approval` entry for this exact command+gate exists in the current session and is unused → allow and mark used; else if `ctx.hasUI` → `ctx.ui.confirm("Development system — hard stop", "<command>\nGate: <gate>\nThis is irreversible. Approve once?")` → approve records a `Departure{tier:"hard", approver:"user", scope:{kind:"once"}}` to the decision log and allows; decline blocks with reason; `!ctx.hasUI` → block with reason `"hard stop <gate>: requires user approval; run interactively"`. `unknown` → allow in I1 (Jev takes this in I2).
   `devsys_request_approval` tool: lets the model *ask* for approval ahead of time (`gate`, `command`, `why`); shows the confirm dialog; records approval; returns outcome. Headless → returns "unavailable headless".
   First tests: (a) `git push --force` with no UI → blocked; (b) with `confirmResponses:[true]` → allowed and a decision-log entry written; (c) `git status` → allowed with no UI calls. Run/Expected: pass.
-- [ ] **I1.6 Context tail: open departures.**
+- [x] **I1.6 Context tail: open departures.**
   Files: `src/context/context-tail.ts`, `test/context/context-tail.test.ts`.
   Interfaces: `renderContextTail(state: DevsysState): string | undefined` (≤ 25 lines: phase, active slice, open departures as `gate — chosen (scope)`, "Jev: status", and the one-line reminder "Departures: call devsys_record_departure before acting against a default; hard stops need the user."). Handler on `context` appends a user-role message at the **end** of `event.messages` (research 04 §4: cache-friendly tail); nothing when state is idle with no departures.
   Test: with one open departure the tail names its gate. Run/Expected: pass.
-- [ ] **I1.7 Dogfood switch.** From here on, record departures from this plan with `devsys_record_departure`. Note in `docs/decisions/README.md`.
+- [x] **I1.7 Dogfood switch.** From here on, record departures from this plan with `devsys_record_departure`. Note in `docs/decisions/README.md`.
 
 Acceptance: in this session after reload, `git push --force` is intercepted with a confirm dialog; `devsys_record_departure` appends to `docs/decisions/2026-10.md`; `/devsys-status` shows the open departure; after `/compact` the departure still appears in the context tail.
 

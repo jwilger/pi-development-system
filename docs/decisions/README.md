@@ -16,3 +16,10 @@ Entry format:
 ```
 
 Hard-stop approvals use the same shape with `hard · user` and `Scope: once (<tool call id>)`.
+
+## Dogfooding
+
+From I1 onward, departures from the implementation plan are recorded with the
+`devsys_record_departure` tool (soft gates) and approvals with
+`devsys_request_approval` (hard stops), not by hand-editing this log. Hand-written
+entries before I1 (for example `plan.interface-deviation`) predate the tool.
