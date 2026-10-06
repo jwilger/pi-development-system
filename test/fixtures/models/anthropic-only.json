@@ -1,0 +1,70 @@
+[
+  {
+    "provider": "anthropic",
+    "id": "claude-fable-5"
+  },
+  {
+    "provider": "anthropic",
+    "id": "claude-fable-5-1"
+  },
+  {
+    "provider": "anthropic",
+    "id": "claude-haiku-4-5"
+  },
+  {
+    "provider": "anthropic",
+    "id": "claude-haiku-4-5-20251001"
+  },
+  {
+    "provider": "anthropic",
+    "id": "claude-opus-4-5"
+  },
+  {
+    "provider": "anthropic",
+    "id": "claude-opus-4-5-20251101"
+  },
+  {
+    "provider": "anthropic",
+    "id": "claude-opus-4-6"
+  },
+  {
+    "provider": "anthropic",
+    "id": "claude-opus-4-7"
+  },
+  {
+    "provider": "anthropic",
+    "id": "claude-opus-4-8"
+  },
+  {
+    "provider": "anthropic",
+    "id": "claude-opus-5"
+  },
+  {
+    "provider": "anthropic",
+    "id": "claude-opus-5-5"
+  },
+  {
+    "provider": "anthropic",
+    "id": "claude-sonnet-4-5"
+  },
+  {
+    "provider": "anthropic",
+    "id": "claude-sonnet-4-5-20250929"
+  },
+  {
+    "provider": "anthropic",
+    "id": "claude-sonnet-4-6"
+  },
+  {
+    "provider": "anthropic",
+    "id": "claude-sonnet-5"
+  },
+  {
+    "provider": "anthropic",
+    "id": "claude-sonnet-5-5"
+  },
+  {
+    "provider": "typesafe",
+    "id": "jev-latest"
+  }
+]

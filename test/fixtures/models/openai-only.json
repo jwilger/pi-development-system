@@ -1,0 +1,182 @@
+[
+  {
+    "provider": "openai",
+    "id": "gpt-4"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-4-turbo"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-4.1"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-4.1-mini"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-4.1-nano"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-4o"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-4o-2024-05-13"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-4o-2024-08-06"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-4o-2024-11-20"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-4o-mini"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5-chat-latest"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5-mini"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5-nano"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5-pro"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.1"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.2"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.2-chat-latest"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.2-pro"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.3-chat-latest"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.3-codex"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.3-codex-spark"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.4"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.4-mini"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.4-nano"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.4-pro"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.5"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.5-pro"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.6-luna"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.6-sol"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-5.6-terra"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-6-astra"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-6-luna"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-6-sol"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-6.1-sol"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-daybreak-blue-latest"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-daybreak-red-latest"
+  },
+  {
+    "provider": "openai",
+    "id": "gpt-realtime-2.1"
+  },
+  {
+    "provider": "openai",
+    "id": "o1"
+  },
+  {
+    "provider": "openai",
+    "id": "o1-pro"
+  },
+  {
+    "provider": "openai",
+    "id": "o3"
+  },
+  {
+    "provider": "openai",
+    "id": "o3-mini"
+  },
+  {
+    "provider": "openai",
+    "id": "o3-pro"
+  },
+  {
+    "provider": "openai",
+    "id": "o4-mini"
+  },
+  {
+    "provider": "typesafe",
+    "id": "jev-latest"
+  }
+]
