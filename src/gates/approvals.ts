@@ -67,7 +67,7 @@ export type HardStopRequest = {
   toolCallId: string;
   /** What goes wrong if the approved action is a mistake; defaults to the irreversible-git wording. */
   costIfWrong?: string;
-  now?: () => Date;
+  now?: (() => Date) | undefined;
 };
 
 export type HardStopOutcome =

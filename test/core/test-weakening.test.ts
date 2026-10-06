@@ -6,6 +6,7 @@ import {
   bashMutatedPaths,
   bashMutations,
   isPureAddition,
+  normalizeText,
   weakeningSignals,
 } from "../../src/core/test-weakening.ts";
 
@@ -52,7 +53,7 @@ test("applyEdits replaces each oldText once, in order", () => {
     ]),
     "x b z",
   );
-  assert.equal(applyEdits("a", [{ oldText: "missing", newText: "x" }]), "a");
+  assert.equal(applyEdits("a", [{ oldText: "missing", newText: "x" }]), undefined);
 });
 
 test("isPureAddition: every original line survives", () => {
@@ -188,4 +189,17 @@ test("find with name patterns flags the patterns, not the start dir; mv into a d
   assert.deepEqual(bashMutatedPaths("find tests -type f -delete"), ["tests"]);
   assert.deepEqual(bashMutatedPaths("mv helper.ts test/"), ["helper.ts"]);
   assert.deepEqual(bashMutatedPaths("mv test/a.test.ts /tmp/x"), ["test/a.test.ts", "/tmp/x"]);
+});
+
+test("applyEdits tolerates CRLF files and trailing whitespace like pi's edit tool", () => {
+  const file = "it('a', () => {  \r\n  expect(f(1))\r\n});\r\n";
+  const after = applyEdits(file, [
+    { oldText: "it('a', () => {\n  expect(f(1))", newText: "it.skip('a', () => {\n  expect(f(1))" },
+  ]);
+  assert.equal(after, "it.skip('a', () => {\n  expect(f(1))\n});\n");
+  assert.equal(weakeningSignals(normalizeText(file), after ?? "").addsSkip, true);
+});
+
+test("tee -a appends and is not an overwrite", () => {
+  assert.deepEqual(bashMutatedPaths("echo x | tee -a test/log.test.ts"), []);
 });

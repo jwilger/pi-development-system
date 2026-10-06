@@ -23,6 +23,10 @@ const yes = [
   "src/__tests__",
 ];
 const no = [
+  "test/*.log",
+  "tests/fixtures/*.json",
+  "test/__snapshots__/*.snap",
+  "src/spec/parser.ts",
   "tests/__pycache__/a.pyc",
   "test/out.log",
   "spec/design.md",
@@ -53,4 +57,11 @@ test("normalizeRepoPath resolves @, ~, file:// and absolute forms the way pi doe
   assert.equal(normalizeRepoPath(cwd, "~/x/a.test.ts", home), "../../home/me/x/a.test.ts");
   assert.equal(normalizeRepoPath(cwd, "test/../test/a.test.ts", home), "test/a.test.ts");
   assert.equal(normalizeRepoPath("/home/me/repo", "~/repo/test/a.test.ts", home), "test/a.test.ts");
+});
+
+test("profile globs: * stays in a segment, ** crosses directories", () => {
+  assert.equal(isTestPath("checks/a.chk", { testGlobs: ["checks/*.chk"] }), true);
+  assert.equal(isTestPath("checks/deep/a.chk", { testGlobs: ["checks/*.chk"] }), false);
+  assert.equal(isTestPath("checks/deep/a.chk", { testGlobs: ["checks/**/*.chk"] }), true);
+  assert.equal(isTestPath("checks/a.chk", { testGlobs: ["checks/**/*.chk"] }), false);
 });

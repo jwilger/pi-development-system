@@ -4,20 +4,20 @@ import { parse } from "shell-quote";
 export type WeakeningSignals = { addsSkip: boolean; emptied: boolean; commentedOut: boolean };
 
 const SKIP_MARKERS: readonly RegExp[] = [
-  /\b(?:it|test|describe|context)\.(?:skip|only)\b/,
-  /\b(?:this|t|self|ctx)\.skip\(/,
-  /\bskip:\s*true\b/,
-  /\bskipTest\(/,
-  /(?<![.\w])f(?:it|describe)\(/,
-  /(?<![.\w])x(?:it|describe|test)\(/,
-  /#\[ignore\b/,
-  /@pytest\.mark\.(?:skip|skipif|xfail)|@unittest\.skip|\bpytest\.skip\(/,
-  /\bt\.Skip(?:Now|f)?\(/,
-  /@Disabled\b|@Ignore\b/,
+  /\b(?:it|test|describe|context)\.(?:skip|only)\b/g,
+  /\b(?:this|t|self|ctx)\.skip\(/g,
+  /\bskip:\s*true\b/g,
+  /\bskipTest\(/g,
+  /(?<![.\w])f(?:it|describe)\(/g,
+  /(?<![.\w])x(?:it|describe|test)\(/g,
+  /#\[ignore\b/g,
+  /@pytest\.mark\.(?:skip|skipif|xfail)|@unittest\.skip|\bpytest\.skip\(/g,
+  /\bt\.Skip(?:Now|f)?\(/g,
+  /@Disabled\b|@Ignore\b/g,
 ];
 
 const countSkips = (text: string): number =>
-  SKIP_MARKERS.reduce((n, re) => n + (text.match(new RegExp(re.source, "g"))?.length ?? 0), 0);
+  SKIP_MARKERS.reduce((n, re) => n + [...text.matchAll(re)].length, 0);
 
 /** Lines that are neither blank, inside a C-style block comment, nor a line comment. */
 function codeLineCount(text: string): number {
@@ -71,15 +71,30 @@ export function weakeningSignals(before: string, after: string): WeakeningSignal
   };
 }
 
-/** Applies `edits` to `content` (first occurrence each, in order); unmatched edits are ignored. */
+/** LF line endings and no trailing whitespace, so matching tolerates what pi's edit tool tolerates. */
+export const normalizeText = (text: string): string =>
+  text
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .join("\n");
+
+/**
+ * Applies `edits` to normalised `content` (first occurrence each, in order). `undefined` when an
+ * edit does not match, so callers can hand the change to a judge instead of assuming "no change".
+ */
 export function applyEdits(
   content: string,
   edits: ReadonlyArray<{ oldText: string; newText: string }>,
-): string {
-  return edits.reduce((text, e) => {
-    const at = text.indexOf(e.oldText);
-    return at < 0 ? text : text.slice(0, at) + e.newText + text.slice(at + e.oldText.length);
-  }, content);
+): string | undefined {
+  let text = normalizeText(content);
+  for (const e of edits) {
+    const old = normalizeText(e.oldText);
+    const at = old === "" ? -1 : text.indexOf(old);
+    if (at < 0) return undefined;
+    text = text.slice(0, at) + normalizeText(e.newText) + text.slice(at + old.length);
+  }
+  return text;
 }
 
 /** True when every line of `before` still appears (with multiplicity) in `after`. */
@@ -256,6 +271,9 @@ const gitTargets = (args: readonly string[]): string[] => {
   return sub === "rm" || sub === "mv" ? operands(args.slice(i + 1)) : [];
 };
 
+const teeTargets = (args: readonly string[]): string[] =>
+  args.some((a) => a === "-a" || a === "--append") ? [] : operands(args);
+
 const sedTargets = (args: readonly string[]): string[] => {
   if (!args.some((a) => /^-[A-Za-z]*i|^--in-place/.test(a))) return [];
   // Without -e/-f the first operand is the script, not a file.
@@ -278,7 +296,7 @@ const TARGETS: Readonly<Record<string, (args: readonly string[]) => string[]>> =
   trash: removers,
   rmdir: removers,
   mv: moveSources,
-  tee: removers,
+  tee: teeTargets,
   truncate: truncateTargets,
   find: findTargets,
   sed: sedTargets,

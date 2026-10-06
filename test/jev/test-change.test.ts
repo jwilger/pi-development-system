@@ -63,3 +63,13 @@ test("test-change fixture reaches 0.9 with a real Jev", { skip: !fixturesEnabled
   }
   assert.ok(passed / fixture.cases.length >= 0.9, `${passed}/${fixture.cases.length}`);
 });
+
+test("changeWindow keeps the changed region of a large file visible", async () => {
+  const { changeWindow } = await import("../../src/jev/questions/test-change.ts");
+  const body = Array.from({ length: 400 }, (_, i) => `line ${i}`);
+  const after = [...body.slice(0, 399), "it.skip('last')"];
+  const w = changeWindow(body.join("\n"), after.join("\n"));
+  assert.match(w.before, /line 399/);
+  assert.match(w.after, /it\.skip\('last'\)/);
+  assert.ok(w.before.split("\n").length <= 100);
+});

@@ -33,3 +33,10 @@ Nits and deferred items from reviews (append only).
 - Jev cache key omits the resolved model (`src/jev/client.ts` `hashOf`).
 - `applyEdits` applies edits sequentially while pi matches each `oldText` against the original file.
 - `mv a b/` without a trailing slash still flags `b`.
+
+## From I2 review round 5 (nits, unscheduled)
+
+- Remaining skip-marker gaps: `xcontext(`/`xspecify(`, Ruby minitest `skip "…"`, `@DisabledOnOs`; bare `fit(model)` still reads as a focused test.
+- Not parsed: `perl -pi -e`, `patch`, `git apply`, `python -c` rewrites; `$VAR` paths resolve to empty.
+- Redaction does not cover unquoted `password: x`, `AKIA…` or JWTs.
+- Go `testing.Short()` + `t.Skip` guards are flagged (goes via departure flow).

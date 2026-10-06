@@ -10,8 +10,8 @@ export type TestChangeMotive = "requirement-change" | "gate-gaming" | "refactor"
 export type TestChangeInput = {
   path: string;
   before?: string;
-  after?: string;
-  recentFailure?: string;
+  after?: string | undefined;
+  recentFailure?: string | undefined;
 };
 
 export const WEAKENS_QUESTION: ClassifierBoolQuestion = {
@@ -50,15 +50,38 @@ const isMotive = (value: string): value is TestChangeMotive => MOTIVES.some((m) 
 export const motiveFromChoice = (choice: string, confidence: number): TestChangeMotive =>
   confidence >= MOTIVE_THRESHOLD && isMotive(choice) ? choice : "unclear";
 
+const CONTEXT_LINES = 40;
+const CLIP = 6000;
+
+/** The lines around what changed, so a large file's edit is not hidden behind its unchanged head. */
+export function changeWindow(before: string, after: string): { before: string; after: string } {
+  const b = before.split("\n");
+  const a = after.split("\n");
+  let head = 0;
+  while (head < b.length && head < a.length && b[head] === a[head]) head++;
+  let tail = 0;
+  while (tail < b.length - head && tail < a.length - head && b.at(-1 - tail) === a.at(-1 - tail)) {
+    tail++;
+  }
+  const from = Math.max(0, head - CONTEXT_LINES);
+  const slice = (lines: string[]): string =>
+    lines.slice(from, Math.min(lines.length, lines.length - tail + CONTEXT_LINES)).join("\n");
+  return { before: slice(b), after: slice(a) };
+}
+
 export async function judgeTestChange(
   jev: Jev,
   input: TestChangeInput,
 ): Promise<Result<{ weakens: number; motive: TestChangeMotive; confidence: number }, JevError>> {
-  const clip = (text: string | undefined): string => redactSecrets(text ?? "").slice(0, 6000);
+  const clip = (text: string | undefined): string => redactSecrets(text ?? "").slice(0, CLIP);
+  const windowed =
+    input.after === undefined
+      ? { before: input.before ?? "", after: "" }
+      : changeWindow(input.before ?? "", input.after);
   const state = {
     path: input.path,
-    before: clip(input.before),
-    after: input.after === undefined ? "" : clip(input.after),
+    before: clip(windowed.before),
+    after: input.after === undefined ? "" : clip(windowed.after),
     deleted: input.after === undefined,
     recentFailure: clip(input.recentFailure),
   };

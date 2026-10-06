@@ -14,6 +14,7 @@ import {
   applyEdits,
   bashMutations,
   isPureAddition,
+  normalizeText,
   type WeakeningSignals,
   weakeningSignals,
 } from "../core/test-weakening.ts";
@@ -36,7 +37,7 @@ type Change = {
   before: string;
   /** `undefined` means the file is gone; an `overwrite` carries the shell command instead. */
   after: string | undefined;
-  rewritten?: string;
+  rewritten?: string | undefined;
 };
 
 type Verdict =
@@ -119,7 +120,7 @@ export function registerTestGuard(deps: TestGuardDeps): void {
     const judged = await judgeTestChange(deps.jev(ctx), {
       path: change.path,
       before: change.before,
-      ...(after !== "" ? { after: redactSecrets(after) } : {}),
+      after: after === "" ? undefined : redactSecrets(after),
     });
     if (judged.ok) {
       const { weakens, motive } = judged.value;
@@ -145,32 +146,33 @@ export function registerTestGuard(deps: TestGuardDeps): void {
   const collectChanges = (event: ToolCallEvent, ctx: ExtensionContext): Change[] => {
     if (isToolCallEventType("bash", event)) {
       const { command } = event.input;
-      return bashMutations(command).flatMap(({ path: raw, kind }) => {
+      return bashMutations(command).flatMap(({ path: raw, kind }): Change[] => {
         const path = repoPath(ctx.cwd, raw);
         // Missing plain paths have nothing to weaken; globs and directories may still hide tests.
         const touched = GLOB.test(path) || existsSync(join(ctx.cwd, path));
-        return isTestPath(path) && touched
-          ? [
-              {
-                path,
-                before: readIfExists(join(ctx.cwd, path)) ?? "",
-                after: undefined,
-                ...(kind === "overwrite"
-                  ? { rewritten: `(rewritten by shell command) ${command}` }
-                  : {}),
-              },
-            ]
-          : [];
+        if (!isTestPath(path) || !touched) return [];
+        const rewritten =
+          kind === "overwrite" ? `(rewritten by shell command) ${command}` : undefined;
+        return [
+          { path, before: readIfExists(join(ctx.cwd, path)) ?? "", after: undefined, rewritten },
+        ];
       });
     }
     if (!isToolCallEventType("write", event) && !isToolCallEventType("edit", event)) return [];
     const path = repoPath(ctx.cwd, event.input.path);
-    const before = isTestPath(path) ? readIfExists(join(ctx.cwd, path)) : undefined;
-    if (before === undefined) return [];
-    const after = isToolCallEventType("write", event)
-      ? event.input.content
-      : applyEdits(before, event.input.edits);
-    return [{ path, before, after }];
+    const raw = isTestPath(path) ? readIfExists(join(ctx.cwd, path)) : undefined;
+    if (raw === undefined) return [];
+    const before = normalizeText(raw);
+    if (isToolCallEventType("write", event)) {
+      return [{ path, before, after: normalizeText(event.input.content) }];
+    }
+    const after = applyEdits(before, event.input.edits);
+    if (after !== undefined) return [{ path, before, after }];
+    // The edit text does not match statically; let Jev read what the agent intends to write.
+    const intended = event.input.edits.map((e) => e.newText).join("\n");
+    return [
+      { path, before, after: undefined, rewritten: `(edit not matched statically) ${intended}` },
+    ];
   };
 
   const hardStop = async (
@@ -189,7 +191,7 @@ export function registerTestGuard(deps: TestGuardDeps): void {
       why,
       costIfWrong: "the tests verify less behaviour, so regressions can ship undetected",
       toolCallId: event.toolCallId,
-      ...(deps.now !== undefined ? { now: deps.now } : {}),
+      now: deps.now,
     });
     if (outcome.kind === "approved") return undefined;
     return {
