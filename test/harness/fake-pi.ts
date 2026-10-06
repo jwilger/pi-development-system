@@ -108,7 +108,7 @@ export function createFakePi(init: FakePiOptions = {}) {
   /** Runs every handler for `event.type`; the last defined result wins. */
   async function emit(event: ExtensionEvent, overrides?: Partial<ExtensionContext>) {
     let result: unknown;
-    const effective = overrides ? Object.assign(Object.create(ctx), overrides) : ctx;
+    const effective = { ...ctx, ...overrides };
     for (const handler of handlers.get(event.type) ?? []) {
       const next = await handler(event, effective as ExtensionContext);
       if (next !== undefined) result = next;

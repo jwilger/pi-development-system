@@ -51,3 +51,17 @@ test("ctx.hasUI follows later changes to fake.ui.hasUI", () => {
   fake.ui.hasUI = false;
   assert.equal(fake.ctx.hasUI, false);
 });
+
+test("emit accepts a per-call hasUI override for headless tests", async () => {
+  const fake = createFakePi();
+  let seen: boolean | undefined;
+  fake.api.on("tool_call", (_e, ctx) => {
+    seen = ctx.hasUI;
+  });
+  await fake.emit(
+    { type: "tool_call", toolName: "bash", input: { command: "ls" }, toolCallId: "1" },
+    { hasUI: false },
+  );
+  assert.equal(seen, false);
+  assert.equal(fake.ctx.hasUI, true);
+});
