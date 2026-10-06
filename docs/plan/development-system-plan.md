@@ -41,7 +41,7 @@ less careful model than the one that wrote this):**
 - [x] I1 Departure ledger + hard-stop git guard
 - [x] I2 Jev runtime core
 - [x] I3 Delivery discipline (commit/push/CI gates, repo policy)
-- [ ] I4 Engineering skills + language profiles + TDD/test gates
+- [x] I4 Engineering skills + language profiles + TDD/test gates
 - [ ] I5 Vendored subagents with dynamic model/effort routing
 - [ ] I6 Review orchestration (fresh reviewer, lenses, recoverable clean streak)
 - [ ] I7 Anti-drift: verifier, compaction, model/phase recommendation

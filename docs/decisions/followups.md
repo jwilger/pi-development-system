@@ -159,3 +159,10 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 - `pytest --collect-only`, `jest --listTests`, `go test -list`, `vitest list` count as test runs; `npm -s test`, `npm run -s test`, `npx --no-install vitest`, `yarn test:unit` are missed.
 - A timed-out or aborted test run (`isError`) is recorded as exit 1, i.e. RED.
 - `refreshProfiles` runs only on session events; a `Cargo.toml`/`package.json` created mid-session appears later.
+
+## From I4 review round 7 (CLEAN; unscheduled nits)
+
+- Hand-wrapped `#[allow(clippy::a,\n reason = "…")]` (content on the first line) is flagged; widen the first-line test in `reasonOf`.
+- `DIRECT_RUNNERS` includes `tap`, which matches `brew tap`.
+- `npm test` in a repo with no test script (exit 1, "Missing script") is recorded as RED.
+- Production items placed after an inline test module count as test edits (`insideTestModule`).
