@@ -72,7 +72,8 @@ function parseArg(args: readonly string[], i: number): Parsed | undefined {
   return undefined;
 }
 
-const OPAQUE_VALUE = /\$\(|`|^\$\{?\w+\}?$/;
+/** A value that is itself a substitution or variable (not prose that mentions backticks). */
+const OPAQUE_VALUE = /^\s*(?:\$\(|`)|^\$\{?\w+\}?$/;
 
 function record(options: Options, parsed: Parsed): void {
   if (parsed.kind === "file") options.file = parsed.value;

@@ -80,3 +80,19 @@ test("a run for a different commit stays pending until the expected commit's run
   const matching = options(scripted(run("completed", "success")), [], 2);
   assert.equal((await watchCi({ ...matching.value, expectSha: "abcdef1234" })).status, "green");
 });
+
+test("with expectSha, a missing gh reads as unknown rather than polling forever", async () => {
+  const seen: string[] = [];
+  const result = await watchCi({
+    exec: async () => ({ code: 1, stdout: "", stderr: "gh: not found" }),
+    branch: "main",
+    cwd: ".",
+    expectSha: "abc",
+    maxPolls: 5,
+    intervalMs: 0,
+    sleep: async () => undefined,
+    onObserved: (s) => seen.push(s.status),
+  });
+  assert.equal(result.status, "unknown");
+  assert.deepEqual(seen, ["unknown"]);
+});

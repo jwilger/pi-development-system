@@ -23,7 +23,11 @@ export async function watchCi(options: WatchOptions): Promise<CiState> {
       branch: options.branch,
       cwd: options.cwd,
     });
-    const stale = options.expectSha !== undefined && trunk.headSha !== options.expectSha;
+    // `gh` missing or no runs at all (no sha) is unknown, not a run that has yet to appear.
+    const stale =
+      options.expectSha !== undefined &&
+      trunk.headSha !== undefined &&
+      trunk.headSha !== options.expectSha;
     const status = stale ? "pending" : trunk.status;
     last = trunk.headSha === undefined ? { status } : { status, sha: trunk.headSha };
     options.onObserved(last);

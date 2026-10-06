@@ -55,7 +55,8 @@ async function pushesTrunk(
   for (const t of targets) {
     if (t.allBranches || t.branches.includes(trunk)) return true;
     const where = t.dir === undefined ? cwd : resolve(cwd, t.dir);
-    if (t.branches.length === 0) {
+    if (t.tagsOnly) continue;
+    if (t.branches.length === 0 || t.usesHead) {
       // No refspec: the current branch decides. When it cannot be read, assume it is the trunk.
       const branch = await currentBranch(exec, where);
       if (branch === undefined || branch === trunk) return true;

@@ -157,3 +157,9 @@ test("-m plus a heredoc body joins both", () => {
   const c = "git commit -m 'feat: x' -m \"$(cat <<'EOF'\nwhy it matters here\nEOF\n)\"";
   assert.equal(msg(c), "feat: x\n\nwhy it matters here");
 });
+
+test("backticks and dollar signs inside prose are checked as text, not treated as substitutions", () => {
+  assert.equal(extractCommit("git commit -m 'fix: handle `null` ids'").kind, "message");
+  assert.equal(extractCommit("git commit -m 'fix: cost $5 now'").kind, "message");
+  assert.equal(extractCommit('git commit -m "$(date)"').kind, "unknown");
+});

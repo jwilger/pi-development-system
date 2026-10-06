@@ -9,19 +9,19 @@ test("no push means no targets", () => {
 
 test("bare push has no remote and no branches", () => {
   assert.deepEqual(pushTargets("git push"), [
-    { remote: undefined, branches: [], allBranches: false },
+    { remote: undefined, branches: [], allBranches: false, usesHead: false, tagsOnly: false },
   ]);
 });
 
 test("remote and branch, with options and refspecs", () => {
   assert.deepEqual(pushTargets("git push -u origin main"), [
-    { remote: "origin", branches: ["main"], allBranches: false },
+    { remote: "origin", branches: ["main"], allBranches: false, usesHead: false, tagsOnly: false },
   ]);
   assert.deepEqual(pushTargets("git push origin HEAD:main"), [
-    { remote: "origin", branches: ["main"], allBranches: false },
+    { remote: "origin", branches: ["main"], allBranches: false, usesHead: false, tagsOnly: false },
   ]);
   assert.deepEqual(pushTargets("git push origin feature:refs/heads/trunk"), [
-    { remote: "origin", branches: ["trunk"], allBranches: false },
+    { remote: "origin", branches: ["trunk"], allBranches: false, usesHead: false, tagsOnly: false },
   ]);
   assert.deepEqual(pushTargets("git push origin HEAD").at(0)?.branches, []);
 });
@@ -84,4 +84,12 @@ test("heads/main names the main branch; cd and -C record where the push runs", (
   assert.equal(pushTargets("git -C ../wt push").at(0)?.dir, "../wt");
   assert.equal(pushTargets("cd ../wt && git push").at(0)?.dir, "../wt");
   assert.equal(pushTargets("git push").at(0)?.dir, undefined);
+});
+
+test("dry runs push nothing; tag-only pushes name no branch; HEAD alongside a branch is kept", () => {
+  assert.equal(pushTargets("git push --dry-run origin main").length, 0);
+  assert.equal(pushTargets("git push -n origin main").length, 0);
+  assert.equal(pushTargets("git push --tags").at(0)?.tagsOnly, true);
+  assert.equal(pushTargets("git push --follow-tags").at(0)?.tagsOnly, false);
+  assert.equal(pushTargets("git push origin HEAD feat").at(0)?.usesHead, true);
 });

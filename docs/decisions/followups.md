@@ -85,3 +85,8 @@ Nits and deferred items from reviews (append only).
 
 - Command-wide AI-trailer scan hard-stops prose that merely mentions `Co-Authored-By:` or "generated with the OpenAI SDK"; reword to proceed. Consider anchoring to line start/quote.
 - `findForbiddenTrailers(message, extraKeys)` has no config field yet (I3.2 "configurable list").
+
+## From I3 review round 4 (unscheduled)
+
+- `lastPushAt` is recorded when a bash command exits 0 even if the push inside failed (`git push; echo done`).
+- `Assisted-by:` style trailers are not forbidden (configurable key list still unwired).

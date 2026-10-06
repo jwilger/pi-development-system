@@ -212,3 +212,10 @@ test("a push whose directory cannot be resolved is treated as a trunk push in pu
   const result = await w.push("cd ~/nowhere && git push");
   assert.equal(result?.block, true);
 });
+
+test("dry runs and tag-only pushes are not trunk pushes in pull-request mode", async () => {
+  const w = setup({ mode: "pull-request" });
+  assert.equal(await w.push("git push --dry-run origin main"), undefined);
+  assert.equal(await w.push("git push --tags"), undefined);
+  assert.equal((await w.push("git push origin HEAD feat"))?.block, true);
+});

@@ -22,6 +22,14 @@ the issue time. Sessions outliving their grant is a security defect, so the
 check now uses expiry; clock-skew tolerance is deliberately not added.
 ```
 
+```text
+refactor(billing): extract invoice totals into a pure function
+
+Totals were computed inline in three handlers, so each fix had to land three
+times. Behaviour is unchanged (tests untouched); the next commit adds the
+rounding rule on top of this seam.
+```
+
 - Do not write a body that only restates the diff. The diff already says what;
   the body is the only place the reason survives.
 - Do not add `Co-Authored-By`, "Generated with" or any AI trailer. This is
@@ -41,8 +49,10 @@ check now uses expiry; clock-skew tolerance is deliberately not added.
 
 Do not start unrelated work while trunk CI is red. Fix it first; a red build
 hides every later failure. A push to a red trunk is a hard stop unless the
-commit is a `fix` and Jev reads its diff as only repairing the failing run (it needs
-the failing log and Jev online; otherwise the push is a hard stop). If `gh`
+commit is `fix(ci): …` (or another `fix`), touches only what the failing log names, and
+stays small (an unpushed diff over 8000 characters is never exempt); Jev must read it as
+only repairing the failing run, which needs the failing log and Jev online. Otherwise the
+push is a hard stop. If `gh`
 is missing or unauthenticated, CI reads as unknown and the push is allowed:
 check CI by other means before relying on it.
 

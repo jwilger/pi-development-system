@@ -61,15 +61,21 @@ function messageNeeds(message: string): Need[] {
     : [{ gate: RATIONALE, why: "the message has no body explaining why the change was made" }];
 }
 
-/** What is about to be committed, as far as the working tree shows (staged and unstaged tracked changes). */
+/** `-a`/`--all`, or a `git add` in the same command, widen the commit beyond what is staged. */
+const stagesEverything = (command: string): boolean =>
+  /(?:^|\s)(?:-[a-zA-Z]*a[a-zA-Z]*|--all|--include)(?:\s|$)|\bgit\s+add\b/.test(command);
+
+/** What is about to be committed: the staged changes, or every tracked change when the commit stages them itself. */
 async function pendingDiff(
   exec: Exec,
   cwd: string,
+  command: string,
 ): Promise<{ stat: string; diff: string } | undefined> {
   try {
+    const base = stagesEverything(command) ? ["diff", "HEAD"] : ["diff", "--cached"];
     const [stat, diff] = await Promise.all([
-      exec("git", ["diff", "HEAD", "--stat"], { cwd, timeout: 10_000 }),
-      exec("git", ["diff", "HEAD"], { cwd, timeout: 10_000 }),
+      exec("git", [...base, "--stat"], { cwd, timeout: 10_000 }),
+      exec("git", base, { cwd, timeout: 10_000 }),
     ]);
     if (stat.code !== 0 || diff.code !== 0 || diff.stdout.trim() === "") return undefined;
     return { stat: stat.stdout, diff: diff.stdout };
@@ -83,8 +89,9 @@ async function jevNeeds(
   ctx: ExtensionContext,
   message: string,
   bodyPresent: boolean,
+  command: string,
 ): Promise<Need[]> {
-  const pending = await pendingDiff(deps.exec, ctx.cwd);
+  const pending = await pendingDiff(deps.exec, ctx.cwd, command);
   if (pending === undefined) return [];
   const judged = await judgeCommit(deps.jev(ctx), {
     message,
@@ -131,10 +138,11 @@ async function needsOf(
   deps: CommitGuardDeps,
   ctx: ExtensionContext,
   message: string,
+  command: string,
 ): Promise<Need[]> {
   const needs = messageNeeds(message);
   const bodyPresent = !needs.some((n) => n.why.startsWith("the message has no body"));
-  const viaJev = await jevNeeds(deps, ctx, message, bodyPresent);
+  const viaJev = await jevNeeds(deps, ctx, message, bodyPresent, command);
   return [...needs, ...viaJev.filter((n) => !needs.some((m) => m.gate === n.gate))];
 }
 
@@ -160,7 +168,7 @@ export function registerCommitGuard(deps: CommitGuardDeps): void {
       });
     }
     for (const message of known) {
-      for (const need of await needsOf(deps, ctx, message)) {
+      for (const need of await needsOf(deps, ctx, message, command)) {
         if (!all.some((n) => n.gate === need.gate)) all.push(need);
       }
     }
