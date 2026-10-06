@@ -48,3 +48,17 @@ test("a non-idle phase renders the tail and it stays within 25 lines", () => {
   assert.ok(tail.split("\n").length <= 25);
   assert.match(tail, /phase: implementing/);
 });
+
+test("active profiles are listed in the tail", () => {
+  const tail = renderContextTail({
+    ...initialState(),
+    phase: "implementing",
+    profiles: ["rust", "typescript"],
+  });
+  assert.match(tail ?? "", /profiles: rust, typescript/);
+});
+
+test("no profiles line when none are active", () => {
+  const tail = renderContextTail({ ...initialState(), phase: "implementing" });
+  assert.doesNotMatch(tail ?? "", /profiles:/);
+});

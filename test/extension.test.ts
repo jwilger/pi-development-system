@@ -110,3 +110,51 @@ test("session_start on a resumed session keeps persisted phase and departures", 
   assert.equal(state.get().phase, "implementing");
   assert.equal(state.get().openDepartures.length, 1);
 });
+
+test("session_start detects the repository's language profiles into state", async () => {
+  const { mkdtempSync, writeFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const cwd = mkdtempSync(join(tmpdir(), "devsys-ext-"));
+  writeFileSync(join(cwd, "Cargo.toml"), "");
+  const fake = createFakePi({ cwd });
+  const { state } = createDevelopmentSystem(fake.api);
+  await fake.emit({ type: "session_start", reason: "startup" });
+  assert.deepEqual(state.get().profiles, ["rust"]);
+});
+
+test("a configured profiles.override wins over detection", async () => {
+  const { mkdtempSync, writeFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const cwd = mkdtempSync(join(tmpdir(), "devsys-ext-"));
+  writeFileSync(join(cwd, "Cargo.toml"), "");
+  writeFileSync(join(cwd, ".development-system.toml"), '[profiles]\noverride = ["typescript"]\n');
+  const fake = createFakePi({ cwd });
+  const { state } = createDevelopmentSystem(fake.api);
+  await fake.emit({ type: "session_start", reason: "startup" });
+  assert.deepEqual(state.get().profiles, ["typescript"]);
+});
+
+test("the red-first, lint-suppression and test-evidence modules are wired", async () => {
+  const fake = createFakePi({ hasUI: false });
+  const { state } = createDevelopmentSystem(fake.api);
+  state.update((s) => ({ ...s, phase: "implementing" }));
+  const blocked = (await fake.emit({
+    type: "tool_call",
+    toolName: "write",
+    toolCallId: "c",
+    input: { path: "src/new.ts", content: "// @ts-ignore\nexport {};\n" },
+  } as never)) as { block: boolean; reason: string } | undefined;
+  assert.equal(blocked?.block, true);
+  await fake.emit({
+    type: "tool_result",
+    toolName: "bash",
+    toolCallId: "c2",
+    input: { command: "npm test" },
+    content: [{ type: "text", text: "1 failed\n\nCommand exited with code 1" }],
+    isError: true,
+    details: undefined,
+  } as never);
+  assert.equal(state.get().lastTestRun?.exitCode, 1);
+});

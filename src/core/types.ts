@@ -62,6 +62,16 @@ export const CI_STATUSES: readonly CiStatusName[] = ["green", "red", "pending", 
 /** Last observed CI state of the trunk (see `/devsys-ci`). */
 export type CiState = { readonly status: CiStatusName; readonly sha?: string };
 
+/** Language profile: universal principles plus the idioms of one language (decision D3). */
+export type Profile = "rust" | "typescript";
+
+/** Last observed test-runner invocation (see src/state/test-evidence.ts). */
+export type TestRun = {
+  readonly at: string;
+  readonly exitCode: number;
+  readonly summary: string;
+};
+
 export type DevsysState = {
   readonly phase: Phase;
   readonly sizing?: Sizing;
@@ -70,6 +80,8 @@ export type DevsysState = {
   readonly jev: JevStatus;
   readonly lastPushAt?: string;
   readonly ci?: CiState;
+  readonly profiles?: ReadonlyArray<Profile>;
+  readonly lastTestRun?: TestRun;
 };
 
 export const initialState = (): DevsysState => ({

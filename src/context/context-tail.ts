@@ -15,6 +15,7 @@ export function renderContextTail(state: DevsysState): string | undefined {
     "[development-system]",
     `phase: ${state.phase} · slice: ${state.activeSlice ?? "none"}`,
     `Jev: ${state.jev}`,
+    ...((state.profiles?.length ?? 0) > 0 ? [`profiles: ${state.profiles?.join(", ")}`] : []),
   ];
   const tailLines = [REMINDER];
   const room = MAX_LINES - head.length - tailLines.length - 1;

@@ -3,17 +3,22 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { appendContextTail, renderContextTail } from "../src/context/context-tail.ts";
 import { renderStatus, renderStatusLine, STATUS_KEY } from "../src/context/status.ts";
 import { applyPromptSection } from "../src/context/system-prompt.ts";
+import { detectProfiles } from "../src/core/profile.ts";
 import { createApprovalStore } from "../src/gates/approvals.ts";
 import { registerCommitGuard } from "../src/gates/commit-guard.ts";
 import { registerGitGuard } from "../src/gates/git-guard.ts";
+import { registerLintSuppressionGuard } from "../src/gates/lint-suppression-guard.ts";
 import { registerPushGuard } from "../src/gates/push-guard.ts";
 import { createRecordDepartureTool } from "../src/gates/record-departure-tool.ts";
+import { registerRedFirstGuard } from "../src/gates/red-first-guard.ts";
 import { createRequestApprovalTool } from "../src/gates/request-approval-tool.ts";
 import { registerTestGuard } from "../src/gates/test-guard.ts";
 import { createJevHolder } from "../src/jev/holder.ts";
 import { registerCiCommand } from "../src/state/ci-command.ts";
+import { loadConfig } from "../src/state/config.ts";
 import { createModelsTool, registerModelsCommand } from "../src/state/models-command.ts";
 import { createSessionState } from "../src/state/session-state.ts";
+import { registerTestEvidence } from "../src/state/test-evidence.ts";
 
 const nonNegotiables = readFileSync(
   new URL("../principles/NON-NEGOTIABLES.md", import.meta.url),
@@ -33,7 +38,15 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
     lastCtx?.ui.setStatus(STATUS_KEY, renderStatusLine(state.get(), jevModel));
   };
 
-  const rebuild = (ctx: ExtensionContext) => {
+  const refreshProfiles = async (ctx: ExtensionContext) => {
+    const config = await loadConfig(ctx.cwd);
+    const override = config.ok ? config.value.profiles.override : [];
+    const profiles = await detectProfiles(ctx.cwd, override);
+    const current = state.get().profiles ?? [];
+    if (profiles.join() !== current.join()) state.update((s) => ({ ...s, profiles }));
+  };
+
+  const rebuild = async (ctx: ExtensionContext) => {
     lastCtx = ctx;
     const entries = ctx.sessionManager
       .getBranch()
@@ -45,6 +58,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
     jevModel = probe.model;
     state.update((s) => (s.jev === probe.availability ? s : { ...s, jev: probe.availability }));
     refreshStatus();
+    await refreshProfiles(ctx);
   };
 
   state.onChange(refreshStatus);
@@ -80,6 +94,9 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
     exec: (command, args, options) => pi.exec(command, args, options),
   });
   registerTestGuard({ pi, state, approvals, jev: (ctx) => jevHolder.forContext(ctx) });
+  registerTestEvidence({ pi, state });
+  registerRedFirstGuard({ pi, state });
+  registerLintSuppressionGuard({ pi, state });
   pi.registerTool(createRecordDepartureTool({ pi, state }));
   pi.registerTool(createRequestApprovalTool({ pi, approvals }));
   pi.registerTool(createModelsTool());

@@ -96,3 +96,17 @@ test("ci state round-trips and bad ci is rejected", async () => {
   assert.equal("kind" in parseDevsysState({ ...initialState(), ci: { status: "purple" } }), true);
   assert.equal("kind" in parseDevsysState({ ...initialState(), ci: "red" }), true);
 });
+
+test("profiles and lastTestRun round-trip; bad ones are rejected", async () => {
+  const { parseDevsysState } = await import("../../src/state/session-state.ts");
+  const run = { at: "2026-10-06T17:12:00Z", exitCode: 1, summary: "1 failed" };
+  const ok = parseDevsysState({ ...initialState(), profiles: ["rust"], lastTestRun: run });
+  assert.deepEqual("profiles" in ok ? ok.profiles : undefined, ["rust"]);
+  assert.deepEqual("lastTestRun" in ok ? ok.lastTestRun : undefined, run);
+  const bad = (extra: Record<string, unknown>) =>
+    "kind" in parseDevsysState({ ...initialState(), ...extra });
+  assert.equal(bad({ profiles: ["cobol"] }), true);
+  assert.equal(bad({ profiles: "rust" }), true);
+  assert.equal(bad({ lastTestRun: { at: "t", exitCode: "1", summary: "s" } }), true);
+  assert.equal(bad({ lastTestRun: "red" }), true);
+});

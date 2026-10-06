@@ -11,9 +11,11 @@ import {
   type JevStatus,
   type ParseError,
   type Phase,
+  type Profile,
   parseError,
   type Sizing,
   type SliceRef,
+  type TestRun,
 } from "../core/types.ts";
 
 export const STATE_ENTRY_TYPE = "devsys-state";
@@ -26,6 +28,7 @@ const PHASES: ReadonlyArray<Phase> = [
   "delivering",
   "idle",
 ];
+const PROFILE_NAMES: ReadonlyArray<Profile> = ["rust", "typescript"];
 const SIZINGS: ReadonlyArray<Sizing> = ["fix", "change", "capability", "product"];
 const JEV: ReadonlyArray<JevStatus> = ["online", "offline", "unknown"];
 
@@ -42,10 +45,31 @@ function parseCi(input: unknown): CiState | ParseError {
   return { status: status as CiStatusName, ...(sha !== undefined ? { sha } : {}) };
 }
 
+function parseProfileList(input: unknown): Profile[] | ParseError {
+  if (!Array.isArray(input)) return parseError("profiles must be an array");
+  const out: Profile[] = [];
+  for (const name of input) {
+    if (!PROFILE_NAMES.includes(name as Profile))
+      return parseError(`unknown profile: ${String(name)}`);
+    out.push(name as Profile);
+  }
+  return out;
+}
+
+function parseTestRun(input: unknown): TestRun | ParseError {
+  if (!isRecord(input)) return parseError("lastTestRun must be an object");
+  const { at, exitCode, summary } = input;
+  if (typeof at !== "string" || typeof exitCode !== "number" || typeof summary !== "string") {
+    return parseError("lastTestRun needs string at, number exitCode and string summary");
+  }
+  return { at, exitCode, summary };
+}
+
 /** Boundary parse for persisted state: the only place state is cast from `unknown`. */
 export function parseDevsysState(input: unknown): DevsysState | ParseError {
   if (!isRecord(input)) return parseError("devsys state must be an object");
-  const { phase, sizing, activeSlice, openDepartures, jev, lastPushAt, ci } = input;
+  const { phase, sizing, activeSlice, openDepartures, jev, lastPushAt, ci, profiles, lastTestRun } =
+    input;
   if (!PHASES.includes(phase as Phase)) return parseError(`unknown phase: ${String(phase)}`);
   if (!JEV.includes(jev as JevStatus)) return parseError(`unknown jev status: ${String(jev)}`);
   if (!Array.isArray(openDepartures)) return parseError("openDepartures must be an array");
@@ -66,6 +90,10 @@ export function parseDevsysState(input: unknown): DevsysState | ParseError {
   }
   const parsedCi = ci === undefined ? undefined : parseCi(ci);
   if (isParseError(parsedCi)) return parsedCi;
+  const parsedProfiles = profiles === undefined ? undefined : parseProfileList(profiles);
+  if (isParseError(parsedProfiles)) return parsedProfiles;
+  const parsedRun = lastTestRun === undefined ? undefined : parseTestRun(lastTestRun);
+  if (isParseError(parsedRun)) return parsedRun;
   return {
     phase: phase as Phase,
     jev: jev as JevStatus,
@@ -74,6 +102,8 @@ export function parseDevsysState(input: unknown): DevsysState | ParseError {
     ...(activeSlice !== undefined ? { activeSlice: activeSlice as SliceRef } : {}),
     ...(lastPushAt !== undefined ? { lastPushAt } : {}),
     ...(parsedCi !== undefined ? { ci: parsedCi } : {}),
+    ...(parsedProfiles !== undefined ? { profiles: parsedProfiles } : {}),
+    ...(parsedRun !== undefined ? { lastTestRun: parsedRun } : {}),
   };
 }
 
