@@ -19,6 +19,7 @@ export function registerTestEvidence(deps: TestEvidenceDeps): void {
       isError: event.isError,
       text,
       structured: event.structuredContent,
+      command,
     });
     deps.state.update((s) => ({
       ...s,

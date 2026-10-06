@@ -9,8 +9,9 @@ const DOCS_EXT = /\.(?:md|mdx|rst|txt|adoc)$/i;
 const DOCS_NAME = /^(?:LICENSE|LICENCE|CHANGELOG|NOTICE|AUTHORS|CONTRIBUTING)(?:\..*)?$/i;
 const CONFIG_EXT = /\.(?:json|jsonc|toml|ya?ml|ini|cfg|conf|env|properties)$/i;
 const CONFIG_NAME = /^(?:Dockerfile|Makefile|justfile|Rakefile|Gemfile|Procfile)$/i;
+// Build output directories only count at the repo root; `src/build/` is usually real source.
 const GENERATED_DIR =
-  /(?:^|\/)(?:node_modules|dist|target|build|coverage|__generated__|generated|\.next|vendor)\//;
+  /(?:^|\/)(?:node_modules|__generated__|\.next)\/|^(?:dist|target|build|coverage|vendor|generated)\//;
 const GENERATED_FILE =
   /(?:\.generated\.|\.gen\.|\.min\.[cm]?js$|\.pb\.go$|\.snap$|(?:^|\/)(?:package-lock\.json|Cargo\.lock|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?)$|\.lock$)/;
 

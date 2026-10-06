@@ -116,3 +116,22 @@ test("the block reason lists the exemptions to name in the departure", async () 
   assert.match(r?.reason ?? "", /behaviour-preserving refactor/);
   assert.match(r?.reason ?? "", /functionality removal/);
 });
+
+test("writing the failing test itself inside a source file is allowed (Rust unit tests)", async () => {
+  const { call } = setup({ exitCode: 0 });
+  const rust = {
+    path: "src/foo.rs",
+    content: "fn f() {}\n#[cfg(test)]\nmod tests {\n  #[test]\n  fn adds() {}\n}\n",
+  };
+  assert.equal(await call("write", rust), undefined);
+  const viaEdit = {
+    path: "src/foo.rs",
+    edits: [{ oldText: "fn f() {}", newText: "fn f() {}\n#[test]\nfn adds() {}" }],
+  };
+  assert.equal(await call("edit", viaEdit), undefined);
+});
+
+test("a source edit without a test marker is still blocked in a Rust file", async () => {
+  const { call } = setup({ exitCode: 0 });
+  assert.equal((await call("write", { path: "src/foo.rs", content: "fn f() {}\n" }))?.block, true);
+});

@@ -133,3 +133,11 @@ Nits and deferred items from reviews (append only).
 ## CI version gate flake on 1aa1d6f (I3)
 
 The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patch bump of 1aa1d6f (a small fix across code, skill and docs) although the local hook accepted it at 0.88. The change is a patch; the next commit on trunk carries the publish. Consider making the local hook and CI agree on the diff Jev sees.
+
+## From I4 review round 1 (nits; unscheduled)
+
+- `red-first-guard`: plan says "no failing test observed since the last source edit"; code only checks the last test run (documented in `skills/tdd-canon`). Consider resetting on source edit if agents abuse one RED for many edits.
+- `lint-suppression`: marker patterns match text outside comments (`/@ts-ignore/` in a regex literal, in a string); block-form `{/* biome-ignore … */}` is not detected; any neighbouring ≥15-char comment line (e.g. Rust `///` docs) counts as a reason.
+- `test-runner`: misses `pnpm -r test`, `pnpm exec vitest`, `pnpm vitest`, `make test`, `uv run pytest`, `bash -c 'npm test'`; `node build.js --test` matches wrongly. A miss costs one extra departure per slice.
+- `profile`: an invalid `[profiles] override` silently falls back to detection; tell the user.
+- Profile detection uses `ctx.cwd`, not the repo root, so a session started in a subdirectory finds no profile.

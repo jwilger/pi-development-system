@@ -85,8 +85,17 @@ function kindOf(line: string): Kind | undefined {
   return matched.find((k) => k.marker === "#![allow(") ?? matched[0];
 }
 
+/** A rustfmt-wrapped `#[allow(\n  lint,\n  reason = "...",\n)]`: the reason sits on a later line. */
+function wrappedReason(lines: readonly string[], index: number): boolean {
+  const attr = lines.slice(index, index + 8);
+  const end = attr.findIndex((l) => l.includes(")]"));
+  const text = (end < 0 ? attr : attr.slice(0, end + 1)).join(" ");
+  return long(lastGroup(/reason\s*=\s*"([^"]*)"/, text));
+}
+
 function reasonOf(kind: Kind, lines: readonly string[], index: number): boolean {
   const line = lines[index] ?? "";
+  if (/^\s*#!?\[(?:allow|expect)\(\s*$/.test(line) && wrappedReason(lines, index)) return true;
   const match = kind.pattern.exec(line);
   const after = match === null ? "" : line.slice(match.index + match[0].length);
   return (

@@ -52,7 +52,14 @@ export type ResultLike = {
   readonly isError: boolean;
   readonly text: string;
   readonly structured?: unknown;
+  /** The command that ran; used to tell whether its exit status could have been masked. */
+  readonly command?: string;
 };
+
+/** A pipe or sequence makes the shell report the last command's status, not the runner's. */
+const MASKS_STATUS = /\||;/;
+const FAILURE_MARKERS =
+  /^# fail [1-9]|test result: FAILED|\b[1-9]\d* (?:failed|failing)\b|^FAILED\b|^FAIL\b|\bnot ok\b/m;
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
@@ -64,7 +71,10 @@ export function exitCodeOf(result: ResultLike): number {
   }
   const line = /Command exited with code (\d+)\s*$/.exec(result.text);
   if (line?.[1] !== undefined) return Number(line[1]);
-  return result.isError ? 1 : 0;
+  if (result.isError) return 1;
+  // `npm test | tail` exits 0 whatever the tests did; trust the output over the masked status.
+  const masked = result.command !== undefined && MASKS_STATUS.test(result.command);
+  return masked && FAILURE_MARKERS.test(result.text) ? 1 : 0;
 }
 
 /** The last few non-empty output lines, redacted and bounded: what the runner said at the end. */

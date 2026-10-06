@@ -33,6 +33,10 @@ const reasoned: ReadonlyArray<readonly [string, string]> = [
     "// Mirrors the C ABI exactly, so arity is fixed.\n#[allow(clippy::too_many_arguments)]\nfn f() {}",
   ],
   [
+    "rust multi-line allow with reason",
+    '#[allow(\n    clippy::too_many_arguments,\n    reason = "constructor mirrors the wire format"\n)]\nfn f() {}',
+  ],
+  [
     "comment on next line",
     "#[allow(dead_code)]\n// used only by the generated bindings in build.rs\nfn f() {}",
   ],
@@ -90,5 +94,12 @@ test("reports the 1-based line of each finding", () => {
   assert.deepEqual(
     found.map((s) => s.line),
     [3],
+  );
+});
+
+test("a multi-line allow without a reason is still found", () => {
+  assert.deepEqual(
+    bare("#[allow(\n    clippy::too_many_arguments,\n    dead_code\n)]\nfn f() {}"),
+    ["#[allow("],
   );
 });

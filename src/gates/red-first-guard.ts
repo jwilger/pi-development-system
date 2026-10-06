@@ -10,6 +10,13 @@ export type RedFirstGuardDeps = { pi: ExtensionAPI; state: SessionState };
 
 const GATE_ID = "tdd.red-first";
 
+/** Test code written inside a source file (Rust `#[cfg(test)]`/`#[test]`): that edit is the RED step itself. */
+const INLINE_TEST = /#\[(?:cfg\(test\)|test|tokio::test|rstest)\]/;
+
+const newText = (
+  input: { content: string } | { edits: ReadonlyArray<{ newText: string }> },
+): string => ("content" in input ? input.content : input.edits.map((e) => e.newText).join("\n"));
+
 /** Exemption classes a machine cannot see; the departure names which one applies (research 02). */
 const JUDGED_EXEMPTIONS =
   "functionality removal, documented third-party behaviour, a change already shown by a failing test, " +
@@ -34,6 +41,7 @@ export function registerRedFirstGuard(deps: RedFirstGuardDeps): void {
     if (lastTestRun !== undefined && lastTestRun.exitCode !== 0) return undefined;
     const path = normalizeRepoPath(ctx.cwd, event.input.path, homedir());
     if (classifyPath(path) !== "source") return undefined;
+    if (INLINE_TEST.test(newText(event.input))) return undefined;
     if (departure.hasOpen()) {
       departure.consume();
       return undefined;

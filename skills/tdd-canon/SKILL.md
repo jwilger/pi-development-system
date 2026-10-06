@@ -39,8 +39,9 @@ This skill is how to work so that gate never fires.
 ## When RED is not required
 
 RED is for **adding or changing first-party production behaviour** when no existing
-failing test already proves the required change. These are exempt, and the exemption
-must be *named* in a recorded departure (scope `slice`; one departure covers the slice):
+failing test already proves the required change. These are exempt. Docs, config, test and generated files are
+exempt by path, so the gate never asks. For the rest, *name* the exemption in a
+recorded departure (scope `slice`; one departure covers the slice):
 
 - docs or metadata only
 - functionality removal (the proof is that nothing still depends on it)

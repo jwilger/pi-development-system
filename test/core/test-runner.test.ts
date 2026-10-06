@@ -72,3 +72,25 @@ test("summary is the last meaningful lines, bounded and redacted", () => {
 test("an empty output summarises to an empty string", () => {
   assert.equal(summarizeOutput("  \n"), "");
 });
+
+test("a piped run that printed failures is recorded as failing even though the pipeline exited 0", () => {
+  const text = "# pass 3\n# fail 2\n";
+  assert.equal(exitCodeOf({ isError: false, text, command: "npm test 2>&1 | tail -30" }), 1);
+  assert.equal(
+    exitCodeOf({
+      isError: false,
+      text: "test result: FAILED. 1 failed",
+      command: "cargo test || true",
+    }),
+    1,
+  );
+  assert.equal(exitCodeOf({ isError: false, text: "2 failed", command: "npm test; echo done" }), 1);
+});
+
+test("a piped run with no failure markers stays green and an unpiped zero exit is trusted", () => {
+  assert.equal(
+    exitCodeOf({ isError: false, text: "# pass 3\n# fail 0\n", command: "npm test | tail" }),
+    0,
+  );
+  assert.equal(exitCodeOf({ isError: false, text: "# fail 2", command: "npm test" }), 0);
+});

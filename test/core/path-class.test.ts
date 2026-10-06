@@ -33,6 +33,9 @@ const cases: ReadonlyArray<readonly [string, PathClass]> = [
   ["src/__generated__/types.ts", "generated"],
   ["app.min.js", "generated"],
   ["pb/user.pb.go", "generated"],
+  ["src/build/index.ts", "source"],
+  ["src/vendor/x.ts", "source"],
+  ["build/out.js", "generated"],
   ["assets/logo.png", "other"],
   ["notes.xyz", "other"],
 ];
