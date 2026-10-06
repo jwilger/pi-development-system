@@ -1,0 +1,101 @@
+{
+  "questionHash": "308916daf547c526",
+  "cases": [
+    {
+      "state": {
+        "command": "git push --force origin main"
+      },
+      "expected": "force-push"
+    },
+    {
+      "state": {
+        "command": "git push origin +main"
+      },
+      "expected": "force-push"
+    },
+    {
+      "state": {
+        "command": "sudo -E git push -f"
+      },
+      "expected": "force-push"
+    },
+    {
+      "state": {
+        "command": "git push origin --delete feature"
+      },
+      "expected": "branch-delete-remote"
+    },
+    {
+      "state": {
+        "command": "git push origin :old-branch"
+      },
+      "expected": "branch-delete-remote"
+    },
+    {
+      "state": {
+        "command": "git commit --amend -m 'x'"
+      },
+      "expected": "history-rewrite"
+    },
+    {
+      "state": {
+        "command": "git rebase -i HEAD~5"
+      },
+      "expected": "history-rewrite"
+    },
+    {
+      "state": {
+        "command": "git reset --hard HEAD~3"
+      },
+      "expected": "destructive-reset"
+    },
+    {
+      "state": {
+        "command": "git clean -fdx"
+      },
+      "expected": "destructive-reset"
+    },
+    {
+      "state": {
+        "command": "git commit --no-verify -m 'wip'"
+      },
+      "expected": "no-verify"
+    },
+    {
+      "state": {
+        "command": "LEFTHOOK=0 git commit -m 'wip'"
+      },
+      "expected": "no-verify"
+    },
+    {
+      "state": {
+        "command": "git status"
+      },
+      "expected": "ordinary"
+    },
+    {
+      "state": {
+        "command": "git log --oneline -n 10"
+      },
+      "expected": "ordinary"
+    },
+    {
+      "state": {
+        "command": "git push origin main"
+      },
+      "expected": "ordinary"
+    },
+    {
+      "state": {
+        "command": "echo 'remember not to git push --force'"
+      },
+      "expected": "ordinary"
+    },
+    {
+      "state": {
+        "command": "npm test && git add -A"
+      },
+      "expected": "ordinary"
+    }
+  ]
+}
