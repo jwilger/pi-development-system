@@ -1,16 +1,27 @@
 {
-  "name": "pi-development-system",
+  "name": "@jwilger/pi-development-system",
   "version": "0.0.0",
   "description": "A pi extension package representing a seasoned approach to software development using a full AI SDLC.",
-  "keywords": ["pi-package"],
+  "keywords": [
+    "pi-package"
+  ],
   "author": "John Wilger",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jwilger/pi-development-system.git"
   },
   "type": "module",
-  "files": ["extensions", "skills", "prompts", "themes"],
+  "files": [
+    "extensions",
+    "skills",
+    "prompts",
+    "themes"
+  ],
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   }
 }
