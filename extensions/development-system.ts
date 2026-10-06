@@ -10,7 +10,7 @@ const nonNegotiables = readFileSync(
 );
 
 /** Composition root: wires modules, holds no logic. */
-export default function developmentSystem(pi: ExtensionAPI): void {
+export function createDevelopmentSystem(pi: ExtensionAPI) {
   const state = createSessionState(pi);
 
   let lastCtx: ExtensionContext | undefined;
@@ -43,4 +43,10 @@ export default function developmentSystem(pi: ExtensionAPI): void {
       ctx.ui.notify(renderStatus(state.get()), "info");
     },
   });
+
+  return { state };
+}
+
+export default function developmentSystem(pi: ExtensionAPI): void {
+  createDevelopmentSystem(pi);
 }

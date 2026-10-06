@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import developmentSystem from "../extensions/development-system.ts";
+import developmentSystem, { createDevelopmentSystem } from "../extensions/development-system.ts";
 import { createFakePi } from "./harness/fake-pi.ts";
 
 test("loading registers devsys-status and the session_start/before_agent_start handlers", () => {
@@ -41,19 +41,11 @@ test("/devsys-status notifies with the status report", async () => {
   assert.match(String(call?.args[0]), /phase: idle/);
 });
 
-test("a state change refreshes the status line using the last seen context", async () => {
+test("a state update refreshes the status line using the last seen context", async () => {
   const fake = createFakePi();
-  developmentSystem(fake.api);
+  const { state } = createDevelopmentSystem(fake.api);
   await fake.emit({ type: "session_start", reason: "startup" });
-  const toolEntries = fake.handlers.get("session_start") ?? [];
-  assert.ok(toolEntries.length > 0);
-  // simulate another module updating state through a persisted entry + new session_start
-  fake.api.appendEntry("devsys-state", {
-    phase: "planning",
-    jev: "online",
-    openDepartures: [],
-  });
-  await fake.emit({ type: "session_start", reason: "reload" });
+  state.update((s) => ({ ...s, phase: "planning", jev: "online" }));
   const statuses = fake.ui.calls.filter((c) => c.kind === "setStatus").map((c) => c.args[1]);
   assert.equal(statuses.at(-1), "devsys: planning · jev online");
 });
