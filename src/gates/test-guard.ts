@@ -70,6 +70,35 @@ const RISKY_ADDITION = /\/\*|<!--|=begin\b|"""|'''|\breturn\b|\bthrow\b|\bexit\b
 
 const GLOB = /[*?[\]{]/;
 
+const NO_SIGNALS: WeakeningSignals = { addsSkip: false, emptied: false, commentedOut: false };
+
+/** Adding lines never weakens a test unless an added line itself disables something. */
+const isHarmlessAddition = (before: string, after: string, signals: WeakeningSignals): boolean =>
+  !signals.addsSkip &&
+  !signals.commentedOut &&
+  isPureAddition(before, after) &&
+  !addedLines(before, after).some((line) => RISKY_ADDITION.test(line));
+
+/** Jev's reading of a change, or `undefined` when it sees nothing to act on. */
+function jevVerdict(
+  judged: { weakens: number; motive: string },
+  deterministicSignal: boolean,
+): Verdict | undefined {
+  const weakening = judged.weakens >= WEAKENS_THRESHOLD;
+  if ((weakening || deterministicSignal) && judged.motive === "gate-gaming") {
+    return {
+      kind: "hard-stop",
+      why: "Jev reads this change as weakening a check to get a green result",
+    };
+  }
+  return weakening
+    ? {
+        kind: "require-departure",
+        why: `Jev reads this change as weakening the tests (motive: ${judged.motive})`,
+      }
+    : undefined;
+}
+
 /**
  * Soft gate `tests.weaken`: deleting, skipping, emptying or loosening tests needs a recorded
  * departure; a change Jev reads as gaming a failing gate escalates to a hard stop.
@@ -106,41 +135,16 @@ export function registerTestGuard(deps: TestGuardDeps): void {
   const judge = async (change: Change, ctx: ExtensionContext): Promise<Verdict> => {
     const deleted = change.after === undefined && change.rewritten === undefined;
     const after = change.after ?? change.rewritten ?? "";
-    const signals = deleted
-      ? { addsSkip: false, emptied: false, commentedOut: false }
-      : weakeningSignals(change.before, after);
-    // Adding lines never weakens a test unless the added line itself is a skip marker.
-    if (
-      !deleted &&
-      !signals.addsSkip &&
-      !signals.commentedOut &&
-      isPureAddition(change.before, after) &&
-      !addedLines(change.before, after).some((line) => RISKY_ADDITION.test(line))
-    ) {
-      return { kind: "allow" };
-    }
+    const signals = deleted ? NO_SIGNALS : weakeningSignals(change.before, after);
+    if (!deleted && isHarmlessAddition(change.before, after, signals)) return { kind: "allow" };
     const deterministic = describeSignals(deleted, signals);
     const judged = await judgeTestChange(deps.jev(ctx), {
       path: change.path,
       before: change.before,
       after: after === "" ? undefined : redactSecrets(after),
     });
-    if (judged.ok) {
-      const { weakens, motive } = judged.value;
-      const weakening = weakens >= WEAKENS_THRESHOLD || deterministic !== undefined;
-      if (weakening && motive === "gate-gaming") {
-        return {
-          kind: "hard-stop",
-          why: "Jev reads this change as weakening a check to get a green result",
-        };
-      }
-      if (weakens >= WEAKENS_THRESHOLD) {
-        return {
-          kind: "require-departure",
-          why: `Jev reads this change as weakening the tests (motive: ${motive})`,
-        };
-      }
-    }
+    const fromJev = judged.ok ? jevVerdict(judged.value, deterministic !== undefined) : undefined;
+    if (fromJev !== undefined) return fromJev;
     return deterministic !== undefined
       ? { kind: "require-departure", why: `this change ${deterministic}` }
       : { kind: "allow" };
