@@ -129,3 +129,7 @@ Nits and deferred items from reviews (append only).
 - ~25 levels of `$(` nesting overflow the stack in `resolveGit`; add a depth cap.
 - `segments()` pops a real digit before `>` (`git log -n 5 > out`); no effect on commit/push detection.
 - `findForbiddenTrailerKeys` signed-off-by branch scans the rest of the line (`ai-branch` can match).
+
+## CI version gate flake on 1aa1d6f (I3)
+
+The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patch bump of 1aa1d6f (a small fix across code, skill and docs) although the local hook accepted it at 0.88. The change is a patch; the next commit on trunk carries the publish. Consider making the local hook and CI agree on the diff Jev sees.
