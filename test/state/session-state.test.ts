@@ -49,3 +49,42 @@ test("onChange listeners run after every update", () => {
   store.update((s) => ({ ...s, phase: "reviewing" }));
   assert.deepEqual(seen, ["planning", "reviewing"]);
 });
+
+const validDeparture = {
+  id: "d1",
+  gate: "tdd.red-first",
+  tier: "soft",
+  default: "d",
+  chosen: "c",
+  why: "w",
+  costIfWrong: "x",
+  approver: "agent",
+  scope: { kind: "session" },
+  recordedAt: "2026-10-06T00:00:00Z",
+};
+
+test("parseDevsysState rejects departures missing required fields", () => {
+  const base = { phase: "idle", jev: "online" };
+  assert.equal(isParseError(parseDevsysState({ ...base, openDepartures: [{}] })), true);
+  assert.equal(
+    isParseError(
+      parseDevsysState({ ...base, openDepartures: [{ ...validDeparture, scope: { kind: "x" } }] }),
+    ),
+    true,
+  );
+  assert.equal(
+    isParseError(
+      parseDevsysState({ ...base, openDepartures: [{ ...validDeparture, tier: "advisory" }] }),
+    ),
+    true,
+  );
+});
+
+test("parseDevsysState accepts a complete departure", () => {
+  const parsed = parseDevsysState({
+    phase: "idle",
+    jev: "online",
+    openDepartures: [validDeparture],
+  });
+  assert.equal(isParseError(parsed), false);
+});
