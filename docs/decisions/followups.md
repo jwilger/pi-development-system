@@ -55,3 +55,12 @@ Nits and deferred items from reviews (append only).
 - `echo a#b; rm …` (shell-quote reads `a#b` as a comment) and `pushd` are not tracked.
 - `rm -rf tests/tmp/*` and `: > tests/__init__.py` are read as test deletions (Jev cannot clear them; a departure can).
 - `judgeShellIntent` sends the full command to Jev unclipped.
+
+## From I2 review round 8 (clean; nits, unscheduled)
+
+- `findTargets`: exclusion predicates (`! -path`, `-not -path`, `-prune`) are collected as deletion targets.
+- `echo -n > f` and `cat /dev/null > f` empty a test file but are classed `overwrite` (Jev-only).
+- `splitLines` (test-weakening): apostrophe in an unquoted heredoc body desyncs quote tracking; reuse `heredocDelimiter`.
+- `git-intent` `substitutions` recursion is ~2^depth for nested `$(`; cap depth and treat deeper as `unknown`.
+- `registerGitGuard` doc says absent `jev` = deterministic only, but `unknown` still confirms/blocks with a "Jev not confident" message.
+- Skip markers: `it.todo`, RSpec `pending(`, `pytest.importorskip(`, `raise unittest.SkipTest`; unmatched-edit `addsSkip` compares only against whole-file count.
