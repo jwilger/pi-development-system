@@ -104,3 +104,10 @@ test("compile-only and listing runs are not test runs", () => {
   assert.equal(isTestRunnerCommand("cargo test --no-run"), false);
   assert.equal(isTestRunnerCommand("cargo test"), true);
 });
+
+test("a structured exit_code of 0 from a piped run does not hide failure output", () => {
+  const text = "ℹ fail 1\n✖ failing tests:";
+  const structured = { exit_code: 0 };
+  assert.equal(exitCodeOf({ isError: false, text, structured, command: "npm test | tail -5" }), 1);
+  assert.equal(exitCodeOf({ isError: false, text, structured, command: "npm test" }), 0);
+});

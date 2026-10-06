@@ -147,3 +147,9 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 - `TOOL_CONFIG` classes any `*.config.ts` (even `src/app.config.ts`) as config; `*.test-d.ts` and `test-utils/**` are source; `.vue/.svelte/.astro` fall into `other` (never guarded).
 - `parseProfileList`: an unknown persisted profile name rejects the whole state (matters on version rollback).
 - Whole-file write exemption in `red-first-guard` counts markers only, so moving an existing test marker while editing production code passes.
+
+## From I4 review round 4 (nits; unscheduled)
+
+- A once-scoped departure is consumed by the first guard that allows an edit even if a later guard blocks it (same class as I3 round 7).
+- `tdd.red-first` is dormant in real sessions until I8.3 (`/devsys-start`) sets phase `implementing`; mention in release notes.
+- `conftest.py` and `__mocks__/*` classify as source.

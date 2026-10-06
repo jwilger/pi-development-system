@@ -68,15 +68,20 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
 
 /** Exit code of a bash tool result: structured `exit_code`, else pi's status line, else error/not. */
 export function exitCodeOf(result: ResultLike): number {
+  const reported = reportedExit(result);
+  if (reported !== 0) return reported;
+  // `npm test | tail` exits 0 whatever the tests did, even in the structured status; trust the output.
+  const masked = result.command !== undefined && MASKS_STATUS.test(result.command);
+  return masked && FAILURE_MARKERS.test(result.text) ? 1 : 0;
+}
+
+function reportedExit(result: ResultLike): number {
   if (isRecord(result.structured) && typeof result.structured.exit_code === "number") {
     return result.structured.exit_code;
   }
   const line = /Command exited with code (\d+)\s*$/.exec(result.text);
   if (line?.[1] !== undefined) return Number(line[1]);
-  if (result.isError) return 1;
-  // `npm test | tail` exits 0 whatever the tests did; trust the output over the masked status.
-  const masked = result.command !== undefined && MASKS_STATUS.test(result.command);
-  return masked && FAILURE_MARKERS.test(result.text) ? 1 : 0;
+  return result.isError ? 1 : 0;
 }
 
 /** The last few non-empty output lines, redacted and bounded: what the runner said at the end. */
