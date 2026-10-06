@@ -1,0 +1,16 @@
+version = 1
+
+[delivery]
+mode = "trunk"
+
+[models]
+frontier    = ["openai-codex/gpt-*-astra", "openai/gpt-*-astra", "anthropic/claude-fable-*", "anthropic/claude-opus-*", "openai-codex/gpt-*-sol", "openai/gpt-*-sol"]
+strong      = ["openai-codex/gpt-*-sol", "openai/gpt-*-sol", "anthropic/claude-sonnet-*", "anthropic/claude-opus-*", "openai-codex/gpt-*-terra", "openai/gpt-*-terra"]
+fast        = ["openai-codex/gpt-*-luna", "openai/gpt-*-luna", "anthropic/claude-haiku-*", "openai-codex/gpt-*-terra", "openai/gpt-*-terra", "@strong"]
+planning    = ["@frontier"]
+advisor     = ["@frontier"]
+implementer = ["@strong"]
+reviewer    = ["anthropic/claude-opus-*", "anthropic/claude-sonnet-*", "openai-codex/gpt-*-sol", "openai/gpt-*-sol", "@strong"]
+lens        = ["@strong"]
+researcher  = ["@fast"]
+jev         = ["typesafe/jev-latest", "openrouter/typesafe/jev-latest", "opencode/jev-1.13", "cloudflare-workers-ai/typesafe/jev", "vercel-ai-gateway/typesafe-ai/jev"]

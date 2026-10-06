@@ -203,3 +203,19 @@ export function renderMatrixToml(matrix: ModelMatrix): string {
   );
   return `[models]\n${lines.join("\n")}\n`;
 }
+
+/** `text` with its `[models]` table replaced by `matrix` (appended when absent); other tables untouched. */
+export function upsertModelsTable(text: string, matrix: ModelMatrix): string {
+  const table = renderMatrixToml(matrix);
+  const lines = text.split("\n");
+  const start = lines.findIndex((l) => l.trim() === "[models]");
+  if (start === -1) {
+    const body = text.trimEnd();
+    return body === "" ? table : `${body}\n\n${table}`;
+  }
+  const nextHeader = lines.findIndex((l, i) => i > start && l.startsWith("["));
+  const head = lines.slice(0, start).join("\n");
+  const tail = nextHeader === -1 ? "" : lines.slice(nextHeader).join("\n");
+  const before = head === "" ? "" : `${head}\n`;
+  return tail === "" ? `${before}${table}` : `${before}${table}\n${tail}`;
+}

@@ -25,6 +25,8 @@ export type FakePiOptions = {
   cwd?: string;
   /** `provider/id` classifier models that exist and have configured auth. */
   classifiers?: string[];
+  /** Chat models available with credentials, as `provider/id` (optionally with a price). */
+  models?: { id: string; cost?: { input: number; output: number } }[];
 };
 
 /**
@@ -59,6 +61,16 @@ export function createFakePi(init: FakePiOptions = {}) {
           ? { provider, id, type: "classifier" }
           : undefined,
       hasConfiguredAuth: () => true,
+      getAvailable: () =>
+        (init.models ?? []).map((m) => {
+          const at = m.id.indexOf("/");
+          return { provider: m.id.slice(0, at), id: m.id.slice(at + 1), cost: m.cost };
+        }),
+      getModelsOfType: () =>
+        (init.classifiers ?? []).map((c) => {
+          const at = c.indexOf("/");
+          return { provider: c.slice(0, at), id: c.slice(at + 1) };
+        }),
       classify: async () => {
         throw new Error("fake registry: classify not configured");
       },

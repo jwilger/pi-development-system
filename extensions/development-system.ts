@@ -9,6 +9,7 @@ import { createRecordDepartureTool } from "../src/gates/record-departure-tool.ts
 import { createRequestApprovalTool } from "../src/gates/request-approval-tool.ts";
 import { registerTestGuard } from "../src/gates/test-guard.ts";
 import { createJevHolder } from "../src/jev/holder.ts";
+import { createModelsTool, registerModelsCommand } from "../src/state/models-command.ts";
 import { createSessionState } from "../src/state/session-state.ts";
 
 const nonNegotiables = readFileSync(
@@ -60,6 +61,8 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   registerTestGuard({ pi, state, approvals, jev: (ctx) => jevHolder.forContext(ctx) });
   pi.registerTool(createRecordDepartureTool({ pi, state }));
   pi.registerTool(createRequestApprovalTool({ pi, approvals }));
+  pi.registerTool(createModelsTool());
+  registerModelsCommand(pi);
 
   pi.registerCommand("devsys-status", {
     description: "Show development-system phase, sizing, slice, departures and Jev status",
