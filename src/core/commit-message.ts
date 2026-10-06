@@ -93,13 +93,36 @@ export function findForbiddenTrailers(
     });
 }
 
+const AI_TRAILER_ANYWHERE = /(?:co-authored-by|generated-by)\s*[:=]/gi;
+
+/** AI-attribution trailer keys anywhere in free text (command lines, quoted strings, printf bodies). */
+export function findForbiddenTrailerKeys(text: string): string[] {
+  return [...text.matchAll(AI_TRAILER_ANYWHERE)].map((m) => m[0].trim());
+}
+
 const isBullets = (paragraph: string): boolean =>
   paragraph.split("\n").every((line) => /^\s*(?:[-*+]|\d+[.)])\s/.test(line));
 
 const wordCount = (text: string): number => text.split(/\s+/).filter((w) => w !== "").length;
 
+const PROSE_TRAILER_WORDS = 5;
+
+/** A trailer-shaped line whose value is a sentence ("Reason: the cache was stale…") is prose. */
+const isProseTrailer = (line: string): boolean => {
+  const m = TRAILER.exec(line.trim());
+  return m !== null && m[1] !== "BREAKING CHANGE" && wordCount(m[2] ?? "") >= PROSE_TRAILER_WORDS;
+};
+
 /** A body needs at least one prose paragraph (not a file list) that says more than a few words. */
 export function hasRationaleBody(message: string): boolean {
-  const { body } = split(message);
-  return body.some((paragraph) => !isBullets(paragraph) && wordCount(paragraph) >= 5);
+  const { body, trailers } = split(message);
+  const trailerBlockLines =
+    withoutComments(message)
+      .split(/\n\s*\n/)
+      .at(-1)
+      ?.split("\n") ?? [];
+  const proseTrailer = trailers.length > 0 && trailerBlockLines.some(isProseTrailer);
+  return (
+    proseTrailer || body.some((paragraph) => !isBullets(paragraph) && wordCount(paragraph) >= 5)
+  );
 }

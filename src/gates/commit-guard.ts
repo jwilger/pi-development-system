@@ -1,12 +1,13 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   type ExtensionAPI,
   type ExtensionContext,
   isToolCallEventType,
 } from "@earendil-works/pi-coding-agent";
-import { type CommitExtraction, extractCommit } from "../core/commit-command.ts";
+import { type CommitExtraction, extractCommits } from "../core/commit-command.ts";
 import {
+  findForbiddenTrailerKeys,
   findForbiddenTrailers,
   hasRationaleBody,
   parseConventionalCommit,
@@ -38,7 +39,9 @@ const MIXED = gateId("commit.mixed-change");
 
 const readMessageFile = (cwd: string, path: string): string | undefined => {
   try {
-    return readFileSync(resolve(cwd, path), "utf8");
+    const file = resolve(cwd, path);
+    if (!statSync(file).isFile()) return undefined; // never read a FIFO or device (it can block)
+    return readFileSync(file, "utf8");
   } catch {
     return undefined;
   }
@@ -108,34 +111,52 @@ const blockReason = (need: Need): string =>
   `departing is deliberate call devsys_record_departure with gate "${need.gate}", what you are doing ` +
   "instead, why, and the cost if wrong; then retry.";
 
+const forbiddenReason = (found: readonly string[]): string =>
+  `commit.forbidden-trailer: this commit carries an AI attribution (${found.join("; ")}). ` +
+  "Commits in this repository have no Co-Authored-By or generated-by trailers and this is not " +
+  "something to depart from. Remove the trailer and commit again.";
+
+/** AI trailers in any message, --trailer value, or the command text itself (heredocs, printf, echo). */
+function forbiddenIn(
+  command: string,
+  extractions: readonly CommitExtraction[],
+  messages: readonly (string | undefined)[],
+): string[] {
+  const trailers = extractions.flatMap((e) => (e.kind === "unknown" ? e.trailers : []));
+  const text = [...messages, ...trailers].join("\n");
+  return [...findForbiddenTrailers(text), ...findForbiddenTrailerKeys(command)];
+}
+
+async function needsOf(
+  deps: CommitGuardDeps,
+  ctx: ExtensionContext,
+  message: string,
+): Promise<Need[]> {
+  const needs = messageNeeds(message);
+  const bodyPresent = !needs.some((n) => n.why.startsWith("the message has no body"));
+  const viaJev = await jevNeeds(deps, ctx, message, bodyPresent);
+  return [...needs, ...viaJev.filter((n) => !needs.some((m) => m.gate === n.gate))];
+}
+
 /** Soft gates on `git commit`: rationale, Conventional shape, structural/behavioural separation; AI trailers are refused. */
 export function registerCommitGuard(deps: CommitGuardDeps): void {
   deps.pi.on("tool_call", async (event, ctx) => {
     if (!isToolCallEventType("bash", event)) return undefined;
     const command = event.input.command;
-    const extracted = extractCommit(command);
-    if (extracted.kind === "not-commit") return undefined;
-    const message = messageOf(extracted, ctx.cwd);
+    const extractions = extractCommits(command);
+    if (extractions.length === 0) return undefined;
+    const messages = extractions.map((e) => messageOf(e, ctx.cwd));
 
-    // Safety net: whatever the message source, the command text itself must not carry an AI trailer
-    // (heredocs written to a file first, --trailer values on amends, messages built elsewhere).
-    const trailers = extracted.kind === "unknown" ? extracted.trailers.join("\n") : "";
-    const forbidden = findForbiddenTrailers(`${message ?? ""}\n${trailers}\n${command}`);
-    if (forbidden.length > 0) {
-      return {
-        block: true,
-        reason:
-          `commit.forbidden-trailer: this message carries an AI attribution (${forbidden.join("; ")}). ` +
-          "Commits in this repository have no Co-Authored-By or generated-by trailers and this is not " +
-          "something to depart from. Remove the trailer and commit again.",
-      };
+    const forbidden = forbiddenIn(command, extractions, messages);
+    if (forbidden.length > 0) return { block: true, reason: forbiddenReason(forbidden) };
+
+    const known = messages.flatMap((m) => (m === undefined ? [] : [m]));
+    const all: Need[] = [];
+    for (const message of known) {
+      for (const need of await needsOf(deps, ctx, message)) {
+        if (!all.some((n) => n.gate === need.gate)) all.push(need);
+      }
     }
-    if (message === undefined) return undefined;
-
-    const needs = messageNeeds(message);
-    const bodyPresent = !needs.some((n) => n.why.startsWith("the message has no body"));
-    const viaJev = await jevNeeds(deps, ctx, message, bodyPresent);
-    const all = [...needs, ...viaJev.filter((n) => !needs.some((m) => m.gate === n.gate))];
     const uses = all.map((need) => ({ need, use: departureUse(deps.state, need.gate) }));
     const uncovered = uses.find(({ use }) => !use.hasOpen());
     if (uncovered !== undefined) return { block: true, reason: blockReason(uncovered.need) };

@@ -74,3 +74,14 @@ test("dynamic or glob destinations may be any branch", () => {
 test("--repo=value is not a branch", () => {
   assert.deepEqual(pushTargets("git push --repo=origin main").at(0)?.branches, ["main"]);
 });
+
+test("--config-env is a global option with a value", () => {
+  assert.equal(pushTargets("git --config-env user.name=HOME push origin main").length, 1);
+});
+
+test("heads/main names the main branch; cd and -C record where the push runs", () => {
+  assert.deepEqual(pushTargets("git push origin HEAD:heads/main").at(0)?.branches, ["main"]);
+  assert.equal(pushTargets("git -C ../wt push").at(0)?.dir, "../wt");
+  assert.equal(pushTargets("cd ../wt && git push").at(0)?.dir, "../wt");
+  assert.equal(pushTargets("git push").at(0)?.dir, undefined);
+});

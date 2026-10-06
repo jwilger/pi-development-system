@@ -33,6 +33,7 @@ type World = {
   lastCommit?: string;
   hasUI?: boolean;
   jev?: Jev;
+  noFailureLog?: boolean;
 };
 
 const setup = (world: World = {}) => {
@@ -55,9 +56,13 @@ const setup = (world: World = {}) => {
             status: ci === "in_progress" ? "in_progress" : "completed",
             conclusion: ci === "in_progress" ? "" : ci,
             headSha: "abcdef1234",
+            databaseId: 99,
           },
         ]),
       );
+    }
+    if (line.startsWith("gh run view") && world.noFailureLog) {
+      return { code: 1, stdout: "", stderr: "no log" };
     }
     if (line.startsWith("gh run view")) return out("FAIL src/a.test.ts: expected 1 got 2");
     if (line.startsWith("git rev-parse")) return out(`${world.branch ?? "main"}\n`);
@@ -189,4 +194,15 @@ test("a successful push records lastPushAt; a failed push or a non-push does not
   assert.equal(state.get().lastPushAt, undefined);
   await result("git push origin main", false);
   assert.equal(state.get().lastPushAt, "2026-10-06T17:12:00.000Z");
+});
+
+test("a fix commit is not exempt when there is no failure log to compare against", async () => {
+  const w = setup({
+    ci: "failure",
+    lastCommit: "fix(ci): repair",
+    jev: jevRelated(0.95),
+    noFailureLog: true,
+  });
+  const result = await w.push("git push origin main");
+  assert.equal(result?.block, true);
 });

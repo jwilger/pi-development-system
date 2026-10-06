@@ -71,3 +71,12 @@ Nits and deferred items from reviews (append only).
 - `config.jev.*` and `models.jev` are parsed and validated but not yet used by `createJevHolder` (still `DEFAULT_JEV_CANDIDATES`, 15 s).
 - While the run for a fix push is pending, any other push is allowed (status `pending` is not red); non-negotiable 4 is only enforced once CI reports red.
 - `git -C ../x push` evaluates the current branch in the guard's cwd, not `../x`.
+
+## From I3 review round 2 (unscheduled)
+
+- `src/core/push-command.ts`: redirect operands (`2>&1`) become positionals; harmless today.
+- `src/core/models.ts`: four-digit MMDD snapshot suffixes (`gpt-3.5-turbo-0125`) rank as versions.
+- `upsertModelsTable` drops comments between `[models]` and the next header.
+- `loadConfig(ctx.cwd)` ignores a repo-root policy when pi starts in a subdirectory.
+- Commit guard's Jev diff is `git diff HEAD`; unstaged files in `git add -A && git commit` are not seen.
+- "If an hour passes without a push" is in the skill but nothing reads `lastPushAt` yet (I7 cadence).

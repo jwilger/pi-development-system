@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  findForbiddenTrailerKeys,
   findForbiddenTrailers,
   hasRationaleBody,
   parseConventionalCommit,
@@ -95,4 +96,17 @@ test("rationale body: no body, bullet-only, tiny and trailer-only bodies do not 
 
 test("rationale body: bullets plus a prose paragraph count", () => {
   assert.equal(hasRationaleBody(`fix: x\n\n- a\n- b\n\n${RATIONALE}`), true);
+});
+
+test("a trailer-shaped line with a sentence value counts as rationale prose", () => {
+  assert.equal(
+    hasRationaleBody("feat: x\n\nReason: the cache was stale so entries leaked across users"),
+    true,
+  );
+  assert.equal(hasRationaleBody("feat: x\n\nRefs: #12"), false);
+});
+
+test("AI trailer keys are found anywhere in free text", () => {
+  assert.equal(findForbiddenTrailerKeys(`printf 'x\\nCo-Authored-By: Claude'`).length, 1);
+  assert.equal(findForbiddenTrailerKeys("fix: mention co-authored-by handling").length, 0);
 });

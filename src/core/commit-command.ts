@@ -10,14 +10,16 @@ const HEREDOC =
   /<<-?[ \t]*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1[^\n]*\n([\s\S]*?)\n[ \t]*\2[ \t]*(?:\n|$)/g;
 
 /** Heredoc bodies are data: take them out so their quotes cannot confuse line splitting. */
-function stripHeredocs(command: string): { rest: string; bodies: string[] } {
-  const bodies: string[] = [];
-  const rest = command.replace(HEREDOC, (_all, _quote, _tag, body: string) => {
-    bodies.push(body);
+function stripHeredocs(command: string): { rest: string; bodies: Heredoc[] } {
+  const bodies: Heredoc[] = [];
+  const rest = command.replace(HEREDOC, (...m: unknown[]) => {
+    bodies.push({ body: String(m[3]), at: Number(m[m.length - 2]) });
     return "\n";
   });
   return { rest, bodies };
 }
+
+type Heredoc = { readonly body: string; readonly at: number };
 
 type Options = {
   messages: string[];
@@ -39,12 +41,26 @@ const LONG: ReadonlyArray<readonly [string, Parsed["kind"]]> = [
   ["--trailer", "trailer"],
 ];
 
+/** The option a `--name`/`--na=value` spelling means; git accepts any unambiguous prefix (3+ chars). */
+function longOption(arg: string): { kind: Parsed["kind"]; inline: string | undefined } | undefined {
+  if (!arg.startsWith("--")) return undefined;
+  const eq = arg.indexOf("=");
+  const name = eq < 0 ? arg : arg.slice(0, eq);
+  if (name.length < 5) return undefined;
+  const hit = LONG.find(([long]) => long.startsWith(name));
+  return hit === undefined
+    ? undefined
+    : { kind: hit[1], inline: eq < 0 ? undefined : arg.slice(eq + 1) };
+}
+
 /** Reads the message/file/trailer option starting at args[i], in any of its spellings. */
 function parseArg(args: readonly string[], i: number): Parsed | undefined {
   const a = args[i] ?? "";
-  for (const [name, kind] of LONG) {
-    if (a === name) return { kind, value: args[i + 1], next: i + 2 };
-    if (a.startsWith(`${name}=`)) return { kind, value: a.slice(name.length + 1), next: i + 1 };
+  const long = longOption(a);
+  if (long !== undefined) {
+    return long.inline === undefined
+      ? { kind: long.kind, value: args[i + 1], next: i + 2 }
+      : { kind: long.kind, value: long.inline, next: i + 1 };
   }
   if (a === "-F") return { kind: "file", value: args[i + 1], next: i + 2 };
   if (/^-F./.test(a)) return { kind: "file", value: a.slice(2), next: i + 1 };
@@ -75,24 +91,44 @@ const unknown = (trailers: readonly string[] = []): CommitExtraction => ({
   trailers,
 });
 
-/** The commit message a `git commit` shell command will use, or why it cannot be known. */
-export function extractCommit(command: string): CommitExtraction {
-  const { rest, bodies } = stripHeredocs(command);
-  const heredoc = bodies[0]?.trim();
-  const resolution = resolveGit(rest);
-  const commit = resolution.invocations.find((g) => g.sub === "commit");
-  if (commit === undefined) {
-    return resolution.opaque && /\bcommit\b/.test(command) ? unknown() : { kind: "not-commit" };
-  }
-  const options = readOptions(commit.args);
-  if (options.file === "-" && heredoc !== undefined) return { kind: "message", message: heredoc };
-  if (options.file !== undefined) return { kind: "file", path: options.file };
-  if (options.opaque) {
+const STDIN_PATHS = new Set(["-", "/dev/stdin", "/proc/self/fd/0"]);
+
+/** The heredoc that is this commit's input: the first one written after the word `commit`. */
+const heredocFor = (command: string, bodies: readonly Heredoc[]): string | undefined => {
+  const from = command.search(/\bcommit\b/);
+  return bodies.find((h) => h.at >= from)?.body.trim();
+};
+
+function extractOne(args: readonly string[], heredoc: string | undefined): CommitExtraction {
+  const options = readOptions(args);
+  if (options.file !== undefined && STDIN_PATHS.has(options.file)) {
     return heredoc === undefined
       ? unknown(options.trailers)
       : { kind: "message", message: heredoc };
   }
-  if (options.messages.length === 0) return unknown(options.trailers);
+  if (options.file !== undefined) return { kind: "file", path: options.file };
+  const parts = [...options.messages];
+  if (options.opaque) {
+    if (heredoc === undefined) return unknown(options.trailers);
+    parts.push(heredoc);
+  }
+  if (parts.length === 0) return unknown(options.trailers);
   const trailers = options.trailers.length === 0 ? "" : `\n\n${options.trailers.join("\n")}`;
-  return { kind: "message", message: `${options.messages.join("\n\n")}${trailers}` };
+  return { kind: "message", message: `${parts.join("\n\n")}${trailers}` };
+}
+
+/** One extraction per `git commit` in the command (empty when it commits nothing). */
+export function extractCommits(command: string): CommitExtraction[] {
+  const { rest, bodies } = stripHeredocs(command);
+  const resolution = resolveGit(rest);
+  const heredoc = heredocFor(command, bodies);
+  const commits = resolution.invocations.filter((g) => g.sub === "commit");
+  const found = commits.map((g) => extractOne(g.args, heredoc));
+  const hidden = resolution.opaque && /\bcommit\b/.test(command);
+  return hidden ? [...found, unknown()] : found;
+}
+
+/** The first commit a shell command makes: its message, or why it cannot be known. */
+export function extractCommit(command: string): CommitExtraction {
+  return extractCommits(command)[0] ?? { kind: "not-commit" };
 }

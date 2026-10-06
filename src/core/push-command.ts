@@ -5,6 +5,8 @@ export type PushTarget = {
   /** Destination branch names named by refspecs; empty means "the current branch's default". */
   readonly branches: readonly string[];
   readonly allBranches: boolean;
+  /** Where the push runs when `cd`/`git -C` moved it away from the session's directory. */
+  readonly dir?: string | undefined;
 };
 
 const VALUE_OPTIONS = new Set(["--repo", "-o", "--push-option", "--receive-pack", "--exec"]);
@@ -12,7 +14,7 @@ const isDynamic = (refspec: string): boolean => /[$`*?[]/.test(refspec);
 
 const destination = (refspec: string): string => {
   const dst = refspec.includes(":") ? refspec.slice(refspec.lastIndexOf(":") + 1) : refspec;
-  return dst.replace(/^\+/, "").replace(/^refs\/heads\//, "");
+  return dst.replace(/^\+/, "").replace(/^(?:refs\/)?heads\//, "");
 };
 
 type ParsedArgs = { positional: string[]; all: boolean; repo: string | undefined };
@@ -34,7 +36,7 @@ function positionalArgs(args: readonly string[]): ParsedArgs {
   return parsed;
 }
 
-const toTarget = (args: readonly string[]): PushTarget => {
+const toTarget = (args: readonly string[], dir: string | undefined): PushTarget => {
   const { positional, all, repo } = positionalArgs(args);
   // With --repo, every positional argument is a refspec.
   const [remote, ...refspecs] = repo === undefined ? positional : [repo, ...positional];
@@ -44,6 +46,7 @@ const toTarget = (args: readonly string[]): PushTarget => {
     remote,
     branches: destinations.filter(named),
     allBranches: all || destinations.some(isDynamic),
+    ...(dir === undefined ? {} : { dir }),
   };
 };
 
@@ -51,7 +54,7 @@ const toTarget = (args: readonly string[]): PushTarget => {
 export function pushTargets(command: string): PushTarget[] {
   const resolution = resolveGit(command);
   const targets = resolution.invocations.flatMap((g) =>
-    g.sub === "push" ? [toTarget(g.args)] : [],
+    g.sub === "push" ? [toTarget(g.args, g.dir)] : [],
   );
   // git run through something opaque (xargs, `$CMD`): a push cannot be ruled out, so assume the worst.
   const opaquePush = resolution.opaque && /\bpush\b/.test(command);

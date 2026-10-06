@@ -106,7 +106,15 @@ export const DATA_ONLY = new Set([
 ]);
 export const SHELLS = new Set(["bash", "sh", "zsh", "dash", "ksh"]);
 export const OPAQUE = new Set(["xargs", "ssh", "find", "parallel", "watch"]);
-export const GLOBAL_WITH_VALUE = new Set(["-c", "-C", "--git-dir", "--work-tree", "--namespace"]);
+export const GLOBAL_WITH_VALUE = new Set([
+  "-c",
+  "-C",
+  "--git-dir",
+  "--work-tree",
+  "--namespace",
+  "--config-env",
+  "--super-prefix",
+]);
 const HOOK_SKIP_ENV = new Set(["LEFTHOOK=0", "HUSKY=0"]);
 
 export const basename = (path: string): string => path.slice(path.lastIndexOf("/") + 1);

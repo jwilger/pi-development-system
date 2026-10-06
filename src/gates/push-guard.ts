@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import {
   type ExtensionAPI,
   type ExtensionContext,
@@ -52,7 +53,8 @@ async function pushesTrunk(
 ): Promise<boolean> {
   for (const t of targets) {
     if (t.allBranches || t.branches.includes(trunk)) return true;
-    if (t.branches.length === 0 && (await currentBranch(exec, cwd)) === trunk) return true;
+    const where = t.dir === undefined ? cwd : resolve(cwd, t.dir);
+    if (t.branches.length === 0 && (await currentBranch(exec, where)) === trunk) return true;
   }
   return false;
 }
@@ -73,9 +75,11 @@ async function repairsRedTrunk(
   const range = `${config.delivery.remote}/${config.delivery.trunk}..HEAD`;
   const diff = await deps.exec("git", ["diff", range], { cwd: ctx.cwd, timeout: 10_000 });
   if (diff.code !== 0 || diff.stdout.trim() === "") return false;
+  const failingLog = await getFailureLog(deps.exec, ctx.cwd, runId);
+  if (failingLog.trim() === "") return false; // nothing to compare the diff against: fail closed
   const judged = await judgeFixRelated(deps.jev(ctx), {
     diff: diff.stdout,
-    failingLog: await getFailureLog(deps.exec, ctx.cwd, runId),
+    failingLog,
     message: message.stdout,
   });
   return judged.ok && judged.value >= FIX_RELATED_THRESHOLD;

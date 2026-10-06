@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { extractCommit } from "../../src/core/commit-command.ts";
+import { extractCommit, extractCommits } from "../../src/core/commit-command.ts";
 
 const msg = (command: string) => {
   const r = extractCommit(command);
@@ -99,4 +99,39 @@ test("unknown messages still expose --trailer values; -F- and --trailer= work", 
   assert.deepEqual(r, { kind: "unknown", trailers: ["Co-Authored-By: Claude"] });
   assert.deepEqual(extractCommit("git commit -F- <<'EOF'\nfix: a\nEOF").kind, "message");
   assert.deepEqual(extractCommit("git commit -Fmsg.txt"), { kind: "file", path: "msg.txt" });
+});
+
+test("every commit in a chain is extracted", () => {
+  const all = extractCommits(
+    "git commit -m 'feat: ok' && git commit -m x -m 'Co-Authored-By: Claude'",
+  );
+  assert.equal(all.length, 2);
+  assert.equal(all[1]?.kind === "message" && all[1].message.includes("Co-Authored-By"), true);
+});
+
+test("abbreviated long options are read like git does", () => {
+  assert.equal(msg("git commit --mess 'fix: a'"), "fix: a");
+  assert.equal(
+    msg("git commit -m 'fix: a' --trail 'Co-Authored-By: Claude'")
+      .toString()
+      .includes("Co-Authored-By"),
+    true,
+  );
+  assert.deepEqual(extractCommit("git commit --fil=msg.txt"), { kind: "file", path: "msg.txt" });
+});
+
+test("stdin message files are heredoc-fed, not read from disk", () => {
+  assert.equal(extractCommit("git commit -F /dev/stdin <<'EOF'\nfix: a\nEOF").kind, "message");
+  assert.equal(extractCommit("printf 'x' | git commit -F -").kind, "unknown");
+});
+
+test("the heredoc after `commit` is the message, not an earlier notes heredoc", () => {
+  const c =
+    "cat > notes.md <<'EOF'\nsome notes\nEOF\ngit commit -m \"$(cat <<'EOF'\nfeat: real\nEOF\n)\"";
+  assert.equal(msg(c), "feat: real");
+});
+
+test("-m plus a heredoc body joins both", () => {
+  const c = "git commit -m 'feat: x' -m \"$(cat <<'EOF'\nwhy it matters here\nEOF\n)\"";
+  assert.equal(msg(c), "feat: x\n\nwhy it matters here");
 });

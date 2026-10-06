@@ -15,11 +15,15 @@ export function redactSecrets(text: string): string {
       "$1$2[redacted]$2",
     )
     .replace(
-      /\b(\w*(?:token|key|secret|password|passwd|pwd)\w*\s*(?::=|[:=])[ \t]*)[^\s"'`,;]{4,}/gi,
+      /\b(\w*(?:token|key|secret|password|passwd|passphrase|pwd)\w*\s*(?::=|[:=])[ \t]*)[^\s"'`,;]{4,}/gi,
       "$1[redacted]",
     )
     .replace(/\bsk-[A-Za-z0-9_-]{16,}/g, "[redacted]")
     .replace(/\bAKIA[0-9A-Z]{16}\b/g, "[redacted]")
+    .replace(/\b[sr]k_(?:live|test)_[A-Za-z0-9]{16,}/g, "[redacted]")
+    .replace(/\bAIza[0-9A-Za-z_-]{35}/g, "[redacted]")
+    .replace(/(\s-u\s+[^\s:]+:)\S+/g, "$1[redacted]")
+    .replace(/\b(Cookie:\s*)[^\n]+/gi, "$1[redacted]")
     .replace(/\bxox[abprs]-[A-Za-z0-9-]{10,}/g, "[redacted]")
     .replace(/\bglpat-[A-Za-z0-9_-]{16,}/g, "[redacted]")
     .replace(/\bnpm_[A-Za-z0-9]{30,}/g, "[redacted]")
