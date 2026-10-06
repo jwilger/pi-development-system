@@ -8,6 +8,7 @@ const SOURCE_EXT =
 const DOCS_EXT = /\.(?:md|mdx|rst|txt|adoc)$/i;
 const DOCS_NAME = /^(?:LICENSE|LICENCE|CHANGELOG|NOTICE|AUTHORS|CONTRIBUTING)(?:\..*)?$/i;
 const CONFIG_EXT = /\.(?:json|jsonc|toml|ya?ml|ini|cfg|conf|env|properties)$/i;
+const TOOL_CONFIG = /(?:^|\/)[\w.-]+\.config\.[cm]?[jt]s$|(?:^|\/)\.[\w-]+rc\.[cm]?[jt]s$/;
 const CONFIG_NAME = /^(?:Dockerfile|Makefile|justfile|Rakefile|Gemfile|Procfile)$/i;
 // Build output directories only count at the repo root; `src/build/` is usually real source.
 const GENERATED_DIR =
@@ -21,12 +22,14 @@ const basename = (path: string): string => path.slice(path.lastIndexOf("/") + 1)
 export function classifyPath(input: string, profile?: TestPathProfile): PathClass {
   const path = input.replace(/^\.\//, "");
   const name = basename(path);
+  if (path.startsWith("../") || path.startsWith("/")) return "other"; // outside the repo
   if (GENERATED_DIR.test(path) || GENERATED_FILE.test(path)) return "generated";
   if (isTestPath(path, profile) && SOURCE_EXT.test(path)) return "test";
   if (DOCS_EXT.test(name) || DOCS_NAME.test(name) || /^docs\//.test(path)) return "docs";
   if (
     CONFIG_EXT.test(name) ||
     CONFIG_NAME.test(name) ||
+    TOOL_CONFIG.test(path) ||
     name.startsWith(".") ||
     /^\.github\//.test(path)
   ) {

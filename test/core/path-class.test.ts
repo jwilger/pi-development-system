@@ -36,6 +36,10 @@ const cases: ReadonlyArray<readonly [string, PathClass]> = [
   ["src/build/index.ts", "source"],
   ["src/vendor/x.ts", "source"],
   ["build/out.js", "generated"],
+  ["vitest.config.ts", "config"],
+  ["tools/eslint.config.js", "config"],
+  ["../other/x.ts", "other"],
+  ["/tmp/x.ts", "other"],
   ["assets/logo.png", "other"],
   ["notes.xyz", "other"],
 ];

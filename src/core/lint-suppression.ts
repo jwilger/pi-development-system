@@ -31,7 +31,7 @@ const KINDS: readonly Kind[] = [
   {
     marker: "#![allow(",
     pattern: /#!\[allow\(/,
-    inline: () => undefined,
+    inline: (line) => lastGroup(/reason\s*=\s*"([^"]*)"/, line),
   },
   {
     marker: "#[expect(",
@@ -66,7 +66,8 @@ const KINDS: readonly Kind[] = [
   },
 ];
 
-const COMMENT_LINE = /^\s*(?:\/\/+|\/\*+|\*|#+)\s*(.*?)(?:\s*\*\/)?\s*$/;
+// `#` opens a comment in shell/Python, but `#[` / `#!` start Rust attributes and shebangs.
+const COMMENT_LINE = /^\s*(?:\/\/+|\/\*+|\*|#+(?![[!]))\s*(.*?)(?:\s*\*\/)?\s*$/;
 
 const isSuppressionLine = (line: string): boolean => KINDS.some((k) => k.pattern.test(line));
 

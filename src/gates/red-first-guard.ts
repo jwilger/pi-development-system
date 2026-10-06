@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
+import { resolve } from "node:path";
 import { type ExtensionAPI, isToolCallEventType } from "@earendil-works/pi-coding-agent";
 import { classifyPath } from "../core/path-class.ts";
 import { normalizeRepoPath } from "../core/test-paths.ts";
@@ -11,11 +13,26 @@ export type RedFirstGuardDeps = { pi: ExtensionAPI; state: SessionState };
 const GATE_ID = "tdd.red-first";
 
 /** Test code written inside a source file (Rust `#[cfg(test)]`/`#[test]`): that edit is the RED step itself. */
-const INLINE_TEST = /#\[(?:cfg\(test\)|test|tokio::test|rstest)\]/;
+const INLINE_TEST = /#\[(?:cfg\(test\)|test|tokio::test|rstest)\]/g;
 
-const newText = (
+const countInlineTests = (text: string): number => text.match(INLINE_TEST)?.length ?? 0;
+
+const existing = (cwd: string, path: string): string => {
+  try {
+    return readFileSync(resolve(cwd, path), "utf8");
+  } catch {
+    return "";
+  }
+};
+
+/** Does this edit add test code? A whole-file write counts only markers beyond those already on disk. */
+const addsInlineTest = (
   input: { content: string } | { edits: ReadonlyArray<{ newText: string }> },
-): string => ("content" in input ? input.content : input.edits.map((e) => e.newText).join("\n"));
+  before: () => string,
+): boolean =>
+  "content" in input
+    ? countInlineTests(input.content) > countInlineTests(before())
+    : countInlineTests(input.edits.map((e) => e.newText).join("\n")) > 0;
 
 /** Exemption classes a machine cannot see; the departure names which one applies (research 02). */
 const JUDGED_EXEMPTIONS =
@@ -41,7 +58,7 @@ export function registerRedFirstGuard(deps: RedFirstGuardDeps): void {
     if (lastTestRun !== undefined && lastTestRun.exitCode !== 0) return undefined;
     const path = normalizeRepoPath(ctx.cwd, event.input.path, homedir());
     if (classifyPath(path) !== "source") return undefined;
-    if (INLINE_TEST.test(newText(event.input))) return undefined;
+    if (addsInlineTest(event.input, () => existing(ctx.cwd, path))) return undefined;
     if (departure.hasOpen()) {
       departure.consume();
       return undefined;

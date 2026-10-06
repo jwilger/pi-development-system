@@ -103,3 +103,12 @@ test("a multi-line allow without a reason is still found", () => {
     ["#[allow("],
   );
 });
+
+test("a stacked attribute is not a rationale comment", () => {
+  assert.deepEqual(bare("#[allow(dead_code)]\n#[derive(Debug, Clone)]\nstruct A;"), ["#[allow("]);
+  assert.deepEqual(bare("#[derive(Debug, Clone)]\n#[allow(dead_code)]\nstruct A;"), ["#[allow("]);
+});
+
+test("an inner allow with a reason attribute passes", () => {
+  assert.deepEqual(bare('#![allow(dead_code, reason = "generated bindings are unused here")]'), []);
+});

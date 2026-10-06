@@ -44,7 +44,7 @@ const setup = (init: { phase?: Phase; exitCode?: number; slice?: string } = {}) 
       undefined,
       { cwd } as never,
     );
-  return { call, depart, state };
+  return { call, depart, state, cwd };
 };
 
 const edit = { path: "src/x.ts", edits: [{ oldText: "1", newText: "2" }] };
@@ -134,4 +134,19 @@ test("writing the failing test itself inside a source file is allowed (Rust unit
 test("a source edit without a test marker is still blocked in a Rust file", async () => {
   const { call } = setup({ exitCode: 0 });
   assert.equal((await call("write", { path: "src/foo.rs", content: "fn f() {}\n" }))?.block, true);
+});
+
+test("rewriting a Rust file that already has tests, adding none, is still blocked", async () => {
+  const { call, cwd } = setup({ exitCode: 0 });
+  writeFileSync(
+    join(cwd, "src/lib.rs"),
+    "fn f() {}\n#[cfg(test)]\nmod t {\n#[test]\nfn a() {}\n}\n",
+  );
+  const rewrite = {
+    path: "src/lib.rs",
+    content: "fn f() { 1; }\n#[cfg(test)]\nmod t {\n#[test]\nfn a() {}\n}\n",
+  };
+  assert.equal((await call("write", rewrite))?.block, true);
+  const more = { path: "src/lib.rs", content: `${rewrite.content}#[test]\nfn b() {}\n` };
+  assert.equal(await call("write", more), undefined);
 });
