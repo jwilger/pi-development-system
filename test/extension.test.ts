@@ -7,6 +7,7 @@ test("loading registers devsys-status and the session_start/before_agent_start h
   const fake = createFakePi();
   developmentSystem(fake.api);
   assert.ok(fake.commands.has("devsys-status"));
+  assert.ok(fake.commands.has("devsys-ci"));
   assert.ok((fake.handlers.get("session_start") ?? []).length > 0);
   assert.ok((fake.handlers.get("before_agent_start") ?? []).length > 0);
 });

@@ -88,3 +88,11 @@ test("parseDevsysState accepts a complete departure", () => {
   });
   assert.equal(isParseError(parsed), false);
 });
+
+test("ci state round-trips and bad ci is rejected", async () => {
+  const { parseDevsysState } = await import("../../src/state/session-state.ts");
+  const ok = parseDevsysState({ ...initialState(), ci: { status: "red", sha: "abc" } });
+  assert.deepEqual("ci" in ok ? ok.ci : undefined, { status: "red", sha: "abc" });
+  assert.equal("kind" in parseDevsysState({ ...initialState(), ci: { status: "purple" } }), true);
+  assert.equal("kind" in parseDevsysState({ ...initialState(), ci: "red" }), true);
+});

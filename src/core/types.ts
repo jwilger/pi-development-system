@@ -56,6 +56,12 @@ export type Departure = {
 
 export type JevStatus = "online" | "offline" | "unknown";
 
+export type CiStatusName = "green" | "red" | "pending" | "unknown";
+export const CI_STATUSES: readonly CiStatusName[] = ["green", "red", "pending", "unknown"];
+
+/** Last observed CI state of the trunk (see `/devsys-ci`). */
+export type CiState = { readonly status: CiStatusName; readonly sha?: string };
+
 export type DevsysState = {
   readonly phase: Phase;
   readonly sizing?: Sizing;
@@ -63,6 +69,7 @@ export type DevsysState = {
   readonly openDepartures: ReadonlyArray<Departure>;
   readonly jev: JevStatus;
   readonly lastPushAt?: string;
+  readonly ci?: CiState;
 };
 
 export const initialState = (): DevsysState => ({

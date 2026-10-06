@@ -11,6 +11,7 @@ import { createRecordDepartureTool } from "../src/gates/record-departure-tool.ts
 import { createRequestApprovalTool } from "../src/gates/request-approval-tool.ts";
 import { registerTestGuard } from "../src/gates/test-guard.ts";
 import { createJevHolder } from "../src/jev/holder.ts";
+import { registerCiCommand } from "../src/state/ci-command.ts";
 import { createModelsTool, registerModelsCommand } from "../src/state/models-command.ts";
 import { createSessionState } from "../src/state/session-state.ts";
 
@@ -64,6 +65,11 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
     pi,
     state,
     jev: (ctx) => jevHolder.forContext(ctx),
+    exec: (command, args, options) => pi.exec(command, args, options),
+  });
+  registerCiCommand({
+    pi,
+    state,
     exec: (command, args, options) => pi.exec(command, args, options),
   });
   registerPushGuard({

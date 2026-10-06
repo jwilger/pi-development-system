@@ -30,3 +30,23 @@ test("online status names the Jev model; offline does not", () => {
     "devsys: idle · jev offline",
   );
 });
+
+test("the status line shows the last observed CI state; unknown stays quiet", () => {
+  const base = { ...initialState(), jev: "offline" as const };
+  assert.equal(
+    renderStatusLine({ ...base, ci: { status: "red", sha: "abcdef1234" } }),
+    "devsys: idle · jev offline · ci red (abcdef1)",
+  );
+  assert.equal(
+    renderStatusLine({ ...base, ci: { status: "pending" } }),
+    "devsys: idle · jev offline · ci pending",
+  );
+  assert.equal(
+    renderStatusLine({ ...base, ci: { status: "unknown" } }),
+    "devsys: idle · jev offline",
+  );
+  assert.match(
+    renderStatus({ ...base, ci: { status: "green", sha: "abcdef1234" } }),
+    /- ci: green \(abcdef1\)/,
+  );
+});

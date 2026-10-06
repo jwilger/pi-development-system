@@ -1,6 +1,9 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { parseDeparture } from "../core/departure.ts";
 import {
+  CI_STATUSES,
+  type CiState,
+  type CiStatusName,
   type Departure,
   type DevsysState,
   initialState,
@@ -29,10 +32,20 @@ const JEV: ReadonlyArray<JevStatus> = ["online", "offline", "unknown"];
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
+function parseCi(input: unknown): CiState | ParseError {
+  if (!isRecord(input)) return parseError("ci must be an object");
+  const { status, sha } = input;
+  if (!CI_STATUSES.includes(status as CiStatusName)) {
+    return parseError(`unknown ci status: ${String(status)}`);
+  }
+  if (sha !== undefined && typeof sha !== "string") return parseError("ci.sha must be a string");
+  return { status: status as CiStatusName, ...(sha !== undefined ? { sha } : {}) };
+}
+
 /** Boundary parse for persisted state: the only place state is cast from `unknown`. */
 export function parseDevsysState(input: unknown): DevsysState | ParseError {
   if (!isRecord(input)) return parseError("devsys state must be an object");
-  const { phase, sizing, activeSlice, openDepartures, jev, lastPushAt } = input;
+  const { phase, sizing, activeSlice, openDepartures, jev, lastPushAt, ci } = input;
   if (!PHASES.includes(phase as Phase)) return parseError(`unknown phase: ${String(phase)}`);
   if (!JEV.includes(jev as JevStatus)) return parseError(`unknown jev status: ${String(jev)}`);
   if (!Array.isArray(openDepartures)) return parseError("openDepartures must be an array");
@@ -51,6 +64,8 @@ export function parseDevsysState(input: unknown): DevsysState | ParseError {
   if (lastPushAt !== undefined && typeof lastPushAt !== "string") {
     return parseError("lastPushAt must be a string");
   }
+  const parsedCi = ci === undefined ? undefined : parseCi(ci);
+  if (isParseError(parsedCi)) return parsedCi;
   return {
     phase: phase as Phase,
     jev: jev as JevStatus,
@@ -58,6 +73,7 @@ export function parseDevsysState(input: unknown): DevsysState | ParseError {
     ...(sizing !== undefined ? { sizing: sizing as Sizing } : {}),
     ...(activeSlice !== undefined ? { activeSlice: activeSlice as SliceRef } : {}),
     ...(lastPushAt !== undefined ? { lastPushAt } : {}),
+    ...(parsedCi !== undefined ? { ci: parsedCi } : {}),
   };
 }
 
