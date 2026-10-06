@@ -149,3 +149,15 @@ test("credentials in the command never reach the logged departure", async () => 
   assert.ok(!log.includes("ghp_"));
   assert.ok(log.includes("[redacted]"));
 });
+
+test("a qualified hard gate id cannot be pre-approved", async () => {
+  const { tool } = setup(true);
+  const result = await tool.execute(
+    "c1",
+    { gate: "git.force-push:x", command: "git push -f", why: "t" } as never,
+    undefined,
+    undefined,
+    undefined as never,
+  );
+  assert.equal(result.isError, true);
+});

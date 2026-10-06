@@ -85,22 +85,30 @@ const HOOK_SKIP_ENV = new Set(["LEFTHOOK=0", "HUSKY=0"]);
 const basename = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
 const isAssignment = (t: string): boolean => /^[A-Za-z_][A-Za-z0-9_]*=/.test(t);
 
+/** True when `arg` is `name` or an unambiguous-looking git abbreviation of it (`--amen`, `--del=x`). */
+const isLong = (arg: string, ...names: string[]): boolean => {
+  const key = arg.split("=")[0] ?? "";
+  return key.length >= 4 && key.startsWith("--") && names.some((n) => n.startsWith(key));
+};
+
 function classifyGitArgs(globals: string[], sub: string | undefined, args: string[]): GitIntent {
   let intent: GitIntent = "ordinary";
-  if (globals.some((g) => /^core\.hooksPath=/.test(g))) intent = worst(intent, "no-verify");
-  if (args.includes("--no-verify")) intent = worst(intent, "no-verify");
+  if (globals.some((g) => /^core\.hookspath=/i.test(g))) intent = worst(intent, "no-verify");
+  if (args.some((a) => isLong(a, "--no-verify"))) intent = worst(intent, "no-verify");
   switch (sub) {
     case "push": {
       const shortFlags = args.filter((a) => /^-[A-Za-z]+$/.test(a));
       if (
-        args.some((a) => /^--(force|force-with-lease|force-if-includes|mirror)\b/.test(a)) ||
+        args.some((a) =>
+          isLong(a, "--force", "--force-with-lease", "--force-if-includes", "--mirror"),
+        ) ||
         shortFlags.some((a) => a.includes("f")) ||
         args.some((a) => /^\+\S/.test(a))
       ) {
         return worst(intent, "force-push");
       }
       if (
-        args.includes("--delete") ||
+        args.some((a) => isLong(a, "--delete")) ||
         shortFlags.includes("-d") ||
         args.some((a) => /^:\S/.test(a))
       ) {
@@ -109,7 +117,7 @@ function classifyGitArgs(globals: string[], sub: string | undefined, args: strin
       return intent;
     }
     case "commit":
-      if (args.includes("--amend")) return worst(intent, "history-rewrite");
+      if (args.some((a) => isLong(a, "--amend"))) return worst(intent, "history-rewrite");
       if (args.some((a) => /^-[A-Za-z]*n[A-Za-z]*$/.test(a))) return worst(intent, "no-verify");
       return intent;
     case "rebase":
@@ -120,7 +128,7 @@ function classifyGitArgs(globals: string[], sub: string | undefined, args: strin
     case "filter-repo":
       return worst(intent, "history-rewrite");
     case "reset":
-      return args.includes("--hard") ? worst(intent, "destructive-reset") : intent;
+      return args.some((a) => isLong(a, "--hard")) ? worst(intent, "destructive-reset") : intent;
     default:
       return intent;
   }
@@ -181,11 +189,38 @@ function classifySegment(tokens: string[]): GitIntent {
   return withHookSkip(dynamic ? worst(intent, "unknown") : intent);
 }
 
+/** Bodies of `$(...)` and backtick substitutions anywhere in the text (quoted or not). */
+function substitutions(text: string): string[] {
+  const bodies: string[] = [];
+  for (let at = text.indexOf("$("); at >= 0; at = text.indexOf("$(", at + 2)) {
+    let depth = 1;
+    let end = at + 2;
+    for (; end < text.length && depth > 0; end++) {
+      const ch = text.charAt(end);
+      if (ch === "(") depth++;
+      else if (ch === ")") depth--;
+    }
+    bodies.push(text.slice(at + 2, depth === 0 ? end - 1 : end));
+  }
+  for (const m of text.matchAll(/`([^`]*)`/g)) bodies.push(m[1] ?? "");
+  return bodies;
+}
+
+const HEREDOC = /<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1/;
+
 /** Classifies the most severe git intent in a shell command (deterministic fast path). */
 export function classifyGitCommand(command: string): GitIntent {
   let intent: GitIntent = "ordinary";
+  let heredocEnd: string | undefined;
   for (const line of splitLines(command)) {
+    if (heredocEnd !== undefined) {
+      if (line.trim() === heredocEnd) heredocEnd = undefined;
+      continue;
+    }
     for (const segment of segments(line)) intent = worst(intent, classifySegment(segment));
+    for (const body of substitutions(line)) intent = worst(intent, classifyGitCommand(body));
+    const here = HEREDOC.exec(line);
+    if (here !== null && !line.includes("<<<")) heredocEnd = here[2];
   }
   return intent;
 }

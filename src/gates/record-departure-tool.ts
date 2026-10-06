@@ -2,6 +2,7 @@ import type { ExtensionAPI, ToolDefinition } from "@earendil-works/pi-coding-age
 import { type Static, Type } from "typebox";
 import { parseDeparture, renderDepartureMarkdown } from "../core/departure.ts";
 import { gateIds, lookupGate } from "../core/gates.ts";
+import { redactSecrets } from "../core/redact.ts";
 import { isParseError, parseGateId } from "../core/types.ts";
 import { appendDecision } from "../state/decision-log.ts";
 import type { SessionState } from "../state/session-state.ts";
@@ -73,12 +74,14 @@ export function createRecordDepartureTool(
         gate,
         tier: info.tier,
         default: info.default,
-        chosen: params.chosen,
-        why: params.why,
-        costIfWrong: params.costIfWrong,
+        chosen: redactSecrets(params.chosen),
+        why: redactSecrets(params.why),
+        costIfWrong: redactSecrets(params.costIfWrong),
         approver: "agent",
         scope,
-        ...(params.revisitWhen !== undefined ? { revisitWhen: params.revisitWhen } : {}),
+        ...(params.revisitWhen !== undefined
+          ? { revisitWhen: redactSecrets(params.revisitWhen) }
+          : {}),
         recordedAt: recordedAt.toISOString().replace(/\.\d{3}Z$/, "Z"),
       });
       if (isParseError(departure)) return fail(departure.message);

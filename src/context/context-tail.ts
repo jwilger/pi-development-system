@@ -18,7 +18,9 @@ export function renderContextTail(state: DevsysState): string | undefined {
   ];
   const tailLines = [REMINDER];
   const room = MAX_LINES - head.length - tailLines.length - 1;
-  const lines = state.openDepartures.map((d) => `- ${d.gate} — ${d.chosen} (${scopeLabel(d)})`);
+  const lines = state.openDepartures.map(
+    (d) => `- ${d.gate} — ${d.chosen.replace(/\s+/g, " ")} (${scopeLabel(d)})`,
+  );
   const shown =
     lines.length <= room
       ? lines

@@ -72,3 +72,11 @@ test("a qualified artifact gate is accepted", async () => {
   const result = await run({ ...soft, gate: "artifact.skipped:brief" });
   assert.notEqual(result.isError, true);
 });
+
+test("secrets in the departure text never reach the log", async () => {
+  const { fake, run } = setup();
+  await run({ ...soft, chosen: "use https://me:pw@host/r with GH_TOKEN=abcd1234" });
+  const log = readFileSync(join(fake.ctx.cwd, "docs", "decisions", "2026-10.md"), "utf8");
+  assert.ok(!log.includes("pw@"));
+  assert.ok(!log.includes("abcd1234"));
+});

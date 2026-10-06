@@ -33,7 +33,7 @@ export function createRequestApprovalTool(
     exposure: "direct",
     async execute(toolCallId, params: Static<typeof Parameters>, _signal, _onUpdate, ctx) {
       const gate = parseGateId(params.gate);
-      if (isParseError(gate) || lookupGate(gate)?.tier !== "hard") {
+      if (isParseError(gate) || gate.includes(":") || lookupGate(gate)?.tier !== "hard") {
         const hard = gateIds().filter((id) => lookupGate(id)?.tier === "hard");
         return text(`"${params.gate}" is not a hard gate. Hard gates: ${hard.join(", ")}`, true);
       }

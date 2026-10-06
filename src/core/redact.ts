@@ -3,5 +3,7 @@ export function redactSecrets(text: string): string {
   return text
     .replace(/(\w+:\/\/)[^\s/@]+@/g, "$1[redacted]@")
     .replace(/\b(?:ghp|gho|ghu|ghs|github_pat)_[A-Za-z0-9_]{16,}/g, "[redacted]")
+    .replace(/\b(\w*(?:TOKEN|KEY|SECRET|PASSWORD)\w*)=\S+/gi, "$1=[redacted]")
+    .replace(/\bBearer\s+[^\s'"]+/g, "Bearer [redacted]")
     .replace(/\bsk-[A-Za-z0-9_-]{16,}/g, "[redacted]");
 }

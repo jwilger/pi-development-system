@@ -9,3 +9,5 @@ Nits and deferred items from reviews (append only).
 - CI publish race: two pushes sharing one package.json version within ~80 s make the second `Publish to npm` job fail with E409 ("Cannot publish over previously staged version") because `npm view` lags the first publish. Rerunning the failed job fixes it. Consider making `.github/workflows/publish.yml` treat E409 as already-published. (found at I0 release)
 
 - I1 review r1 nits: tools use `exposure: "direct"` not plan's `"always"` (`"always"` is not in pi's `ToolExposure` union; `"direct"` is the correct value). Departure log paths use `ctx.cwd`, not a resolved repo root (revisit when I3 config loader finds the root). `appendDecision` exists-then-append is not atomic for concurrent first-of-month writes.
+
+- I1 review r2 nits: a shell invoked with no `-c` (`echo "git push -f" | sh`, `bash <<< ...`, `xargs sh -c "git ..."`) classifies `ordinary`; route to `unknown` when I2 sends `unknown` to Jev. `alias.*`/`GIT_CONFIG_*` indirection is out of scope for the deterministic fast path.

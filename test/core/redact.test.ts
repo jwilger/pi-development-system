@@ -27,3 +27,15 @@ test("redacts well-known token shapes outside URLs", () => {
 test("leaves ordinary commands untouched", () => {
   assert.equal(redactSecrets("git push --force origin main"), "git push --force origin main");
 });
+
+test("redacts secret-looking env assignments and bearer tokens", () => {
+  assert.equal(
+    redactSecrets("GH_TOKEN=abcd1234efgh git push -f"),
+    "GH_TOKEN=[redacted] git push -f",
+  );
+  assert.equal(redactSecrets("TYPESAFE_API_KEY=ts_abcdef x"), "TYPESAFE_API_KEY=[redacted] x");
+  assert.equal(
+    redactSecrets("curl -H 'Authorization: Bearer abc.def'"),
+    "curl -H 'Authorization: Bearer [redacted]'",
+  );
+});
