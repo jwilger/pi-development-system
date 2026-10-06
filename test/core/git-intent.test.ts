@@ -106,3 +106,8 @@ for (const [command, expected] of table) {
 test("the most severe intent in a compound command wins", () => {
   assert.equal(classifyGitCommand("git commit --amend && git push -f"), "force-push");
 });
+
+test("escaped quotes inside double quotes do not hide a later git command", () => {
+  assert.equal(classifyGitCommand('echo "it\\"s"\ngit push -f'), "force-push");
+  assert.equal(classifyGitCommand('echo "a \\"b\\""\ngit push -f'), "force-push");
+});

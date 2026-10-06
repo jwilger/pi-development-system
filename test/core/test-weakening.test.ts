@@ -33,6 +33,7 @@ test("recognises skip markers across ecosystems", () => {
     "@Disabled\nvoid a() {}",
     "t.skip('later')",
     "test('a', { skip: true }, f)",
+    "test('a', { skip: 'flaky' }, f)",
     "self.skipTest('later')",
     "@Ignore\npublic void a() {}",
   ]) {
@@ -202,4 +203,18 @@ test("applyEdits tolerates CRLF files and trailing whitespace like pi's edit too
 
 test("tee -a appends and is not an overwrite", () => {
   assert.deepEqual(bashMutatedPaths("echo x | tee -a test/log.test.ts"), []);
+});
+
+const REMOVE_A = [{ path: "test/a.test.ts", kind: "remove" }];
+
+test("comment lines and shebangs before a deletion do not hide it", () => {
+  assert.deepEqual(bashMutations("# tidy up\nrm test/a.test.ts"), REMOVE_A);
+  assert.deepEqual(bashMutations("echo hi # now\nrm test/a.test.ts"), REMOVE_A);
+  assert.deepEqual(bashMutations("#!/bin/bash\nset -e\nrm test/a.test.ts"), REMOVE_A);
+  assert.deepEqual(bashMutations("# it's done\nrm test/a.test.ts"), REMOVE_A);
+});
+
+test("escaped quotes inside double quotes do not desync line splitting", () => {
+  assert.deepEqual(bashMutations('echo "a \\"b\\""\nrm test/a.test.ts'), REMOVE_A);
+  assert.deepEqual(bashMutations('git commit -m "fix \\"foo\\""\nrm test/a.test.ts'), REMOVE_A);
 });

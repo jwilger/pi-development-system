@@ -49,6 +49,15 @@ export function isTestPath(path: string, profile?: TestPathProfile): boolean {
   return (profile?.testGlobs ?? []).some((g) => matchGlob(g, normalized));
 }
 
+/** A malformed `file://` URL is treated as the raw path rather than throwing out of a guard. */
+function decodeFileUrl(url: string): string {
+  try {
+    return fileURLToPath(url);
+  } catch {
+    return url;
+  }
+}
+
 /**
  * Repo-relative form of a path exactly as pi would resolve it: a leading `@` is dropped, `~` expands
  * to the home directory and `file://` URLs are decoded, so guards see the file that is really touched.
@@ -57,6 +66,6 @@ export function normalizeRepoPath(cwd: string, input: string, home: string): str
   let path = input.startsWith("@") ? input.slice(1) : input;
   if (path === "~") path = home;
   else if (path.startsWith("~/")) path = join(home, path.slice(2));
-  else if (/^file:\/\//.test(path)) path = fileURLToPath(path);
+  else if (/^file:\/\//.test(path)) path = decodeFileUrl(path);
   return isAbsolute(path) ? relative(cwd, path) : relative(cwd, resolve(cwd, path)) || ".";
 }

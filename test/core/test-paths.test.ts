@@ -65,3 +65,8 @@ test("profile globs: * stays in a segment, ** crosses directories", () => {
   assert.equal(isTestPath("checks/deep/a.chk", { testGlobs: ["checks/**/*.chk"] }), true);
   assert.equal(isTestPath("checks/a.chk", { testGlobs: ["checks/**/*.chk"] }), false);
 });
+
+test("normalizeRepoPath does not throw on malformed file:// URLs", () => {
+  assert.doesNotThrow(() => normalizeRepoPath("/repo", "file://host/x", "/home/u"));
+  assert.doesNotThrow(() => normalizeRepoPath("/repo", "file://%zz", "/home/u"));
+});

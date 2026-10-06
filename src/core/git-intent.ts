@@ -30,7 +30,10 @@ function splitLines(command: string): string[] {
   let quote: "'" | '"' | undefined;
   for (let i = 0; i < command.length; i++) {
     const ch = command.charAt(i);
-    if (quote !== undefined) {
+    if (quote === '"' && ch === "\\") {
+      current += ch + command.charAt(i + 1);
+      i++;
+    } else if (quote !== undefined) {
       if (ch === quote) quote = undefined;
       current += ch;
     } else if (ch === "\\" && command.charAt(i + 1) === "\n") {

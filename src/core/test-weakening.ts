@@ -6,7 +6,7 @@ export type WeakeningSignals = { addsSkip: boolean; emptied: boolean; commentedO
 const SKIP_MARKERS: readonly RegExp[] = [
   /\b(?:it|test|describe|context)\.(?:skip|only)\b/g,
   /\b(?:this|t|self|ctx)\.skip\(/g,
-  /\bskip:\s*true\b/g,
+  /\bskip:\s*(?:true\b|["'`])/g,
   /\bskipTest\(/g,
   /(?<![.\w])f(?:it|describe)\(/g,
   /(?<![.\w])x(?:it|describe|test)\(/g,
@@ -130,7 +130,13 @@ function splitLines(command: string): string {
   let quote: "'" | '"' | undefined;
   for (let i = 0; i < command.length; i++) {
     const c = command.charAt(i);
-    if (quote === undefined && c === "\\" && command.charAt(i + 1) === "\n") {
+    if (quote === undefined && c === "#" && (out === "" || /[\s;&|(]$/.test(out))) {
+      // A comment runs to the end of the line; keep the newline so the next command is still seen.
+      while (i + 1 < command.length && command.charAt(i + 1) !== "\n") i++;
+    } else if (quote === '"' && c === "\\") {
+      out += c + command.charAt(i + 1);
+      i++;
+    } else if (quote === undefined && c === "\\" && command.charAt(i + 1) === "\n") {
       out += " ";
       i++;
     } else if (quote === undefined && c === "\\") {

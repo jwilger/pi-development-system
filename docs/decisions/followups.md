@@ -47,3 +47,11 @@ Nits and deferred items from reviews (append only).
 - `rm -rf dist/test`, `node_modules/pkg/test` and paths outside the repo (`/tmp/x.test.ts`) count as test paths.
 - `src/jev/client.ts`: a cache hit does not update `availability`.
 - `test/jev/fixture-runner.ts` casts parsed JSON `as Fixture` without a parse function.
+
+## From I2 review round 7 (nits, unscheduled)
+
+- `src/core/redact.ts` patterns are quadratic on huge unbroken `\w` runs (100k chars ≈ 9s); clip before redacting.
+- More skip markers: `test.concurrent.skip`, PHPUnit `markTestSkipped(`, ExUnit `@tag :skip`.
+- `echo a#b; rm …` (shell-quote reads `a#b` as a comment) and `pushd` are not tracked.
+- `rm -rf tests/tmp/*` and `: > tests/__init__.py` are read as test deletions (Jev cannot clear them; a departure can).
+- `judgeShellIntent` sends the full command to Jev unclipped.
