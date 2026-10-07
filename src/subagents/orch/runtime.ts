@@ -26,6 +26,7 @@ import { selectTools } from "../prefs/config.ts";
 import { TranscriptChannel } from "./transcript.ts";
 import type { InheritedToolSource } from "./inherited-tools.ts";
 import type { ModelSelectionMode, ToolFilteringMode } from "../prefs/settings.ts";
+import { applySpawnOverrides } from "../../core/spawn-overrides.ts";
 import {
   modelIdentity,
   getModelPreferences,
@@ -223,6 +224,9 @@ export function createDriverFactory(
         : undefined;
     const thinkingLevel =
       savedThinking ?? type.thinkingLevel ?? parent?.thinking ?? ctx.thinkingLevel ?? "off";
+    // devsys: a per-spawn pin from agent_spawn wins; restored sessions already persist their choice.
+    if (restored === undefined)
+      return applySpawnOverrides({ provider, id, thinkingLevel }, type.spawnOverrides);
     return { provider, id, thinkingLevel };
   };
   const resolveAgentSettings = (type: AgentType, parentPath: string): ResolvedAgentSettings => {
@@ -314,8 +318,11 @@ export function createDriverFactory(
     const restored = options.sessionFile ? sessionManager.buildSessionContext() : undefined;
     const modelSelection = getModelSelection();
     // Use Current ignores definition preferences, including for restored/nested sessions.
+    // devsys: an explicit per-spawn model pin bypasses preference/scope policy.
     const modelPreferences =
-      modelSelection === "use-current" ? undefined : getModelPreferences(options.type);
+      modelSelection === "use-current" || options.type.spawnOverrides?.model !== undefined
+        ? undefined
+        : getModelPreferences(options.type);
     const filteringEnabled = () => getModelSelection() === "pick-first-scoped";
     const selectModelPreference = (
       candidates: readonly { model: { provider: string; id: string } }[],

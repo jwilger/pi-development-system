@@ -17,6 +17,8 @@ export interface AgentType {
   /** Advisory display names. Not provider/model pins and never used for selection. */
   modelSuggestions?: string[];
   thinkingLevel?: ThinkingLevel;
+  /** devsys: per-spawn pin set by the coordinator via agent_spawn; beats preferences and inheritance. */
+  spawnOverrides?: { model?: string; thinkingLevel?: ThinkingLevel };
   /** Pi semantic token for the type pill background and task path foreground. */
   color?: string;
   /** Optional literal Nerd Font glyph; displayed only when the labs setting is enabled. */
@@ -170,7 +172,14 @@ export interface ThreadService {
   /** Optional for portable adapters; the runtime manager always implements this. */
   observeTranscript?(path: string, listener: TranscriptListener): Promise<TranscriptObservation>;
   spawn(
-    args: { path: string; type: string; task: string; wait?: boolean },
+    args: {
+      path: string;
+      type: string;
+      task: string;
+      wait?: boolean;
+      model?: string;
+      thinkingLevel?: string;
+    },
     signal?: AbortSignal,
   ): Promise<ThreadView>;
   steer(path: string, message: string): Promise<ThreadView>;

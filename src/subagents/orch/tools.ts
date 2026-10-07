@@ -91,6 +91,17 @@ export function agentTools(
         type: text,
         task: text,
         wait: Type.Optional(Type.Boolean()),
+        model: Type.Optional(
+          Type.String({
+            description:
+              'Pin this child to "provider/model-id" (use devsys_route_task for a recommendation). Beats the agent type preferences.',
+          }),
+        ),
+        thinkingLevel: Type.Optional(
+          Type.String({
+            description: "Pin this child's thinking level: off, minimal, low, medium, high, xhigh or max.",
+          }),
+        ),
       }),
       async (params, signal) => result(compact(await threads().spawn(params, signal))),
     ),

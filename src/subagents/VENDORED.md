@@ -12,6 +12,7 @@
 1. Every `*.ts` file starts with `// @ts-nocheck`: upstream compiles under looser options than this repo's strict `tsconfig.json` (`exactOptionalPropertyTypes`, `erasableSyntaxOnly`). `biome.json` excludes `src/subagents`. Both are deliberate: the code is verbatim, and reformatting or retyping it would make upstream diffs unreadable.
 2. Relative `.js` import specifiers were rewritten to `.ts` (upstream relies on a TypeScript-aware loader; this repo's tests run under Node's native type stripping).
 3. `prefs/config.ts`: the bundled-agents directory is `../../../agents/` (was `../../agents/`) because the sources moved one level deeper.
+4. Per-spawn pins (I5.2): `types.ts` `AgentType.spawnOverrides` and `ThreadService.spawn` args gain `model`/`thinkingLevel`; `orch/tools.ts` `agent_spawn` schema exposes both; `orch/manager.ts` `spawn` validates them with `src/core/spawn-overrides.ts` and stores them on the cloned type (so saved threads keep them); `orch/runtime.ts` `resolveInitialSettings` applies them last for fresh spawns, and `createDriver` drops model preferences/scope policy when a model is pinned.
 
 ## MIT notice
 

@@ -14,6 +14,8 @@ import type {
   TranscriptSnapshot,
 } from "../types.ts";
 import { immutableTranscriptValue } from "./transcript.ts";
+import { parseSpawnOverrides } from "../../core/spawn-overrides.ts";
+import { isParseError } from "../../core/types.ts";
 import { canonicalPath, inheritContext, isDescendant, parentPath } from "./paths.ts";
 import { DEFAULT_MANAGER_SETTINGS, type ManagerSettings } from "../prefs/settings.ts";
 
@@ -215,10 +217,20 @@ export class ThreadManager {
 
   async spawn(
     caller: string,
-    args: { path: string; type: string; task: string; wait?: boolean },
+    args: {
+      path: string;
+      type: string;
+      task: string;
+      wait?: boolean;
+      model?: string;
+      thinkingLevel?: string;
+    },
     signal?: AbortSignal,
   ): Promise<ThreadView> {
     this.assertLive();
+    // devsys: validate per-spawn pins before any state changes.
+    const overrides = parseSpawnOverrides({ model: args.model, thinkingLevel: args.thinkingLevel });
+    if (isParseError(overrides)) throw new Error(overrides.message);
     caller = canonicalPath(caller);
     if (
       caller !== "/root" &&
@@ -249,6 +261,7 @@ export class ThreadManager {
       throw new Error("Total thread limit reached");
     this.assertCapacity();
     const type = structuredClone(this.options.getType(args.type));
+    if (overrides !== undefined) type.spawnOverrides = { ...overrides };
     const parentRecord = parent && parent !== "/root" ? this.record(parent) : undefined;
     this.assertStartableAncestors(path);
     // Reservation is synchronous: subtree cancellation sees children even during lazy parent reopen.
