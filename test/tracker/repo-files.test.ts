@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -202,4 +209,30 @@ test("a title with no ASCII letters still gets an id, and accents are folded", a
   assert.equal(value(await tracker.create({ title: "ギャラリー" })).id, "item-2");
   assert.equal(value(await tracker.create({ title: "Résumé upload" })).id, "resume-upload");
   assert.equal(value(await tracker.get(jp.id)).title, "ログインを修正する");
+});
+
+test("a symlinked backlog, items directory or item file is never written through", async () => {
+  const outside = mkdtempSync(join(tmpdir(), "devsys-outside-"));
+  const target = join(outside, "target.md");
+  writeFileSync(target, "untouched");
+
+  const linkedBacklog = setup();
+  mkdirSync(join(linkedBacklog.root, "work"), { recursive: true });
+  symlinkSync(target, join(linkedBacklog.root, "work", "backlog.md"));
+  const first = await linkedBacklog.tracker.create({ title: "Hello" });
+  assert.equal(first.ok, false);
+
+  const linkedDir = setup();
+  mkdirSync(join(linkedDir.root, "work"), { recursive: true });
+  symlinkSync(outside, join(linkedDir.root, "work", "items"));
+  assert.equal((await linkedDir.tracker.create({ title: "Hello" })).ok, false);
+  assert.equal(existsSync(join(outside, "hello.md")), false);
+
+  const linkedItem = setup();
+  mkdirSync(join(linkedItem.root, "work", "items"), { recursive: true });
+  symlinkSync(target, join(linkedItem.root, "work", "items", "hello.md"));
+  assert.equal((await linkedItem.tracker.get("hello")).ok, false);
+  assert.equal((await linkedItem.tracker.create({ title: "Other" })).ok, false);
+
+  assert.equal(readFileSync(target, "utf8"), "untouched");
 });

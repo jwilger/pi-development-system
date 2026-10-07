@@ -1,5 +1,5 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { lstat, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { join, relative, sep } from "node:path";
 import { ok } from "../core/result.ts";
 import { parseItem, renderBacklog, renderItem, unwritable } from "./item-format.ts";
 import {
@@ -36,8 +36,35 @@ const byCodeUnit = (a: string, b: string): number => Number(a > b) - Number(a < 
 const describe = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause);
 
+/**
+ * The first symlink on the way from the repo root to `target`, if any. A committed symlink
+ * under `work/` could otherwise make a tracker write land outside the repository.
+ */
+const symlinkOnPath = async (root: string, target: string): Promise<string | undefined> => {
+  let current = root;
+  for (const part of relative(root, target).split(sep)) {
+    current = join(current, part);
+    try {
+      if ((await lstat(current)).isSymbolicLink()) return current;
+    } catch (cause) {
+      if (isMissing(cause)) return undefined;
+      throw cause;
+    }
+  }
+  return undefined;
+};
+
+const refuseSymlink = async (root: string, target: string): Promise<string | undefined> => {
+  const link = await symlinkOnPath(root, target);
+  return link === undefined
+    ? undefined
+    : `${relative(root, link)} is a symbolic link; the repo-files tracker will not follow it`;
+};
+
 const readItem = async (root: string, id: string): Promise<TrackerResult<WorkItem>> => {
   if (!ID.test(id)) return trackerError(`work item "${id}": not a valid id`);
+  const link = await refuseSymlink(root, fileOf(root, id));
+  if (link !== undefined) return trackerError(link);
   try {
     return parseItem(id, await readFile(fileOf(root, id), "utf8"));
   } catch (cause) {
@@ -47,6 +74,7 @@ const readItem = async (root: string, id: string): Promise<TrackerResult<WorkIte
 };
 
 const itemIds = async (root: string): Promise<string[]> => {
+  if ((await refuseSymlink(root, itemsDir(root))) !== undefined) return [];
   try {
     const files = await readdir(itemsDir(root));
     return files.flatMap((f) =>
@@ -71,6 +99,11 @@ const readAll = async (root: string): Promise<TrackerResult<WorkItem[]>> => {
 const save = async (root: string, item: WorkItem): Promise<TrackerResult<WorkItem>> => {
   const problem = unwritable(item);
   if (problem !== undefined) return trackerError(problem);
+  const backlog = join(root, "work", "backlog.md");
+  for (const target of [itemsDir(root), fileOf(root, item.id), backlog]) {
+    const link = await refuseSymlink(root, target);
+    if (link !== undefined) return trackerError(link);
+  }
   const others = await readAll(root);
   if (!others.ok) return others;
   await mkdir(itemsDir(root), { recursive: true });
@@ -78,7 +111,7 @@ const save = async (root: string, item: WorkItem): Promise<TrackerResult<WorkIte
   const items = [...others.value.filter((i) => i.id !== item.id), item].toSorted((a, b) =>
     byCodeUnit(a.id, b.id),
   );
-  await writeFile(join(root, "work", "backlog.md"), renderBacklog(items));
+  await writeFile(backlog, renderBacklog(items));
   return ok(item);
 };
 
