@@ -146,7 +146,7 @@ async function reviewNeeds(
       },
     ];
   }
-  const stale = stagedThenEdited(names, command);
+  const stale = stagedThenEdited(names, command, ctx.cwd);
   return stale.length === 0
     ? []
     : [
@@ -157,20 +157,34 @@ async function reviewNeeds(
       ];
 }
 
+type Invocations = ReturnType<typeof resolveGit>["invocations"];
+
 /** Files staged and also changed since staging; empty when the commit stages everything itself. */
 const stagedThenEdited = (
   names: { staged: readonly string[]; unstaged: readonly string[] },
   command: string,
+  cwd: string,
 ): string[] => {
-  const invocations = resolveGit(command).invocations;
-  if (stagesAllTracked(invocations)) return [];
-  // A path that is an argument of the commit or add itself is committed (or re-staged) from the work tree,
-  // which was reviewed. Message text is one argument and never equals a path.
-  const named = new Set(
-    invocations.filter((i) => i.sub === "commit" || i.sub === "add").flatMap((i) => i.args),
-  );
-  return names.staged.filter((name) => names.unstaged.includes(name) && !named.has(name));
+  // Only what runs before or at the first commit can change what that commit records.
+  const all = resolveGit(command).invocations;
+  const firstCommit = all.findIndex((i) => i.sub === "commit");
+  const upto = firstCommit === -1 ? all : all.slice(0, firstCommit + 1);
+  if (stagesAllTracked(upto, cwd)) return [];
+  // A path (or a directory holding it) that is an argument of the commit or add itself is committed or
+  // re-staged from the work tree, which was reviewed. Message text is one argument and never equals a path.
+  const named = upto
+    .filter((i) => (i.sub === "commit" || i.sub === "add") && !isDryRun(i) && inThisDir(i, cwd))
+    .flatMap((i) => i.args.filter((a) => !a.startsWith("-")).map(cleanPath));
+  const covered = (name: string) => named.some((n) => name === n || name.startsWith(`${n}/`));
+  return names.staged.filter((name) => names.unstaged.includes(name) && !covered(name));
 };
+
+const cleanPath = (arg: string): string => arg.replace(/^(\.\/)+/, "").replace(/\/+$/, "");
+const isDryRun = (i: Invocations[number]): boolean =>
+  i.sub === "add" && i.args.some((a) => a === "-n" || a === "--dry-run");
+/** The invocation runs in the session's directory (no `cd`/`-C`, or one that leads back to it). */
+const inThisDir = (i: Invocations[number], cwd: string): boolean =>
+  i.dir === undefined || resolve(cwd, i.dir) === resolve(cwd);
 
 const STAGE_ALL = new Set(["-A", "--all", "-u", "--update", "."]);
 const BOOLEAN_SHORT = /[enqsvz]/;
@@ -187,15 +201,13 @@ function clusterHasA(arg: string): boolean {
 
 /**
  * The command re-stages every tracked change of this repository before it commits: `commit -a`, or
- * `git add -A|-u|.` with no pathspec, in the same directory, ahead of the commit. Read from parsed
- * invocations, not message text.
+ * `git add -A|-u|.` with no pathspec, in this directory. Read from parsed invocations, not message text.
  */
-function stagesAllTracked(invocations: ReturnType<typeof resolveGit>["invocations"]): boolean {
-  const firstCommit = invocations.findIndex((i) => i.sub === "commit");
-  return invocations.some((i, index) => {
-    if (i.dir !== undefined) return false;
+function stagesAllTracked(invocations: Invocations, cwd: string): boolean {
+  return invocations.some((i) => {
+    if (!inThisDir(i, cwd) || isDryRun(i)) return false;
     if (i.sub === "commit") return i.args.some((a) => a === "--all" || clusterHasA(a));
-    if (i.sub !== "add" || (firstCommit !== -1 && index > firstCommit)) return false;
+    if (i.sub !== "add") return false;
     const paths = i.args.filter((a) => !a.startsWith("-"));
     return i.args.some((a) => STAGE_ALL.has(a)) && paths.every((a) => a === ".");
   });

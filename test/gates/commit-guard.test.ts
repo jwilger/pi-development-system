@@ -406,3 +406,30 @@ test("the re-stage exemption needs a whole-repo add ahead of the commit, in this
   assert.equal(await blocked(`git commit -sa -m '${GOOD}'`), false, "-sa includes -a");
   assert.equal(await blocked(commit(GOOD), { fail: true }), true, "unreadable names");
 });
+
+test("only what runs before the first commit can exempt it, and re-staging in this directory counts", async () => {
+  const digest = await currentDigest();
+  const blocked = async (
+    command: string,
+    names: Names = { staged: "src/a.ts\0", unstaged: "src/a.ts\0" },
+  ) => {
+    const t = setup(jevJudging(0.9, 0.1), DIFF, names);
+    withPhase(t, "implementing");
+    t.state.update((s) => upsertReview(s, cleanRounds(3, digest)));
+    return (await t.bash(command.replace("CWD", t.cwd)))?.block === true;
+  };
+  const c = commit(GOOD);
+  assert.equal(
+    await blocked(`git add other.ts && ${c} && git add src/a.ts && ${c}`),
+    true,
+    "later add",
+  );
+  assert.equal(await blocked(`${c} && git add src/a.ts`), true, "add after commit");
+  assert.equal(await blocked(`${c} && git commit -a -m '${GOOD}'`), true, "later commit -a");
+  assert.equal(await blocked(`git add -n src/a.ts && ${c}`), true, "dry run stages nothing");
+  assert.equal(await blocked(`git add src/ && ${c}`), false, "directory pathspec covers it");
+  assert.equal(await blocked(`git add ./src/a.ts && ${c}`), false, "./ prefix");
+  assert.equal(await blocked(`cd CWD && git add -A && ${c}`), false, "cd to the session directory");
+  assert.equal(await blocked(`cd CWD && git commit -a -m '${GOOD}'`), false, "cd then commit -a");
+  assert.equal(await blocked(`cd elsewhere && git add -A && ${c}`), true, "another directory");
+});
