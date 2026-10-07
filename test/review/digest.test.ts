@@ -69,6 +69,22 @@ test("diff.mnemonicPrefix and diff.noprefix do not stop the diff from being read
   }
 });
 
+test("textconv that hides an edit and diff.submodule=log do not hide a changed path", async () => {
+  const dir = repo();
+  writeFileSync(join(dir, ".gitattributes"), "*.bin diff=same\n");
+  git(dir, "config", "diff.same.textconv", "echo same");
+  git(dir, "config", "diff.submodule", "log");
+  writeFileSync(join(dir, "x.bin"), "1");
+  git(dir, "add", "-A");
+  git(dir, "commit", "-q", "-m", "bin");
+  writeFileSync(join(dir, "x.bin"), "2");
+  const first = await snapshotDiff(exec, dir, "HEAD");
+  assert.ok(first.ok, first.ok ? "" : first.error);
+  assert.deepEqual(Object.keys(first.value.files), ["x.bin"]);
+  writeFileSync(join(dir, "x.bin"), "3");
+  assert.notEqual(await digest(dir), first.value.digest);
+});
+
 test("editing a file with a non-ASCII name changes the digest and keys it by its real path", async () => {
   const dir = repo();
   writeFileSync(join(dir, "naïve.md"), "one\ntwo\n");

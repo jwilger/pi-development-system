@@ -42,6 +42,10 @@ export async function snapshotDiff(
       // diff.mnemonicPrefix / diff.noprefix change the `a/` `b/` header prefixes the file keys are cut from.
       "--src-prefix=a/",
       "--dst-prefix=b/",
+      // Every changed path gets a `diff --git` section: no submodule log summaries, no textconv that
+      // can hide an edit whose converted text is unchanged.
+      "--submodule=short",
+      "--no-textconv",
     ];
     const [diff, stat, others] = await Promise.all([
       exec("git", [...plain, "--full-index", "--no-renames", range], { cwd, timeout: 15_000 }),

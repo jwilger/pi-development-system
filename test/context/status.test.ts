@@ -65,3 +65,8 @@ test("status shows the active slice's review as N/R clean", async () => {
   assert.match(renderStatusLine(state), /review 1\/3/);
   assert.doesNotMatch(renderStatus(initialState()), /review:/);
 });
+
+test("without an active slice the most recent review is still shown", () => {
+  const review = { slice: "s1" as never, rounds: [], required: 3 };
+  assert.match(renderStatus({ ...initialState(), reviews: [review] }), /review: 0\/3 clean/);
+});

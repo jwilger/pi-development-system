@@ -127,6 +127,14 @@ export function createReviewStartTool(
         );
       }
 
+      if (action === "fix-findings") {
+        return reply(
+          `${reviewLabel(review)}. Round ${review.rounds.length} of ${slice} has blocking or should-fix findings and the diff has not changed since: fix them first, then start again. ` +
+            "Re-running the review on unchanged code does not clear a finding. If a finding is wrong, record a `review.unsatisfied` departure with the evidence (devsys_record_departure).",
+          true,
+        );
+      }
+
       const round = review.rounds.length + 1;
       const resolved = resolveSlot(
         config.value.models,

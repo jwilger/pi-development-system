@@ -14,7 +14,9 @@ const ciLabel = (state: DevsysState): string | undefined => {
 };
 
 const activeReview = (state: DevsysState): string | undefined => {
-  const review = state.activeSlice === undefined ? undefined : reviewOf(state, state.activeSlice);
+  // Without an active slice (before /devsys-start exists) show the most recent review instead of nothing.
+  const review =
+    state.activeSlice === undefined ? state.reviews?.at(-1) : reviewOf(state, state.activeSlice);
   return review === undefined ? undefined : reviewLabel(review);
 };
 

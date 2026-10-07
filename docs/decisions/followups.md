@@ -209,3 +209,7 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 
 - security the commit gate judges the tree as it is before the command runs: a command that edits files or `git add -f`s an ignored file and commits in the same line lands unreviewed. Inherent to a pre-command hook; not parsed.
 - correctness embedded-repo gitlinks are excluded from the digest, so a moved nested HEAD passes.
+
+## From I6 review round 8
+
+- acceptance `review.unsatisfied` at commit time is dormant until I8.3 sets `activeSlice` and a phase of implementing|reviewing (same as I4's red-first gate); `/devsys-review` needs an explicit slice until then, and the status shows the most recent review when no slice is active.

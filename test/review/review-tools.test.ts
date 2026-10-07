@@ -143,6 +143,11 @@ test("a should-fix finding resets the streak and asks for fixes", async () => {
   });
   assert.match(text(r), /review: 0\/3 clean/);
   assert.match(text(r), /next: fix-findings/);
+  // Re-running the review on unchanged code is refused: it would let a finding be rolled away.
+  const again = await t.start();
+  assert.equal(again.isError, true);
+  assert.match(text(again), /fix them first/);
+  assert.equal(t.state.get().reviews?.[0]?.rounds.length, 2);
 });
 
 test("three clean rounds on the current diff are done", async () => {
