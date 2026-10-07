@@ -199,7 +199,7 @@ export function createModelsTool(): ToolDefinition<typeof Parameters> {
       "Return the model this project's matrix resolves each slot to (frontier, strong, fast, planning, advisor, implementer, reviewer, lens, researcher, jev) given the credentials on this machine.",
     promptSnippet: "Look up which model a development-system slot resolves to",
     parameters: Parameters,
-    exposure: "direct",
+    exposure: "codemode",
     async execute(
       _id,
       params: Static<typeof Parameters>,

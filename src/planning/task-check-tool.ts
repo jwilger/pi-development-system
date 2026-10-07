@@ -50,7 +50,7 @@ export function createTaskCheckTool(deps: {
       "Run before handing a task record to an implementer subagent.",
     promptSnippet: "Check a task record is ready for an implementer",
     parameters: Parameters,
-    exposure: "direct",
+    exposure: "codemode",
     async execute(_id, params: Static<typeof Parameters>, _signal, _onUpdate, ctx) {
       const target = resolve(ctx.cwd, params.path);
       if (!insideRepo(ctx.cwd, target))

@@ -25,7 +25,7 @@ export function createBeginWorkTool(deps: {
       "Move from planning to implementing once the user has approved the plan. This switches on the review and red-first gates for the active slice.",
     promptSnippet: "Start implementing after the plan is approved",
     parameters: Parameters,
-    exposure: "direct",
+    exposure: "model-only",
     execute(_id, _params: Static<typeof Parameters>) {
       const { phase, activeSlice } = deps.state.get();
       if (phase === "implementing" && activeSlice !== undefined) {

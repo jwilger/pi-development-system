@@ -1,6 +1,10 @@
 // pi-lens-ignore: high-import-coupling -- composition root: it imports every module it wires, by design
 import { readFileSync } from "node:fs";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+  ToolDefinition,
+} from "@earendil-works/pi-coding-agent";
 import { cadenceLine, DEFAULT_PUSH_MINUTES } from "../src/context/cadence.ts";
 import { appendContextTail, renderContextTail } from "../src/context/context-tail.ts";
 import { registerModelAdvice } from "../src/context/model-advice.ts";
@@ -11,6 +15,7 @@ import { type Exec, timeoutAsFailure } from "../src/core/exec.ts";
 import { defaultMatrix } from "../src/core/models.ts";
 import { createApprovalStore } from "../src/gates/approvals.ts";
 import { registerCommitGuard } from "../src/gates/commit-guard.ts";
+import { declareWithoutCodemode } from "../src/gates/exposure.ts";
 import { registerGitGuard } from "../src/gates/git-guard.ts";
 import { registerLintSuppressionGuard } from "../src/gates/lint-suppression-guard.ts";
 import { registerPushGuard } from "../src/gates/push-guard.ts";
@@ -19,6 +24,7 @@ import { registerRedFirstGuard } from "../src/gates/red-first-guard.ts";
 import { createRequestApprovalTool } from "../src/gates/request-approval-tool.ts";
 import { registerTestGuard } from "../src/gates/test-guard.ts";
 import { createJevHolder } from "../src/jev/holder.ts";
+import { createJudgeTools } from "../src/jev/judge-tools.ts";
 import { createBeginWorkTool } from "../src/planning/begin-tool.ts";
 import { createIntakeTool } from "../src/planning/intake-tool.ts";
 import { createTaskCheckTool } from "../src/planning/task-check-tool.ts";
@@ -140,12 +146,18 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   registerLintSuppressionGuard({ pi, state });
   pi.registerTool(createRecordDepartureTool({ pi, state }));
   pi.registerTool(createRequestApprovalTool({ pi, approvals }));
-  pi.registerTool(createModelsTool());
-  pi.registerTool(createRouteTaskTool({ jev: (ctx) => jevHolder.forContext(ctx) }));
+  // Rarely used tools: reached through codemode when it is on, declared directly when it is not.
+  const rarelyUsed: ToolDefinition[] = [
+    createModelsTool(),
+    createRouteTaskTool({ jev: (ctx) => jevHolder.forContext(ctx) }),
+    createTaskCheckTool({ jev: (ctx) => jevHolder.forContext(ctx) }),
+    createWorkItemTool({ exec }),
+    ...createJudgeTools({ jev: (ctx) => jevHolder.forContext(ctx) }),
+  ];
+  for (const tool of rarelyUsed) pi.registerTool(tool);
+  pi.on("session_start", () => declareWithoutCodemode(pi, rarelyUsed));
   pi.registerTool(createBeginWorkTool({ state }));
   pi.registerTool(createIntakeTool({ pi, state, jev: (ctx) => jevHolder.forContext(ctx) }));
-  pi.registerTool(createTaskCheckTool({ jev: (ctx) => jevHolder.forContext(ctx) }));
-  pi.registerTool(createWorkItemTool({ exec }));
   const reviewDeps = {
     state,
     jev: (ctx: ExtensionContext) => jevHolder.forContext(ctx),

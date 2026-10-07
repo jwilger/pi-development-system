@@ -36,7 +36,7 @@ export function createRouteTaskTool(deps: {
       "Recommend which model and thinking level a subagent should use for a task. Call before agent_spawn for implementer or reviewer work and pass the returned model and thinkingLevel.",
     promptSnippet: "Recommend model and thinking level for a subagent task",
     parameters: Parameters,
-    exposure: "direct",
+    exposure: "codemode",
     async execute(
       _id,
       params: Static<typeof Parameters>,

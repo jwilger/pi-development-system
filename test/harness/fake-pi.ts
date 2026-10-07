@@ -27,6 +27,8 @@ export type FakePiOptions = {
   classifiers?: string[];
   /** Chat models available with credentials, as `provider/id` (optionally with a price). */
   models?: { id: string; cost?: { input: number; output: number } }[];
+  /** Names `pi.getActiveTools()` reports; add `codemode` to simulate codemode being on. */
+  activeTools?: string[];
 };
 
 /**
@@ -120,6 +122,7 @@ export function createFakePi(init: FakePiOptions = {}) {
     registerTool: (tool: ToolDefinition) => {
       tools.set(tool.name, tool);
     },
+    getActiveTools: () => init.activeTools ?? [],
     registerCommand: (name: string, options: Omit<RegisteredCommand, "name" | "sourceInfo">) => {
       commands.set(name, options);
     },

@@ -30,7 +30,7 @@ export function createRequestApprovalTool(
       "only valid for the exact command text. Unavailable when running headless.",
     promptSnippet: "Ask the user to approve an irreversible git command (hard stop)",
     parameters: Parameters,
-    exposure: "direct",
+    exposure: "model-only",
     async execute(toolCallId, params: Static<typeof Parameters>, _signal, _onUpdate, ctx) {
       const gate = parseGateId(params.gate);
       if (params.gate === "commit.forbidden-trailer") {

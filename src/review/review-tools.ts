@@ -215,7 +215,7 @@ export function createReviewStartTool(
       "Begin a review round for a slice: computes the diff digest, chooses review lenses, and returns the agent_spawn payload for a fresh-context reviewer. Run that spawn, then pass the reviewer's packet to devsys_review_record.",
     promptSnippet: "Start a fresh-context review round for a slice",
     parameters: StartParameters,
-    exposure: "direct",
+    exposure: "model-only",
     async execute(
       _id,
       params: Static<typeof StartParameters>,

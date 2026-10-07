@@ -120,7 +120,7 @@ export function createWorkItemTool(deps: { exec: Exec }): ToolDefinition<typeof 
       "Use it for the backlog instead of editing tracker files or running gh by hand.",
     promptSnippet: "Read and write the project's work items",
     parameters: Parameters,
-    exposure: "direct",
+    exposure: "codemode",
     async execute(
       _id,
       params: Static<typeof Parameters>,

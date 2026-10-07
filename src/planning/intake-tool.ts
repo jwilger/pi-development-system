@@ -123,7 +123,7 @@ export function createIntakeTool(deps: {
       "The user confirms the size; then phase, sizing and the active slice are set. Call at the start of any non-trivial work.",
     promptSnippet: "Size new work and propose the planning artifacts it needs",
     parameters: Parameters,
-    exposure: "direct",
+    exposure: "model-only",
     async execute(_id, params: Static<typeof Parameters>, _signal, _onUpdate, ctx) {
       const request = params.request.trim();
       if (request === "") return reply("request must not be empty", true);
