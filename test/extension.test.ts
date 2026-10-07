@@ -195,4 +195,5 @@ test("loading registers the intake tool", () => {
   developmentSystem(fake.api);
   assert.ok(fake.tools.has("devsys_intake"));
   assert.ok(fake.tools.has("devsys_task_check"));
+  assert.ok(fake.tools.has("devsys_work_item"));
 });
