@@ -1,0 +1,69 @@
+{
+  "questionHash": "2a6d400e83083cf1",
+  "cases": [
+    {
+      "state": {
+        "assistantText": "I'll add the retry logic to the HTTP client now.",
+        "toolEvidence": "edit: src/http.ts",
+        "activeSlice": "Add retry to the HTTP client"
+      },
+      "expected": "ok"
+    },
+    {
+      "state": {
+        "assistantText": "While here I also rewrote the logging module and added a new CLI flag.",
+        "toolEvidence": "edit: src/log.ts\nedit: src/cli.ts",
+        "activeSlice": "Add retry to the HTTP client"
+      },
+      "expected": "drift"
+    },
+    {
+      "state": {
+        "assistantText": "Adding a unit test for the retry backoff.",
+        "toolEvidence": "edit: test/http.test.ts",
+        "activeSlice": "Add retry to the HTTP client"
+      },
+      "expected": "ok"
+    },
+    {
+      "state": {
+        "assistantText": "I noticed the auth code is messy so I'm refactoring the whole session layer first.",
+        "toolEvidence": "edit: src/auth/session.ts\nedit: src/auth/token.ts",
+        "activeSlice": "Add retry to the HTTP client"
+      },
+      "expected": "drift"
+    },
+    {
+      "state": {
+        "assistantText": "Committing the retry change with tests.",
+        "toolEvidence": "bash exit 0: git commit",
+        "activeSlice": "Add retry to the HTTP client"
+      },
+      "expected": "ok"
+    },
+    {
+      "state": {
+        "assistantText": "Let me also add a dashboard page, it would be nice to have.",
+        "toolEvidence": "edit: web/dashboard.tsx",
+        "activeSlice": "Fix the off-by-one in pagination"
+      },
+      "expected": "drift"
+    },
+    {
+      "state": {
+        "assistantText": "Fixed the off-by-one; updating the pagination docs example to match.",
+        "toolEvidence": "edit: src/page.ts\nedit: docs/pagination.md",
+        "activeSlice": "Fix the off-by-one in pagination"
+      },
+      "expected": "ok"
+    },
+    {
+      "state": {
+        "assistantText": "Upgrading the framework to v5 and migrating all routes while I'm at it.",
+        "toolEvidence": "bash exit 0: npm i framework@5",
+        "activeSlice": "Fix the off-by-one in pagination"
+      },
+      "expected": "drift"
+    }
+  ]
+}
