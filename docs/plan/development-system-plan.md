@@ -46,7 +46,7 @@ less careful model than the one that wrote this):**
 - [x] I6 Review orchestration (fresh reviewer, lenses, recoverable clean streak)
 - [x] I7 Anti-drift: verifier, compaction, model/phase recommendation
 - [x] I7b Cleanup: no skips, no nit file, no warnings, subagent thread cap, resync removed
-- [ ] I8 Work sizing, slices, task records, tracker adapters, pi-goal-x hand-off
+- [x] I8 Work sizing, slices, task records, tracker adapters, pi-goal-x hand-off
 - [ ] I9 Product planning skills (brief, decisions, interview loop, lens review, journeys, ADR)
 - [ ] I10 Event modelling lite (slice schema v1, validator, GWT → tests)
 - [ ] I11 Design-system profile, threat modelling, skill lint, 1.0 readiness
