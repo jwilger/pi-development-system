@@ -44,7 +44,7 @@ less careful model than the one that wrote this):**
 - [x] I4 Engineering skills + language profiles + TDD/test gates
 - [x] I5 Vendored subagents with dynamic model/effort routing
 - [x] I6 Review orchestration (fresh reviewer, lenses, recoverable clean streak)
-- [ ] I7 Anti-drift: verifier, compaction, model/phase recommendation
+- [x] I7 Anti-drift: verifier, compaction, model/phase recommendation
 - [ ] I8 Work sizing, slices, task records, tracker adapters, pi-goal-x hand-off
 - [ ] I9 Product planning skills (brief, decisions, interview loop, lens review, journeys, ADR)
 - [ ] I10 Event modelling lite (slice schema v1, validator, GWT → tests)

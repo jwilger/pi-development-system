@@ -259,3 +259,10 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 - nit: `src/context/cadence.ts` stays silent until the first push of a session (`lastPushAt` unset), as the plan's formula says; consider counting from session start.
 - nit: some fixture evidence lines in `evals/jev/{claim-verification,drift}.json` are still not in the `target → output` shape.
 - nit: model-advice "once per (phase, model)" has no test that the phase part of the key matters.
+
+## From I7 review round 8
+
+- nit: no test that `agent_start` clears `justCorrected`; no test at exactly the 0.75 threshold; model-advice `triggerTurn:false` and "never sets the model" are not asserted.
+- nit: `asksUser` treats a question-shaped heading followed by a list as a question (safe direction: no extra continuation).
+- nit: the corrective message is generic ("claims something was run, passed or done") because Jev returns only a probability, not the claim; plan wording says "claims X".
+- nit: model-advice `told` set is not cleared on `session_start` (sibling of the per-process verifier count).
