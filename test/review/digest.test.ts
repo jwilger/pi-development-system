@@ -94,6 +94,19 @@ test("diff.ignoreSubmodules=all does not hide a changed path from the digest", a
   assert.deepEqual(Object.keys(snap.value.files), ["a.txt"]);
 });
 
+test("staging other files does not change a tracked file's digest or the whole digest", async () => {
+  const dir = repo();
+  writeFileSync(join(dir, "a.txt"), "one\ntwo\n");
+  writeFileSync(join(dir, "z.txt"), "new\n");
+  const before = await snapshotDiff(exec, dir, "HEAD");
+  assert.ok(before.ok);
+  git(dir, "add", "-A");
+  const after = await snapshotDiff(exec, dir, "HEAD");
+  assert.ok(after.ok);
+  assert.equal(after.value.files["a.txt"], before.value.files["a.txt"]);
+  assert.equal(after.value.digest, before.value.digest);
+});
+
 test("editing a file with a non-ASCII name changes the digest and keys it by its real path", async () => {
   const dir = repo();
   writeFileSync(join(dir, "naïve.md"), "one\ntwo\n");
