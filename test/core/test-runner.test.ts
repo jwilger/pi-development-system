@@ -146,3 +146,8 @@ test("a repo with no test script is not a failing test run", () => {
   const text = 'npm error Missing script: "test"';
   assert.equal(exitCodeOf({ isError: true, text, command: "npm test" }), 0);
 });
+
+test("a missing test script in one workspace does not hide a failing test in another", () => {
+  const text = 'npm error Missing script: "test"\n# fail 2\nnot ok 1 - boom';
+  assert.equal(exitCodeOf({ isError: true, text, command: "npm test --workspaces" }), 1);
+});

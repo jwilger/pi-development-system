@@ -3,7 +3,12 @@ import test from "node:test";
 import type { ClassifierAnswer } from "@earendil-works/pi-ai";
 import { err, ok } from "../../src/core/result.ts";
 import type { Jev } from "../../src/jev/client.ts";
-import { FIX_RELATED_THRESHOLD, judgeFixRelated } from "../../src/jev/questions/fix-related.ts";
+import {
+  FIX_RELATED_QUESTION,
+  FIX_RELATED_THRESHOLD,
+  judgeFixRelated,
+} from "../../src/jev/questions/fix-related.ts";
+import { loadFixture, questionHash } from "./fixture-runner.ts";
 
 const jevAnswering = (answers: Record<string, ClassifierAnswer>) => {
   const seen: Record<string, string>[] = [];
@@ -51,4 +56,8 @@ test("judgeFixRelated passes errors through and rejects wrong-typed answers", as
     related: { type: "choice", choice: "a", probabilities: {}, confidence: 1 },
   });
   assert.equal((await judgeFixRelated(wrong.jev, input)).ok, false);
+});
+
+test("the fix-related fixture is pinned to the current question", () => {
+  assert.equal(loadFixture("fix-related").questionHash, questionHash({ ...FIX_RELATED_QUESTION }));
 });

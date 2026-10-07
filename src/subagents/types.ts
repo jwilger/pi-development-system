@@ -20,9 +20,9 @@ export interface AgentType {
   /** devsys: per-spawn pin set by the coordinator via agent_spawn; beats preferences and inheritance. */
   spawnOverrides?: { model?: string; thinkingLevel?: ThinkingLevel };
   /** Pi semantic token for the type pill background and task path foreground. */
-  color?: string;
+  color?: string | undefined;
   /** Optional literal Nerd Font glyph; displayed only when the labs setting is enabled. */
-  icon?: string;
+  icon?: string | undefined;
   tools?: { allow?: string[]; block?: string[] };
   systemPrompt: string;
   filePath?: string;
@@ -50,20 +50,20 @@ export interface ThreadView {
   parent: string | null;
   owner: string;
   type: string;
-  color?: string;
-  icon?: string;
+  color?: string | undefined;
+  icon?: string | undefined;
   state: ThreadState;
   task: string;
   status: string;
-  output?: string;
-  error?: string;
+  output?: string | undefined;
+  error?: string | undefined;
   createdAt: number;
   updatedAt: number;
-  sessionFile?: string;
+  sessionFile?: string | undefined;
   /** Frozen active time. Renderer adds `Date.now() - startedAt` while a run is active. */
   elapsedMs?: number;
   /** Current run start. Live only; omitted from saved views so reloads do not count offline time. */
-  startedAt?: number;
+  startedAt?: number | undefined;
   /** Cumulative input tokens, including cache read/write. Live views include the in-progress message. */
   inputTokens?: number;
   /** Cumulative output tokens. Live views include the in-progress message. */
@@ -76,7 +76,7 @@ type DriverEvent =
   | {
       kind: "checkpoint";
       text: string;
-      sessionFile?: string;
+      sessionFile?: string | undefined;
       sessionLeafId?: string | null;
     }
   | {
@@ -106,7 +106,7 @@ export interface TranscriptSnapshot {
   tools: readonly TranscriptToolState[];
   inheritedCount: number;
   thread?: ThreadView;
-  error?: string;
+  error?: string | undefined;
 }
 export interface TranscriptObservation {
   snapshot: TranscriptSnapshot;
@@ -123,7 +123,7 @@ export interface AgentDriver {
   abort(): Promise<void>;
   dispose(): void;
   sendUpdate(content: string): Promise<void> | void;
-  sessionFile?: string;
+  sessionFile?: string | undefined;
   sessionLeafId?: string | null;
 }
 export interface DriverOptions {
@@ -134,7 +134,7 @@ export interface DriverOptions {
   onEvent(event: DriverEvent): void;
   shouldPause(): boolean;
   parentPath: string | null;
-  sessionFile?: string;
+  sessionFile?: string | undefined;
   /** Retained transcript of a nested lexical parent. Absent for /root and independent roots. */
   parentSessionFile?: string;
   sessionLeafId?: string | null;
@@ -145,15 +145,15 @@ export interface SavedThreadView {
   parent: string | null;
   owner: string;
   type: string;
-  color?: string;
-  icon?: string;
+  color?: string | undefined;
+  icon?: string | undefined;
   state: ThreadState;
   task: string;
   status: string;
-  output?: string;
-  error?: string;
+  output?: string | undefined;
+  error?: string | undefined;
   createdAt: number;
-  sessionFile?: string;
+  sessionFile?: string | undefined;
   sessionLeafId?: string | null;
   /** Frozen cumulative active time. `startedAt` is intentionally not persisted. */
   elapsedMs?: number;

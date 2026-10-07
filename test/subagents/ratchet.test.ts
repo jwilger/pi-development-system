@@ -11,7 +11,8 @@ const walk = (dir: string): string[] =>
     return e.name.endsWith(".ts") ? [path] : [];
   });
 
-const exempt = (file: string): boolean => /^\/\/ @ts-nocheck/m.test(readFileSync(file, "utf8"));
+const exempt = (file: string): boolean =>
+  /^\s*\/\/\s*@ts-nocheck/m.test(readFileSync(file, "utf8"));
 
 test("only the listed vendored files may skip type checking", () => {
   const actual = walk("src/subagents").filter(exempt);

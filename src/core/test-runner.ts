@@ -72,8 +72,9 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
 
 /** Exit code of a bash tool result: structured `exit_code`, else pi's status line, else error/not. */
 export function exitCodeOf(result: ResultLike): number {
-  // `npm test` in a package without a test script exits 1 but ran no tests, so it is not a RED.
-  if (NO_TEST_SCRIPT.test(result.text)) return 0;
+  // `npm test` in a package without a test script exits 1 but ran no tests, so it is not a RED;
+  // but with --workspaces one package may lack the script while another fails for real.
+  if (NO_TEST_SCRIPT.test(result.text) && !FAILURE_MARKERS.test(result.text)) return 0;
   const reported = reportedExit(result);
   if (reported !== 0) return reported;
   // `npm test | tail` exits 0 whatever the tests did, even in the structured status; trust the output.

@@ -3,7 +3,8 @@ import test from "node:test";
 import type { ClassifierAnswer } from "@earendil-works/pi-ai";
 import { err, ok } from "../../src/core/result.ts";
 import type { Jev } from "../../src/jev/client.ts";
-import { judgeCommit } from "../../src/jev/questions/commit.ts";
+import { judgeCommit, MIX_QUESTION, RATIONALE_QUESTION } from "../../src/jev/questions/commit.ts";
+import { loadFixture, questionHash } from "./fixture-runner.ts";
 
 const jevWith = (answers: Record<string, ClassifierAnswer> | undefined): Jev => ({
   ask: async () => (answers === undefined ? err({ kind: "provider", message: "x" }) : ok(answers)),
@@ -53,4 +54,12 @@ test("judgeCommit sends secrets redacted and clips long diffs", async () => {
   });
   assert.equal(String(seen.message).includes("abcdef0123456789abcdef"), false);
   assert.ok(String(seen.diff).length <= 8000);
+});
+
+test("the commit fixtures are pinned to the current questions", () => {
+  assert.equal(
+    loadFixture("commit-rationale").questionHash,
+    questionHash({ ...RATIONALE_QUESTION }),
+  );
+  assert.equal(loadFixture("commit-mix").questionHash, questionHash({ ...MIX_QUESTION }));
 });

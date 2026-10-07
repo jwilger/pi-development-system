@@ -1,5 +1,7 @@
-// @ts-nocheck: vendored upstream pi-subagent-manager 0.14.0 compiled under looser options; see src/subagents/VENDORED.md
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import { parseSpawnOverrides } from "../../core/spawn-overrides.ts";
+import { isParseError } from "../../core/types.ts";
+import { DEFAULT_MANAGER_SETTINGS, type ManagerSettings } from "../prefs/settings.ts";
 import type {
   AgentDriver,
   AgentType,
@@ -13,21 +15,18 @@ import type {
   TranscriptObservation,
   TranscriptSnapshot,
 } from "../types.ts";
-import { immutableTranscriptValue } from "./transcript.ts";
-import { parseSpawnOverrides } from "../../core/spawn-overrides.ts";
-import { isParseError } from "../../core/types.ts";
 import { canonicalPath, inheritContext, isDescendant, parentPath } from "./paths.ts";
-import { DEFAULT_MANAGER_SETTINGS, type ManagerSettings } from "../prefs/settings.ts";
+import { immutableTranscriptValue } from "./transcript.ts";
 
 interface Record {
   view: ThreadView;
   definition: AgentType;
   inherited: AgentMessage[];
-  contextReady?: Promise<void>;
+  contextReady?: Promise<void> | undefined;
   contextPending?: boolean;
   startup: AbortController;
   driver?: AgentDriver;
-  initializing?: Promise<AgentDriver>;
+  initializing?: Promise<AgentDriver> | undefined;
   run?: Promise<void>;
   started?: Promise<void>;
   sessionLeafId?: string | null;
@@ -40,18 +39,26 @@ interface Record {
   stopRequested: boolean;
   observationRevision?: number;
   driverGeneration?: number;
-  transcriptSource?: TranscriptSnapshot;
+  transcriptSource?: TranscriptSnapshot | undefined;
   transcriptListeners?: Set<TranscriptListener>;
-  detachTranscript?: () => void;
-  observationError?: string;
+  detachTranscript?: (() => void) | undefined;
+  observationError?: string | undefined;
 }
 const active = (view: Pick<ThreadView, "state">) =>
   view.state === "starting" || view.state === "running";
+const settledState = (record: {
+  stopRequested: boolean;
+  pauseRequested: boolean;
+}): ThreadView["state"] => {
+  if (record.stopRequested) return "stopped";
+  return record.pauseRequested ? "paused" : "completed";
+};
+const swallow = (): undefined => undefined;
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 function abortable<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
   if (signal.aborted) {
-    void work.catch(() => {});
+    work.catch(swallow);
     return Promise.reject(signal.reason);
   }
   return new Promise((resolve, reject) => {
@@ -75,7 +82,10 @@ export class ThreadManager {
   private records = new Map<string, Record>();
   private disposed = false;
   private epoch = 0;
-  constructor(private options: ManagerOptions) {}
+  private options: ManagerOptions;
+  constructor(options: ManagerOptions) {
+    this.options = options;
+  }
 
   /** New limits affect future launches/resumes, never cancel existing work. */
   setLimits(limits: ManagerSettings): void {
@@ -158,14 +168,14 @@ export class ThreadManager {
       return {
         view,
         definition: structuredClone(record.definition),
-        ...(!view.sessionFile && !record.contextPending
+        ...(!(view.sessionFile || record.contextPending)
           ? { inherited: structuredClone(record.inherited) }
           : {}),
       };
     });
   }
   restore(saved: SavedThread[]): void {
-    if (this.records.size) throw new Error("Restore requires an empty thread registry");
+    if (this.records.size > 0) throw new Error("Restore requires an empty thread registry");
     const restored = new Map<string, Record>();
     for (const item of saved) {
       const savedView = structuredClone(item.view);
@@ -187,12 +197,12 @@ export class ThreadManager {
         inputTokens: storedView.inputTokens ?? 0,
         outputTokens: storedView.outputTokens ?? 0,
       };
-      delete view.startedAt;
+      view.startedAt = undefined;
       if (view.parent !== parentPath(path)) throw new Error(`Invalid saved parent for ${path}`);
       if (active(view)) {
         view.state = "paused";
         view.status = "Interrupted by reload; send input to resume";
-        delete view.output;
+        view.output = undefined;
       }
       restored.set(path, {
         view,
@@ -201,9 +211,7 @@ export class ThreadManager {
         // A reservation saved before its lexical parent opened has no snapshot yet.
         contextPending: !view.sessionFile && item.inherited === undefined && view.parent !== null,
         startup: new AbortController(),
-        ...(Object.prototype.hasOwnProperty.call(savedView, "sessionLeafId")
-          ? { sessionLeafId }
-          : {}),
+        ...(Object.hasOwn(savedView, "sessionLeafId") ? { sessionLeafId } : {}),
         pauseRequested: false,
         stopRequested: false,
       });
@@ -257,19 +265,15 @@ export class ThreadManager {
         : level > maxLevels
     )
       throw new Error("Agent depth limit reached");
-    this.archiveFinished(this.options.maxThreads ?? DEFAULT_MANAGER_SETTINGS.maxThreads);
     this.assertCapacity();
     const type = structuredClone(this.options.getType(args.type));
     if (overrides !== undefined) type.spawnOverrides = { ...overrides };
     const parentRecord = parent && parent !== "/root" ? this.record(parent) : undefined;
     this.assertStartableAncestors(path);
+    // Last, so a spawn refused by any check above drops nothing.
+    this.archiveFinished(this.options.maxThreads ?? DEFAULT_MANAGER_SETTINGS.maxThreads, path);
     // Reservation is synchronous: subtree cancellation sees children even during lazy parent reopen.
-    const inherited =
-      parent === "/root"
-        ? inheritContext(this.options.rootSnapshot())
-        : parentRecord?.driver
-          ? inheritContext(parentRecord.driver.snapshot())
-          : [];
+    const inherited = this.inheritedFor(parent, parentRecord);
     const now = Date.now();
     const record: Record = {
       view: {
@@ -298,7 +302,9 @@ export class ThreadManager {
     this.records.set(path, record);
     if (record.contextPending) this.prepareInheritedContext(record);
     this.start(record, args.task);
-    return args.wait === false ? this.view(record) : this.wait(caller, path, undefined, signal);
+    return args.wait === false
+      ? this.view(record)
+      : await this.wait(caller, path, undefined, signal);
   }
 
   async steer(caller: string, path: string, message: string): Promise<ThreadView> {
@@ -321,7 +327,9 @@ export class ThreadManager {
       if (record.stopRequested && active(record.view))
         throw new Error("Thread is stopping; wait for stopped state before resuming");
       if (record.view.state === "running") {
-        await record.driver!.steer(message);
+        const live = record.driver;
+        if (live === undefined) throw new Error("Running thread has no driver");
+        await live.steer(message);
         this.touch(record);
         return this.view(record);
       }
@@ -351,12 +359,13 @@ export class ThreadManager {
       const finish = (error?: Error) => {
         if (timer) clearTimeout(timer);
         signal?.removeEventListener("abort", cancel);
-        error ? reject(error) : resolve();
+        if (error) reject(error);
+        else resolve();
       };
       const cancel = () => finish(new Error("Waiting cancelled; thread remains running"));
       signal?.addEventListener("abort", cancel, { once: true });
       if (timeoutMs !== undefined) timer = setTimeout(() => finish(), timeoutMs);
-      record.run!.then(
+      (record.run ?? Promise.resolve()).then(
         () => finish(),
         (error) => finish(new Error(errorText(error))),
       );
@@ -404,7 +413,7 @@ export class ThreadManager {
         await item.run;
         item.view.state = "stopped";
         item.view.status = "Stopped; session retained";
-        delete item.view.output;
+        item.view.output = undefined;
         this.touch(item);
       }),
     );
@@ -429,14 +438,15 @@ export class ThreadManager {
     // Idle/restored history may be lazily loaded, but attachment never prompts/resumes a turn.
     if (!active(record.view)) await this.ensureDriver(record, true);
     this.assertLive();
-    const listeners = (record.transcriptListeners ??= new Set());
+    const listeners = record.transcriptListeners ?? new Set<TranscriptListener>();
+    record.transcriptListeners = listeners;
     const registered: TranscriptListener = (snapshot) => listener(snapshot);
     listeners.add(registered);
     if (record.driver) this.attachTranscript(record, record.driver);
     else {
       // A starting child gets a placeholder immediately; existing startup supplies the live source.
-      void this.ensureDriver(record, true).catch((error) => {
-        if (this.disposed || !listeners.has(registered)) return;
+      this.ensureDriver(record, true).catch((error) => {
+        if (this.isShutDown() || !listeners.has(registered)) return;
         record.observationError = errorText(error);
         this.publishTranscript(record);
       });
@@ -445,7 +455,7 @@ export class ThreadManager {
       snapshot: this.transcriptSnapshot(record),
       unsubscribe: () => {
         listeners.delete(registered);
-        if (!listeners.size) {
+        if (listeners.size === 0) {
           record.detachTranscript?.();
           record.detachTranscript = undefined;
           record.transcriptSource = undefined;
@@ -473,7 +483,7 @@ export class ThreadManager {
     await Promise.all(
       records.map(async (record) => {
         await record.driver?.abort();
-        await record.initializing?.catch(() => {});
+        await record.initializing?.catch(swallow);
         await record.run;
         record.driver?.dispose();
       }),
@@ -488,8 +498,8 @@ export class ThreadManager {
     record.view.state = "starting";
     record.view.status = "Starting";
     record.view.startedAt = Date.now();
-    delete record.view.output;
-    delete record.view.error;
+    record.view.output = undefined;
+    record.view.error = undefined;
     const epoch = this.epoch;
     let markStarted!: () => void;
     record.started = new Promise((resolve) => {
@@ -501,7 +511,7 @@ export class ThreadManager {
         if (contextReady) await abortable(contextReady, record.startup.signal);
         record.startup.signal.throwIfAborted();
         const driver = await this.ensureDriver(record);
-        if (record.stopRequested || this.disposed) {
+        if (record.stopRequested || this.isShutDown()) {
           record.view.state = "stopped";
           return;
         }
@@ -511,11 +521,7 @@ export class ThreadManager {
         this.touch(record);
         markStarted();
         await task;
-        record.view.state = record.stopRequested
-          ? "stopped"
-          : record.pauseRequested
-            ? "paused"
-            : "completed";
+        record.view.state = settledState(record);
         if (record.view.state === "completed") {
           record.view.output = driver.output();
           record.view.status = "Completed; session retained";
@@ -531,7 +537,7 @@ export class ThreadManager {
         record.liveOutputTokens = 0;
         markStarted(); // Failed/cancelled initialization must also release callers waiting to steer.
         this.touch(record);
-        if (!this.disposed && epoch === this.epoch)
+        if (!this.isShutDown() && epoch === this.epoch)
           this.options.onEvent?.({
             kind: "settled",
             thread: this.view(record),
@@ -586,7 +592,7 @@ export class ThreadManager {
           return this.options.createDriver(options);
         })
         .then(async (driver) => {
-          if (this.disposed || signal.aborted) {
+          if (this.isShutDown() || signal.aborted) {
             await driver.abort();
             driver.dispose();
             throw new Error("Driver startup cancelled");
@@ -615,7 +621,8 @@ export class ThreadManager {
   private attachTranscript(record: Record, driver: AgentDriver): void {
     if (record.detachTranscript || !record.transcriptListeners?.size) return;
     const observation = driver.observeTranscript?.((snapshot) => {
-      if (this.disposed || record.driver !== driver || !record.transcriptListeners?.size) return;
+      if (this.isShutDown() || record.driver !== driver || !record.transcriptListeners?.size)
+        return;
       record.transcriptSource = snapshot;
       this.publishTranscript(record);
     });
@@ -641,7 +648,7 @@ export class ThreadManager {
     });
   }
   private publishTranscript(record: Record): void {
-    if (this.disposed || !record.transcriptListeners?.size) return;
+    if (this.isShutDown() || !record.transcriptListeners?.size) return;
     record.observationRevision = (record.observationRevision ?? 0) + 1;
     const snapshot = this.transcriptSnapshot(record);
     for (const listener of record.transcriptListeners) {
@@ -655,7 +662,7 @@ export class ThreadManager {
   private touch(record: Record): void {
     record.view.updatedAt = Date.now();
     this.publishTranscript(record);
-    if (!this.disposed) this.options.onEvent?.({ kind: "change", thread: this.view(record) });
+    if (!this.isShutDown()) this.options.onEvent?.({ kind: "change", thread: this.view(record) });
   }
   /** Fold driver-cumulative usage into persisted totals. Partials only refresh the live view. */
   private applyUsage(
@@ -669,7 +676,8 @@ export class ThreadManager {
       if (input === record.liveInputTokens && output === record.liveOutputTokens) return;
       record.liveInputTokens = input;
       record.liveOutputTokens = output;
-      if (!this.disposed) this.options.onEvent?.({ kind: "metrics", thread: this.view(record) });
+      if (!this.isShutDown())
+        this.options.onEvent?.({ kind: "metrics", thread: this.view(record) });
       return;
     }
     record.view.inputTokens =
@@ -685,7 +693,7 @@ export class ThreadManager {
     const startedAt = record.view.startedAt;
     if (startedAt === undefined) return;
     record.view.elapsedMs = (record.view.elapsedMs ?? 0) + Math.max(0, Date.now() - startedAt);
-    delete record.view.startedAt;
+    record.view.startedAt = undefined;
   }
   private prepareInheritedContext(record: Record, readOnly = false): Promise<void> | undefined {
     if (!record.contextPending) return record.contextReady;
@@ -709,7 +717,7 @@ export class ThreadManager {
         throw error;
       });
     record.contextReady = ready;
-    void ready.catch(() => {});
+    ready.catch(swallow);
     return ready;
   }
   private sessionLeafId(record: Record): string | null | undefined {
@@ -730,7 +738,7 @@ export class ThreadManager {
       sessionFile: record.driver ? record.driver.sessionFile : record.view.sessionFile,
     });
     // devsys: show per-spawn pins so agent_status reports what the thread was told to run on.
-    if (record.definition?.spawnOverrides) view.pinned = { ...record.definition.spawnOverrides };
+    if (record.definition.spawnOverrides) view.pinned = { ...record.definition.spawnOverrides };
     if (record.liveInputTokens) view.inputTokens = (view.inputTokens ?? 0) + record.liveInputTokens;
     if (record.liveOutputTokens)
       view.outputTokens = (view.outputTokens ?? 0) + record.liveOutputTokens;
@@ -741,8 +749,16 @@ export class ThreadManager {
     if (!record) throw new Error(`Unknown thread ${path}`);
     return record;
   }
+  private inheritedFor(parent: string | null, parentRecord: Record | undefined): AgentMessage[] {
+    if (parent === "/root") return inheritContext(this.options.rootSnapshot());
+    return parentRecord?.driver ? inheritContext(parentRecord.driver.snapshot()) : [];
+  }
+  /** A method, not a field read: the flag flips across awaits, which static narrowing cannot see. */
+  private isShutDown(): boolean {
+    return this.disposed;
+  }
   private assertLive(): void {
-    if (this.disposed) throw new Error("Thread manager has shut down");
+    if (this.isShutDown()) throw new Error("Thread manager has shut down");
   }
   private assertCallerMaySteer(caller: string): void {
     if (caller !== "/root" && this.record(caller).stopRequested)
@@ -765,16 +781,27 @@ export class ThreadManager {
    * on their own history. Make room for one more thread by dropping the oldest finished
    * thread that has no retained descendant; live and paused threads are never dropped.
    * Throws only when every retained thread is still live, paused or a parent of one.
+   * `spawning` is the path about to be created: its ancestors are kept (a finished parent
+   * with no other child is still the new thread's parent).
    */
-  private archiveFinished(limit: number): void {
+  private archiveFinished(limit: number, spawning: string): void {
     while (this.records.size >= limit) {
       const paths = [...this.records.keys()];
       const victim = paths.find((path) => {
         const state = this.records.get(path)?.view.state;
         const finished = state === "completed" || state === "failed" || state === "stopped";
-        return finished && !paths.some((other) => isDescendant(other, path));
+        return (
+          finished &&
+          !isDescendant(spawning, path) &&
+          !paths.some((other) => isDescendant(other, path))
+        );
       });
       if (victim === undefined) throw new Error("Total thread limit reached");
+      const record = this.records.get(victim);
+      // Release what the record holds: shutdown() only walks retained records.
+      record?.detachTranscript?.();
+      record?.transcriptListeners?.clear();
+      record?.driver?.dispose();
       this.records.delete(victim);
     }
   }

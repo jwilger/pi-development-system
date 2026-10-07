@@ -254,3 +254,85 @@ test("live threads still count: the limit refuses when nothing is finished", asy
   );
   release(undefined);
 });
+
+const done = (path: string, parent: string | null) => ({
+  path,
+  parent,
+  owner: parent ?? "/root",
+  type: "coder",
+  state: "completed" as const,
+  task: "go",
+  status: "Done",
+  createdAt: 1,
+  updatedAt: 1,
+  elapsedMs: 0,
+  inputTokens: 0,
+  outputTokens: 0,
+});
+
+test("spawning under a finished parent at the cap keeps that parent", async () => {
+  const { manager } = harness({ maxThreads: 2 });
+  manager.restore([
+    { view: done("/root/a", "/root"), definition: coder },
+    { view: done("/root/b", "/root"), definition: coder },
+  ]);
+  await manager.spawn("/root", { path: "/root/a/kid", type: "coder", task: "go" });
+  const paths = manager.list().map((t) => t.path);
+  assert.ok(paths.includes("/root/a"), "the parent of the new thread must survive");
+  assert.ok(paths.includes("/root/a/kid"));
+  assert.ok(!paths.includes("/root/b"), "the other finished thread made room");
+});
+
+test("a refused spawn archives nothing", async () => {
+  const manager = new ThreadManager({
+    createDriver: async () => {
+      throw new Error("unused");
+    },
+    rootSnapshot: () => [],
+    getType: (name) => {
+      throw new Error(`Unknown agent type ${name}`);
+    },
+    toolsFor: () => [],
+    maxThreads: 2,
+  });
+  manager.restore([
+    { view: done("/root/a", "/root"), definition: coder },
+    { view: done("/root/b", "/root"), definition: coder },
+  ]);
+  await assert.rejects(
+    manager.spawn("/root", { path: "/root/c", type: "nope", task: "go" }),
+    /Unknown agent type/,
+  );
+  assert.deepEqual(
+    manager
+      .list()
+      .map((t) => t.path)
+      .sort((a, b) => a.localeCompare(b)),
+    ["/root/a", "/root/b"],
+  );
+});
+
+test("an archived thread's driver is disposed", async () => {
+  let disposed = 0;
+  const manager = new ThreadManager({
+    createDriver: async () => ({
+      prompt: async () => undefined,
+      steer: async () => undefined,
+      snapshot: () => [],
+      output: () => "done",
+      abort: async () => undefined,
+      dispose: () => {
+        disposed += 1;
+      },
+      sendUpdate: () => undefined,
+    }),
+    rootSnapshot: () => [],
+    getType: () => coder,
+    toolsFor: () => [],
+    maxThreads: 3,
+  });
+  for (let i = 0; i < 10; i++)
+    await manager.spawn("/root", { path: `/root/t${i}`, type: "coder", task: "go" });
+  await manager.shutdown();
+  assert.equal(disposed, 10, "archived drivers are disposed when dropped, the rest at shutdown");
+});
