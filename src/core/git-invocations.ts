@@ -15,7 +15,7 @@ import {
 } from "./git-intent.ts";
 import { stripHeredocs } from "./heredoc.ts";
 
-export type GitInvocation = {
+type GitInvocation = {
   readonly sub: string;
   readonly args: readonly string[];
   /** Directory the command runs in, relative to the starting one (from `cd` and `git -C`), when it moved. */

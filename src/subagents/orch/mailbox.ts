@@ -2,11 +2,11 @@
 import { randomUUID } from "node:crypto";
 import type { SessionEntry, SessionManager } from "@earendil-works/pi-coding-agent";
 
-export const LEGACY_QUEUE_TYPE = "pi-subagent:queue:v1";
+const LEGACY_QUEUE_TYPE = "pi-subagent:queue:v1";
 const ACCEPTED_TYPE = "pi-subagent:mailbox:accepted:v2";
 const CONSUMED_TYPE = "pi-subagent:mailbox:consumed:v2";
 const MIGRATION_TYPE = "pi-subagent:mailbox:migration:v2";
-export const MAILBOX_FIELD = "piSubagentMailbox";
+const MAILBOX_FIELD = "piSubagentMailbox";
 export const BOOTSTRAP_MESSAGE = "Subagent session initialized; awaiting parent input.";
 
 export type AcceptedKind = "steer" | "followUp" | "update";

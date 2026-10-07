@@ -6,7 +6,7 @@ import { type GateId, isParseError } from "../core/types.ts";
 import { appendDecision } from "../state/decision-log.ts";
 import { DEPARTURE_ENTRY_TYPE } from "./record-departure-tool.ts";
 
-export const APPROVAL_ENTRY_TYPE = "devsys-approval";
+const APPROVAL_ENTRY_TYPE = "devsys-approval";
 
 type Approval = { id: string; gate: string; command: string; used: boolean };
 

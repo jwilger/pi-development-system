@@ -19,7 +19,7 @@ import {
 } from "../core/models.ts";
 import { CONFIG_FILE, loadConfig } from "./config.ts";
 
-export const CONFIG_ENTRY_TYPE = "devsys-config";
+const CONFIG_ENTRY_TYPE = "devsys-config";
 
 export type CatalogModel = Available & {
   readonly cost?: { readonly input: number; readonly output: number };
@@ -32,7 +32,7 @@ export interface ModelCatalog {
   hasConfiguredAuth(model: CatalogModel): boolean;
 }
 
-export type SlotRow = {
+type SlotRow = {
   readonly slot: Slot;
   readonly resolution: Resolution | undefined;
 };
@@ -45,7 +45,7 @@ export function availableModels(catalog: ModelCatalog): CatalogModel[] {
   return [...catalog.getAvailable(), ...classifiers];
 }
 
-export function resolveRows(matrix: ModelMatrix, available: readonly Available[]): SlotRow[] {
+function resolveRows(matrix: ModelMatrix, available: readonly Available[]): SlotRow[] {
   return SLOTS.map((slot) => {
     const r = resolveSlot(matrix, slot, available);
     return { slot, resolution: r.ok ? r.value : undefined };
@@ -62,10 +62,7 @@ function priceOf(model: string, available: readonly CatalogModel[]): string {
 }
 
 /** One line per slot: `slot → provider/id (via candidate) · $in/$out per M`, or `UNRESOLVED`. */
-export function renderModelsTable(
-  rows: readonly SlotRow[],
-  available: readonly CatalogModel[],
-): string {
+function renderModelsTable(rows: readonly SlotRow[], available: readonly CatalogModel[]): string {
   const width = Math.max(...SLOTS.map((s) => s.length));
   return rows
     .map(({ slot, resolution }) =>

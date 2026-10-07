@@ -3,7 +3,7 @@ import type { Tier } from "./types.ts";
 export type GateInfo = { readonly tier: Tier; readonly default: string };
 
 /** Registered gate ids (plan Appendix A); grows per increment. Qualified ids use their base entry. */
-export const GATES: Readonly<Record<string, GateInfo>> = {
+const GATES: Readonly<Record<string, GateInfo>> = {
   "git.history-rewrite": { tier: "hard", default: "never rewrite published history" },
   "git.force-push": { tier: "hard", default: "never force-push" },
   "git.branch-delete-remote": { tier: "hard", default: "never delete remote branches" },

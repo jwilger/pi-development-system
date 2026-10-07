@@ -19,7 +19,7 @@ import {
   type TestRun,
 } from "../core/types.ts";
 
-export const STATE_ENTRY_TYPE = "devsys-state";
+const STATE_ENTRY_TYPE = "devsys-state";
 
 const PHASES: ReadonlyArray<Phase> = [
   "intake",

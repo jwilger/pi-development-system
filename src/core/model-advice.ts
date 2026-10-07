@@ -9,7 +9,7 @@ import {
 import type { Phase } from "./types.ts";
 
 /** Highest first. */
-export const TIERS = ["frontier", "strong", "fast"] as const;
+const TIERS = ["frontier", "strong", "fast"] as const;
 export type Tier = (typeof TIERS)[number];
 
 const PHASE_SLOT: Partial<Record<Phase, Slot>> = {

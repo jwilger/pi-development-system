@@ -90,7 +90,7 @@ export const LENSES = [
   "performance",
 ] as const;
 export type Lens = (typeof LENSES)[number];
-export const LENS_THRESHOLD = 0.5;
+const LENS_THRESHOLD = 0.5;
 
 /** Lenses that apply when Jev is offline: the ones every change deserves. */
 export const DEFAULT_LENSES: ReadonlyArray<Lens> = ["types", "tests"];

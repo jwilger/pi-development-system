@@ -4,14 +4,14 @@ import { isParseError, type ParseError, type Profile, parseError } from "./types
 
 export type { Profile };
 
-export const PROFILES: readonly Profile[] = ["rust", "typescript"];
+const PROFILES: readonly Profile[] = ["rust", "typescript"];
 
 const MARKERS: ReadonlyArray<{ profile: Profile; files: readonly string[] }> = [
   { profile: "rust", files: ["Cargo.toml"] },
   { profile: "typescript", files: ["package.json", "tsconfig.json"] },
 ];
 
-export const isProfile = (value: string): value is Profile => PROFILES.some((p) => p === value);
+const isProfile = (value: string): value is Profile => PROFILES.some((p) => p === value);
 
 /** Boundary parse for configured profile names. */
 export function parseProfiles(names: readonly string[]): Profile[] | ParseError {

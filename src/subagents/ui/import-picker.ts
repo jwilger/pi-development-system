@@ -71,7 +71,7 @@ function wrapText(text: string, columns: number): string[] {
  * Checkbox dialog for choosing external agents to migrate.
  * Selection only — the caller imports; this does not read or write agent files.
  */
-export class ImportPicker {
+class ImportPicker {
   private cursor = 0;
   private viewport = 1;
   private readonly checked = new Set<string>();

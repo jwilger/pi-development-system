@@ -7,9 +7,9 @@ import type { Jev } from "../jev/client.ts";
 import { judgeTurn, type ToolEvidence } from "../jev/questions/turn.ts";
 import type { SessionState } from "../state/session-state.ts";
 
-export const VERIFIER_THRESHOLD = 0.75;
+const VERIFIER_THRESHOLD = 0.75;
 export const DEFAULT_VERIFIER_MAX = 6;
-export const VERIFIER_ENTRY_TYPE = "devsys-verifier";
+const VERIFIER_ENTRY_TYPE = "devsys-verifier";
 const VERIFIED_PHASES: ReadonlySet<Phase> = new Set(["implementing", "reviewing", "delivering"]);
 const MAX_EVIDENCE = 60;
 
@@ -23,7 +23,7 @@ export type TurnVerifierDeps = {
 type Parts = { text: string; callsTools: boolean };
 
 /** Text and tool-call presence of an assistant message; undefined for any other role. */
-export function assistantParts(message: AgentMessage): Parts | undefined {
+function assistantParts(message: AgentMessage): Parts | undefined {
   if (message.role !== "assistant") return undefined;
   const text = message.content.flatMap((c) => (c.type === "text" ? [c.text] : [])).join("\n");
   return { text, callsTools: message.content.some((c) => c.type === "toolCall") };

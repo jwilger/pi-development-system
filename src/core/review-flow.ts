@@ -110,7 +110,7 @@ export function combinePackets(packets: readonly ReviewPacket[]): {
 }
 
 /** Jev confidence needed before its severity replaces the reviewer's. */
-export const SEVERITY_ADOPT_CONFIDENCE = 0.8;
+const SEVERITY_ADOPT_CONFIDENCE = 0.8;
 
 const counts = (severity: Severity): boolean =>
   severity === "blocking" || severity === "should-fix";

@@ -44,7 +44,7 @@ export interface AgentType {
   /** File path of the base definition under the customization, if any. */
   baseFilePath?: string;
 }
-export type ThreadState = "starting" | "running" | "paused" | "completed" | "failed" | "stopped";
+type ThreadState = "starting" | "running" | "paused" | "completed" | "failed" | "stopped";
 export interface ThreadView {
   path: string;
   parent: string | null;
@@ -71,7 +71,7 @@ export interface ThreadView {
   /** devsys: per-spawn model/thinkingLevel pin requested through agent_spawn, when any. */
   pinned?: { model?: string; thinkingLevel?: ThinkingLevel };
 }
-export type DriverEvent =
+type DriverEvent =
   | { kind: "activity" | "error"; text: string }
   | {
       kind: "checkpoint";

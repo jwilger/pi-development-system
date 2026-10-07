@@ -31,7 +31,6 @@ import {
 } from "./ui.ts";
 import { LiveAgentView, fillViewport, type AgentViewportState } from "./live-agent-view.ts";
 
-export { buildStatusTree, type StatusRow };
 
 const ROOT = "/root";
 const INACTIVE_STATES = new Set(["paused", "stopped", "failed", "completed"]);
@@ -81,7 +80,7 @@ export interface AgentTreeState {
   collapsed: Set<string>;
 }
 
-export class StatusDialog {
+class StatusDialog {
   private state: AgentTreeState;
   private get selectedPath(): string {
     return this.state.selectedPath;
@@ -530,7 +529,7 @@ export class AgentNavigationController {
 
 const navigationByService = new WeakMap<ThreadService, AgentNavigationController>();
 
-export async function showAgentTree(
+async function showAgentTree(
   ctx: ExtensionContext,
   service: ThreadService,
   selectedPath?: string,

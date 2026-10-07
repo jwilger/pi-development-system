@@ -1,7 +1,7 @@
 import type { BeforeAgentStartEvent } from "@earendil-works/pi-coding-agent";
 import type { DevsysState } from "../core/types.ts";
 
-export const PROMPT_SECTION_NAME = "development-system";
+const PROMPT_SECTION_NAME = "development-system";
 
 /** Pure: renders the system-prompt section from current state. */
 export function buildPromptSection(state: DevsysState, nonNegotiables: string): string {

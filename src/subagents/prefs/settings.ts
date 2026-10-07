@@ -14,16 +14,16 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-export const SUBAGENT_MODES = ["off", "opportunistic", "orchestration"] as const;
+const SUBAGENT_MODES = ["off", "opportunistic", "orchestration"] as const;
 export type SubagentMode = (typeof SUBAGENT_MODES)[number];
 
-export const WIDGET_MODES = ["full", "minimal"] as const;
+const WIDGET_MODES = ["full", "minimal"] as const;
 export type WidgetMode = (typeof WIDGET_MODES)[number];
 
-export const TOOL_FILTERING_MODES = ["allowed", "all-except-blocked", "all"] as const;
+const TOOL_FILTERING_MODES = ["allowed", "all-except-blocked", "all"] as const;
 export type ToolFilteringMode = (typeof TOOL_FILTERING_MODES)[number];
 
-export const MODEL_SELECTION_MODES = [
+const MODEL_SELECTION_MODES = [
   "pick-first-available",
   "pick-first-scoped",
   "use-current",

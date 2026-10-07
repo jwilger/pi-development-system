@@ -9,7 +9,7 @@ interface WorkflowRun {
 }
 
 /** CI result of the push workflow run for a commit. */
-export function runStateOf(sha: string): { state: RunState; runId?: number } {
+function runStateOf(sha: string): { state: RunState; runId?: number } {
   const json = gh(
     "api",
     `repos/{owner}/{repo}/actions/workflows/${WORKFLOW_FILE}/runs?head_sha=${sha}&event=push&per_page=5`,

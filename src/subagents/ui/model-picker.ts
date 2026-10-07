@@ -84,7 +84,7 @@ function describeModel(model: AvailableModel, scopedIdentities: ReadonlySet<stri
   return [name, annotation].filter(Boolean).join(" · ");
 }
 
-export class OrderedModelEditorComponent extends Container {
+class OrderedModelEditorComponent extends Container {
   private readonly tui: {
     requestRender(force?: boolean): void;
     terminal?: { rows: number };

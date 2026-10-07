@@ -55,7 +55,7 @@ export type ThreadController = Pick<
 >;
 
 /** Plain terminal-safe text: never pass agent-supplied terminal commands through. */
-export function sanitizeText(text: string): string {
+function sanitizeText(text: string): string {
   return stripTerminalSequences(text).replace(/[\x00-\x1f\x7f-\x9f]/g, " ");
 }
 
@@ -200,7 +200,7 @@ function isLive(thread: ThreadView): boolean {
   );
 }
 
-export function renderThreads(
+function renderThreads(
   threads: ThreadView[],
   width: number,
   theme: AgentBadgeTheme,
@@ -453,7 +453,7 @@ function takeWidgetRows(rows: StatusRow[], budget: number): StatusRow[] {
 }
 
 /** Themed agent tree above the editor. Synthetic /root is the main conversation and is omitted. */
-export function renderAgentTree(
+function renderAgentTree(
   threads: ThreadView[],
   width: number,
   theme: AgentBadgeTheme,
@@ -493,7 +493,7 @@ export function renderAgentTree(
 }
 
 /** One-line counts for real agents; starting agents count as running, including tokens. */
-export function renderAgentSummary(
+function renderAgentSummary(
   threads: ThreadView[],
   width: number,
   theme: Pick<Theme, "fg">,
@@ -682,7 +682,7 @@ export async function showThreads(
 }
 
 /** Parse editor argv, rejecting shell operators instead of evaluating a shell command. */
-export function editorArguments(command: string): string[] {
+function editorArguments(command: string): string[] {
   const args = parseShell(command, process.env);
   if (!args.length || args.some((arg) => typeof arg !== "string") || !args[0]) {
     throw new Error(

@@ -12,7 +12,7 @@ import { dialogText } from "../ui/dialog.ts";
 export const IMPORT_REQUEST_PREFIX =
   "Import ONLY the agents I selected in the pi-subagent-manager migration picker.";
 
-export const IMPORT_CHILD_TOOLS = [
+const IMPORT_CHILD_TOOLS = [
   "read",
   "bash",
   "powershell",
@@ -61,7 +61,7 @@ function stateDirectory(agentDir: string, create: boolean): string | undefined {
   return directory;
 }
 
-export function importWasOffered(agentDir: string): boolean {
+function importWasOffered(agentDir: string): boolean {
   const directory = stateDirectory(agentDir, false);
   if (!directory) return false;
   const stat = statIfPresent(join(directory, OFFER_MARKER));
@@ -89,7 +89,7 @@ export function markImportOffered(agentDir: string): void {
   }
 }
 
-export function buildImportPrompt(options: {
+function buildImportPrompt(options: {
   candidates: readonly ImportCandidate[];
   agentDir: string;
   cwd: string;

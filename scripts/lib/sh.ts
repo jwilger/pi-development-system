@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 
-export function run(cmd: string, args: string[], opts: { input?: string } = {}): string {
+function run(cmd: string, args: string[], opts: { input?: string } = {}): string {
   return execFileSync(cmd, args, {
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,

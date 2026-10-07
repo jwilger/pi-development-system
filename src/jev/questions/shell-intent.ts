@@ -4,7 +4,7 @@ import { redactSecrets } from "../../core/redact.ts";
 import { err, ok, type Result } from "../../core/result.ts";
 import type { Jev, JevError } from "../client.ts";
 
-export const SHELL_INTENT_THRESHOLD = 0.6;
+const SHELL_INTENT_THRESHOLD = 0.6;
 
 export const SHELL_INTENT_QUESTION: ClassifierChoiceQuestion = {
   type: "choice",

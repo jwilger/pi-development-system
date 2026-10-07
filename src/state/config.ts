@@ -11,8 +11,8 @@ export const CONFIG_FILE = ".development-system.toml";
 const DELIVERY_MODES = ["trunk", "pull-request", "local-only"] as const;
 const TRACKER_KINDS = ["repo-files", "github", "jira", "linear"] as const;
 
-export type DeliveryMode = (typeof DELIVERY_MODES)[number];
-export type TrackerKind = (typeof TRACKER_KINDS)[number];
+type DeliveryMode = (typeof DELIVERY_MODES)[number];
+type TrackerKind = (typeof TRACKER_KINDS)[number];
 
 export type ConfigError = {
   readonly kind: "config-error";

@@ -24,7 +24,7 @@ export interface DialogHost {
   requestRender(force?: boolean): void;
   terminal?: { rows: number };
 }
-export interface DialogEditorHost extends DialogHost {
+interface DialogEditorHost extends DialogHost {
   terminal: { rows: number };
 }
 export interface DialogRow {
@@ -97,7 +97,7 @@ export function frameDialog(
 }
 
 /** A multiline editor inside the same bounded shell as the surrounding form. */
-export class DialogEditor {
+class DialogEditor {
   private editor: Editor;
   private initialText: string;
   constructor(
@@ -180,7 +180,7 @@ export function dialogEditor(
 }
 
 /** Bounded, two-column menu shared by settings and agent definitions. */
-export class DialogMenu {
+class DialogMenu {
   private selected = 0;
   private viewport = 1;
   constructor(

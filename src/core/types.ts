@@ -22,12 +22,6 @@ export function parseGateId(input: string): GateId | ParseError {
     : parseError(`invalid gate id "${input}": expected dotted kebab-case like "git.force-push"`);
 }
 
-export type GateDecision =
-  | { readonly kind: "allow" }
-  | { readonly kind: "block"; readonly reason: string }
-  | { readonly kind: "require-departure"; readonly gate: GateId; readonly reason: string }
-  | { readonly kind: "require-user"; readonly gate: GateId; readonly reason: string };
-
 export type Phase = "intake" | "planning" | "implementing" | "reviewing" | "delivering" | "idle";
 
 export type Sizing = "fix" | "change" | "capability" | "product";
