@@ -1,0 +1,61 @@
+{
+  "questionHash": "4ecdc697e9d07b8d",
+  "cases": [
+    {
+      "state": {
+        "finding": "[blocking] `src/auth.ts:12` — password compare uses === on user input, so timing leaks and an empty hash matches an empty password — authentication bypass",
+        "diffContext": "-  return timingSafeEqual(a,b)\n+  return a === b"
+      },
+      "expected": "blocking"
+    },
+    {
+      "state": {
+        "finding": "[should-fix] `src/cart.ts:40` — total() rounds each line before summing, so a three-line cart can be one cent off — customers are charged the wrong amount sometimes, no test covers it",
+        "diffContext": "function total(lines){ return lines.reduce((s,l)=>s+Math.round(l.price*l.qty*100)/100,0) }"
+      },
+      "expected": "should-fix"
+    },
+    {
+      "state": {
+        "finding": "[nit] `src/format.ts:3` — variable name `buffer` shadows the global — readability",
+        "diffContext": "const buffer = format(x);"
+      },
+      "expected": "nit"
+    },
+    {
+      "state": {
+        "finding": "[should-fix] `src/config.ts:15` — the new default timeoutMs = 30000 has no test — a later edit could change it silently and nothing would fail",
+        "diffContext": "-  timeoutMs: 10000,\n+  timeoutMs: 30000,"
+      },
+      "expected": "should-fix"
+    },
+    {
+      "state": {
+        "finding": "[blocking] `src/migrate.ts:8` — migration drops the legacy_id column before the backfill runs — existing rows lose their identifiers irrecoverably",
+        "diffContext": "+ALTER TABLE users DROP COLUMN legacy_id;\n+UPDATE users SET ext_id = legacy_id;"
+      },
+      "expected": "blocking"
+    },
+    {
+      "state": {
+        "finding": "[blocking] `src/parse.ts:9` — parse() throws on empty input — would crash",
+        "diffContext": "function parse(s){ if (s === '') return []; return s.split(',') }"
+      },
+      "expected": "false-positive"
+    },
+    {
+      "state": {
+        "finding": "[nit] `README.md:4` — the sentence could be shorter — style",
+        "diffContext": "Run the tests with npm test, which runs all of them."
+      },
+      "expected": "nit"
+    },
+    {
+      "state": {
+        "finding": "[should-fix] `test/user.test.ts:30` — the test for the refund path was deleted along with the feature flag but the refund code remains — behaviour is now untested",
+        "diffContext": "-test('refund path', ...)\n(src/refund.ts unchanged)"
+      },
+      "expected": "should-fix"
+    }
+  ]
+}

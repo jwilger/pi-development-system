@@ -1,0 +1,69 @@
+{
+  "questionHash": "85ff8f092ce45d931c8222b0c1ad9270275c8f46a6d97002eecade0e8ca1c781ab4b6bef29f788e01293c0afec4ba173f0c4b27edeccb513a1fa76a29f61648f",
+  "cases": [
+    {
+      "state": {
+        "diffStat": "README.md | 4 ++--\n 1 file changed",
+        "diffSample": "- Run `npm test`\n+ Run `npm run test`",
+        "profiles": "typescript"
+      },
+      "expected": "ux"
+    },
+    {
+      "state": {
+        "diffStat": "src/auth/login.ts | 30 ++++\ntest/auth/login.test.ts | 20 +++\n 2 files changed",
+        "diffSample": "+export function verifyPassword(input: string, hash: string): boolean {\n+  return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(sha256(input)));\n+}\n+test('rejects wrong password', () => { assert.equal(verifyPassword('x', h), false) })",
+        "profiles": "typescript"
+      },
+      "expected": "security,tests,types,api-contract"
+    },
+    {
+      "state": {
+        "diffStat": "src/queue/worker.ts | 44 ++++++\n 1 file changed",
+        "diffSample": "+const lock = new Mutex();\n+async function drain() {\n+  await lock.acquire();\n+  try { while (queue.length) await handle(queue.shift()); } finally { lock.release(); }\n+}\n+setInterval(drain, 1000);",
+        "profiles": "typescript"
+      },
+      "expected": "concurrency,tests,performance"
+    },
+    {
+      "state": {
+        "diffStat": "migrations/0004_add_orders_status.sql | 12 ++\nsrc/orders/repo.ts | 8 +-\n 2 files changed",
+        "diffSample": "+ALTER TABLE orders ADD COLUMN status TEXT NOT NULL DEFAULT 'open';\n+UPDATE orders SET status = 'closed' WHERE shipped_at IS NOT NULL;",
+        "profiles": "typescript"
+      },
+      "expected": "data-migration,tests"
+    },
+    {
+      "state": {
+        "diffStat": "src/cli.ts | 12 +++\ntest/cli.test.ts | 18 +++\n 2 files changed",
+        "diffSample": "+  .option('--verbose', 'print each step')\n+  if (opts.verbose) console.log(`step: ${name}`);\n+test('--verbose prints each step', () => { assert.match(run(['--verbose']), /step:/) })",
+        "profiles": "typescript"
+      },
+      "expected": "ux,tests,api-contract"
+    },
+    {
+      "state": {
+        "diffStat": "src/search/index.ts | 22 ++-\n 1 file changed",
+        "diffSample": "-  return items.filter((i) => i.name === q);\n+  const out = [];\n+  for (const a of items) for (const b of items) if (a.id === b.parentId && a.name.includes(q)) out.push(a);\n+  return out;",
+        "profiles": "typescript"
+      },
+      "expected": "performance,tests"
+    },
+    {
+      "state": {
+        "diffStat": "src/format.ts | 2 +-\n 1 file changed",
+        "diffSample": "-const tmp = format(x);\n+const buffer = format(x);",
+        "profiles": "typescript"
+      },
+      "expected": ""
+    },
+    {
+      "state": {
+        "diffStat": "src/domain/email.ts | 25 +++\n 1 file changed",
+        "diffSample": "+export type Email = string & { readonly __brand: 'Email' };\n+export function parseEmail(input: string): Email | ParseError {\n+  return /^[^@\\s]+@[^@\\s]+$/.test(input) ? (input as Email) : parseError('bad email');\n+}",
+        "profiles": "typescript"
+      },
+      "expected": "types,security,tests"
+    }
+  ]
+}
