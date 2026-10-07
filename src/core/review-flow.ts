@@ -30,11 +30,16 @@ export type DiffNow = {
   readonly files?: Readonly<Record<string, string>>;
 };
 
+// The departure log is the system's own record (devsys_record_departure writes it), not work under review.
+const DECISION_LOG = /^docs\/decisions\/\d{4}-\d{2}\.md$/;
+
 /** Every file in the current diff was in the last round's diff, byte for byte: a part of what was reviewed. */
 const coveredByLastRound = (review: ReviewState, now: DiffNow): boolean => {
   const reviewed = review.rounds.at(-1)?.files;
   if (reviewed === undefined || now.files === undefined) return false;
-  return Object.entries(now.files).every(([path, digest]) => reviewed[path] === digest);
+  return Object.entries(now.files).every(
+    ([path, digest]) => reviewed[path] === digest || DECISION_LOG.test(path),
+  );
 };
 
 export function reviewGap(state: DevsysState, slice: SliceRef, now: DiffNow): string | undefined {

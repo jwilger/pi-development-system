@@ -221,3 +221,7 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 ## From I6 review round 11
 
 - correctness a new file's digest is its blob only, so a `chmod +x` after review is not seen; the reviewer cannot see untracked modes either.
+
+## From I6 review round 12
+
+- correctness only the departure log (`docs/decisions/YYYY-MM.md`) is exempt from "covered by the last round"; other files the system writes into the work tree during a slice would need the same treatment.

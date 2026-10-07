@@ -433,3 +433,22 @@ test("only what runs before the first commit can exempt it, and re-staging in th
   assert.equal(await blocked(`cd CWD && git commit -a -m '${GOOD}'`), false, "cd then commit -a");
   assert.equal(await blocked(`cd elsewhere && git add -A && ${c}`), true, "another directory");
 });
+
+test("recording a departure after review does not make the review stale", async () => {
+  const log = "diff --git a/docs/decisions/2026-10.md b/docs/decisions/2026-10.md\n+## departure\n";
+  const t = setup(jevJudging(0.9, 0.1), DIFF + log);
+  withPhase(t, "implementing");
+  const reviewed = Array.from({ length: 3 }).reduce<ReturnType<typeof startReview>>(
+    (r) =>
+      addRound(r, {
+        lenses: ["types"],
+        findings: [],
+        reviewedAt: "t",
+        diffDigest: "earlier",
+        files: { "a.ts": digestOf(splitDiffByFile(DIFF)["a.ts"] ?? "") },
+      }),
+    startReview("s1" as SliceRef, 3),
+  );
+  t.state.update((s) => upsertReview(s, reviewed));
+  assert.equal(await t.bash(commit(GOOD)), undefined);
+});
