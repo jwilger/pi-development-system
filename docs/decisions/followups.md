@@ -186,3 +186,7 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 - tooling pi-lens `no-sort-without-comparator` on `src/review/digest.ts` is intentional: a plain string sort over `path\0digest` lines keeps the digest deterministic.
 - tooling pi-lens MD041 on `agents/reviewer.md` and `prompts/devsys-review.md` is intentional (no H1 in prompt files). Decide in I7 which pi-lens findings become gates.
 - robustness pi exec resolves `code ?? 0` after a timeout kill, so a `git diff` slower than 15s would be digested truncated; revisit if large repos hit it.
+
+## From I6 review round 3
+
+- correctness `src/review/digest.ts` — `ls-files --others` is relative to cwd and limited to it, while `git diff` is repo-wide; only matters when pi runs from a subdirectory (config and followups already assume the project root).

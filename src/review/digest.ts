@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { lstat, readlink } from "node:fs/promises";
+import { join } from "node:path";
 import type { Exec } from "../core/exec.ts";
 import { err, ok, type Result } from "../core/result.ts";
 import { splitDiffByFile } from "../core/review-flow.ts";
@@ -35,13 +37,18 @@ export async function snapshotDiff(
     const [diff, stat, others] = await Promise.all([
       exec("git", [...plain, "--full-index", "--no-renames", range], { cwd, timeout: 15_000 }),
       exec("git", [...plain, "--stat", range], { cwd, timeout: 15_000 }),
-      range === "HEAD"
-        ? exec("git", ["ls-files", "--others", "--exclude-standard"], { cwd, timeout: 15_000 })
+      // Any range that ends in the work tree (HEAD, HEAD~1, a branch) leaves untracked files out of git diff.
+      !range.includes("..")
+        ? exec(
+            "git",
+            ["-c", "core.quotePath=false", "ls-files", "-z", "--others", "--exclude-standard"],
+            { cwd, timeout: 15_000 },
+          )
         : Promise.resolve({ code: 0, stdout: "", stderr: "" }),
     ]);
     if (diff.code !== 0) return err(diff.stderr.trim() || `git diff ${range} failed`);
     if (others.code !== 0) return err(others.stderr.trim() || "git ls-files --others failed");
-    const listed = others.stdout.split("\n").filter((p) => p !== "");
+    const listed = others.stdout.split("\0").filter((p) => p !== "");
     // A nested repository is listed as `dir/` and has no blob to hash.
     const nested = listed.filter((p) => p.endsWith("/"));
     const untracked = listed.filter((p) => !p.endsWith("/"));
@@ -58,15 +65,27 @@ export async function snapshotDiff(
       return err("could not read the diff: no per-file sections were found");
     }
     if (untracked.length > 0) {
-      const hashes = await exec("git", ["hash-object", "--", ...untracked], {
-        cwd,
-        timeout: 15_000,
-      });
-      const lines = hashes.stdout.split("\n").filter((l) => l !== "");
-      if (hashes.code !== 0 || lines.length !== untracked.length) {
-        return err(hashes.stderr.trim() || "git hash-object could not hash every untracked file");
+      const links = new Set<string>();
+      for (const path of untracked) {
+        const target = await linkTarget(cwd, path);
+        if (target !== undefined) {
+          files[path] = `new:${blobOf(target)}`;
+          links.add(path);
+        }
       }
-      for (const [i, path] of untracked.entries()) files[path] = `new:${lines[i]}`;
+      // `git hash-object <path>` follows symlinks (and fails on dangling ones), so links are hashed above.
+      const regular = untracked.filter((p) => !links.has(p));
+      if (regular.length > 0) {
+        const hashes = await exec("git", ["hash-object", "--", ...regular], {
+          cwd,
+          timeout: 15_000,
+        });
+        const lines = hashes.stdout.split("\n").filter((l) => l !== "");
+        if (hashes.code !== 0 || lines.length !== regular.length) {
+          return err(hashes.stderr.trim() || "git hash-object could not hash every untracked file");
+        }
+        for (const [i, path] of regular.entries()) files[path] = `new:${lines[i]}`;
+      }
     }
     const names = Object.keys(files).sort();
     const untrackedStat = [
@@ -91,3 +110,20 @@ const fileDigest = (section: string): string => {
   const blob = NEW_FILE.exec(section)?.[1];
   return blob === undefined ? digestOf(section) : `new:${blob}`;
 };
+
+/** The text of a symlink, or undefined when `path` is not one (or cannot be inspected). */
+async function linkTarget(cwd: string, path: string): Promise<string | undefined> {
+  try {
+    const full = join(cwd, path);
+    return (await lstat(full)).isSymbolicLink() ? await readlink(full) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Git's blob id for some content: what `git add` stores for a symlink is its target text. */
+const blobOf = (content: string): string =>
+  createHash("sha1")
+    .update(`blob ${Buffer.byteLength(content)}\0`)
+    .update(content)
+    .digest("hex");

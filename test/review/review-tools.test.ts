@@ -42,7 +42,11 @@ const exec =
   (diff: string, untracked = ""): Exec =>
   async (_command, args) => ({
     code: 0,
-    stdout: args[0] === "ls-files" ? untracked : args[0] === "hash-object" ? "abc123\n" : diff,
+    stdout: args.includes("ls-files")
+      ? untracked
+      : args.includes("hash-object")
+        ? "abc123\n"
+        : diff,
     stderr: "",
   });
 
@@ -193,7 +197,7 @@ test("a diff that changed since start is refused: the reviewer did not see this 
 });
 
 test("untracked files are part of the reviewed change", async () => {
-  const withNew = setup(offline, "", true, "src/new.ts\n");
+  const withNew = setup(offline, "", true, "src/new.ts\0");
   const r = await withNew.start();
   assert.notEqual(r.isError, true);
   assert.match(text(r), /untracked/);

@@ -50,8 +50,8 @@ The verdict must agree with the findings.
 - **false-positive**: refuted; ignored.
 
 Jev may raise a finding's severity when it is at least 0.8 confident; it never
-lowers a blocking or should-fix finding (it only suggests, in the reply, and you
-re-check it yourself). A round is clean when it has no blocking or should-fix findings.
+lowers a finding to a severity that does not count (it only suggests, in the
+reply, and you re-check it yourself). A round is clean when it has no blocking or should-fix findings.
 The default is three consecutive clean rounds (`review.required_clean_rounds`).
 Only real findings reset the count; a changed diff alone does not, so a small fix
 commit keeps the clean rounds already earned unless findings come back.

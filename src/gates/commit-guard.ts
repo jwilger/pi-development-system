@@ -119,7 +119,11 @@ async function jevNeeds(
 }
 
 /** While work is in flight, committing needs the slice review satisfied on the diff as it is now. */
-async function reviewNeeds(deps: CommitGuardDeps, ctx: ExtensionContext): Promise<Need[]> {
+async function reviewNeeds(
+  deps: CommitGuardDeps,
+  ctx: ExtensionContext,
+  command: string,
+): Promise<Need[]> {
   const { phase, activeSlice } = deps.state.get();
   if ((phase !== "implementing" && phase !== "reviewing") || activeSlice === undefined) return [];
   const snap = await snapshotDiff(deps.exec, ctx.cwd, "HEAD");
@@ -129,7 +133,45 @@ async function reviewNeeds(deps: CommitGuardDeps, ctx: ExtensionContext): Promis
     activeSlice,
     snap.ok ? { digest: snap.value.digest, files: snap.value.files } : { digest: "unknown" },
   );
-  return gap === undefined ? [] : [{ gate: REVIEW, why: gap }];
+  if (gap !== undefined) return [{ gate: REVIEW, why: gap }];
+  // The review saw the work tree; a plain `git commit` records the index. A file staged and then edited
+  // again would commit the older, unreviewed content.
+  const stale = stagedThenEdited(await changedNames(deps.exec, ctx.cwd), command);
+  return stale.length === 0
+    ? []
+    : [
+        {
+          gate: REVIEW,
+          why: `the staged content of ${stale.join(", ")} differs from the work tree that was reviewed (edited after \`git add\`); stage it again`,
+        },
+      ];
+}
+
+/** Files staged and also changed since staging; empty when the commit stages everything itself. */
+const stagedThenEdited = (
+  names: { staged: readonly string[]; unstaged: readonly string[] } | undefined,
+  command: string,
+): string[] =>
+  names === undefined || stagesEverything(command)
+    ? []
+    : names.staged.filter((name) => names.unstaged.includes(name));
+
+async function changedNames(
+  exec: Exec,
+  cwd: string,
+): Promise<{ staged: string[]; unstaged: string[] } | undefined> {
+  try {
+    const base = ["-c", "core.quotePath=false", "diff", "--no-ext-diff", "--name-only", "-z"];
+    const [staged, unstaged] = await Promise.all([
+      exec("git", [...base, "--cached"], { cwd, timeout: 10_000 }),
+      exec("git", base, { cwd, timeout: 10_000 }),
+    ]);
+    if (staged.code !== 0 || unstaged.code !== 0) return undefined;
+    const split = (text: string) => text.split("\0").filter((n) => n !== "");
+    return { staged: split(staged.stdout), unstaged: split(unstaged.stdout) };
+  } catch {
+    return undefined;
+  }
 }
 
 const reviewReason = (need: Need): string =>
@@ -187,7 +229,7 @@ export function registerCommitGuard(deps: CommitGuardDeps): void {
     if (forbidden.length > 0) return { block: true, reason: forbiddenReason(forbidden) };
 
     const known = messages.flatMap((m) => (m === undefined ? [] : [m]));
-    const all: Need[] = await reviewNeeds(deps, ctx);
+    const all: Need[] = await reviewNeeds(deps, ctx, command);
     // A -F file that cannot be read now (written by this same command, or stdin) cannot be checked.
     if (extractions.some((e, i) => e.kind === "file" && messages[i] === undefined)) {
       all.push({

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -115,4 +115,43 @@ test("a diff with no parseable file sections is an error, not an empty digest", 
       : exec(command, args, options);
   const snap = await snapshotDiff(noisy, dir, "HEAD");
   assert.equal(snap.ok, false);
+});
+
+test("untracked files with non-ASCII, quote or space in the name are digested by their real names", async () => {
+  const dir = repo();
+  for (const name of ["naïve-new.md", 'say "hi".txt', "with space.txt"]) {
+    writeFileSync(join(dir, name), `${name}\n`);
+  }
+  const snap = await snapshotDiff(exec, dir, "HEAD");
+  assert.ok(snap.ok, snap.ok ? "" : snap.error);
+  assert.deepEqual(
+    Object.keys(snap.value.files).sort(),
+    ['say "hi".txt', "naïve-new.md", "with space.txt"].sort(),
+  );
+});
+
+test("an untracked symlink digests as its link text, the same as once staged; a dangling one does not fail", async () => {
+  const dir = repo();
+  symlinkSync("a.txt", join(dir, "link"));
+  symlinkSync("missing", join(dir, "dangling"));
+  mkdirSync(join(dir, "d"));
+  symlinkSync("d", join(dir, "dlink"));
+  const untracked = await snapshotDiff(exec, dir, "HEAD");
+  assert.ok(untracked.ok, untracked.ok ? "" : untracked.error);
+  git(dir, "add", "-A");
+  const staged = await snapshotDiff(exec, dir, "HEAD");
+  assert.ok(staged.ok);
+  for (const name of ["link", "dangling", "dlink"]) {
+    assert.equal(untracked.value.files[name], staged.value.files[name], name);
+  }
+});
+
+test("a single-revision range includes untracked files, a two-dot range does not", async () => {
+  const dir = repo();
+  writeFileSync(join(dir, "u.txt"), "new\n");
+  const one = await snapshotDiff(exec, dir, "HEAD~0");
+  const two = await snapshotDiff(exec, dir, "HEAD..HEAD");
+  assert.ok(one.ok && two.ok);
+  assert.ok("u.txt" in one.value.files);
+  assert.equal("u.txt" in two.value.files, false);
 });

@@ -36,7 +36,8 @@ const jevJudging = (rationale: number, mix: number): Jev => ({
 });
 
 const DIFF = "diff --git a/a.ts b/a.ts\n+1\n";
-const setup = (jev: Jev, diff = "a.ts | 2 +-") => {
+type Names = { staged?: string; unstaged?: string };
+const setup = (jev: Jev, diff = "a.ts | 2 +-", names: Names = {}) => {
   const cwd = mkdtempSync(join(tmpdir(), "devsys-commit-"));
   const fake = createFakePi({ hasUI: false, cwd });
   const state = createSessionState(fake.api);
@@ -47,7 +48,12 @@ const setup = (jev: Jev, diff = "a.ts | 2 +-") => {
     jev: () => jev,
     exec: async (command, args) => {
       execCalls.push([command, ...args]);
-      return { code: 0, stdout: args[0] === "ls-files" ? "" : diff, stderr: "" };
+      const stdout = args.includes("ls-files")
+        ? ""
+        : args.includes("--name-only")
+          ? ((args.includes("--cached") ? names.staged : names.unstaged) ?? "")
+          : diff;
+      return { code: 0, stdout, stderr: "" };
     },
   });
   const record = createRecordDepartureTool({ pi: fake.api, state, now });
@@ -245,7 +251,11 @@ const withPhase = (t: ReturnType<typeof setup>, phase: "implementing" | "reviewi
 // The digest the guard will compute: same fake exec as setup(), which answers every git call with DIFF.
 const currentDigest = async () => {
   const snap = await snapshotDiff(
-    async (_command, args) => ({ code: 0, stdout: args[0] === "ls-files" ? "" : DIFF, stderr: "" }),
+    async (_command, args) => ({
+      code: 0,
+      stdout: args.includes("ls-files") ? "" : DIFF,
+      stderr: "",
+    }),
     "/",
     "HEAD",
   );
@@ -312,4 +322,27 @@ test("committing a reviewed change in parts passes: the rest is only reviewed fi
   );
   t.state.update((s) => upsertReview(s, reviewed));
   assert.equal(await t.bash(commit(GOOD)), undefined);
+});
+
+test("a staged file edited again after review commits unreviewed content, so the gate asks", async () => {
+  const digest = await currentDigest();
+  const t = setup(jevJudging(0.9, 0.1), DIFF, { staged: "a.ts\0b.ts\0", unstaged: "a.ts\0" });
+  withPhase(t, "implementing");
+  t.state.update((s) => upsertReview(s, cleanRounds(3, digest)));
+  const r = await t.bash(commit(GOOD));
+  assert.equal(r?.block, true);
+  assert.match(r?.reason ?? "", /review\.unsatisfied/);
+  assert.match(r?.reason ?? "", /staged.*a\.ts.*work tree/s);
+});
+
+test("staging everything in the same command, or edits to files that are not staged, do not trip it", async () => {
+  const digest = await currentDigest();
+  const partial = setup(jevJudging(0.9, 0.1), DIFF, { staged: "b.ts\0", unstaged: "a.ts\0" });
+  withPhase(partial, "implementing");
+  partial.state.update((s) => upsertReview(s, cleanRounds(3, digest)));
+  assert.equal(await partial.bash(commit(GOOD)), undefined);
+  const all = setup(jevJudging(0.9, 0.1), DIFF, { staged: "a.ts\0", unstaged: "a.ts\0" });
+  withPhase(all, "implementing");
+  all.state.update((s) => upsertReview(s, cleanRounds(3, digest)));
+  assert.equal(await all.bash(`git add -A && ${commit(GOOD)}`), undefined);
 });
