@@ -1,0 +1,12 @@
+{
+  // Structural rules stay on. Off: rules about taste or that fight how we write prose.
+  "config": {
+    "default": true,
+    "MD013": false, // line length: prose is not hard-wrapped
+    "MD033": false, // inline HTML: skills use <tags> as prompt structure
+    "MD041": false, // first-line heading: skill/agent files start with frontmatter
+    "MD060": false  // table column style: tables are not column-aligned by hand
+  },
+  "globs": ["**/*.md"],
+  "ignores": [".direnv", "node_modules", "docs/research", "src/subagents", "test/fixtures", ".pi"]
+}

@@ -51,6 +51,8 @@
     "@types/node": "^26.6.4",
     "@types/shell-quote": "^1.7.5",
     "@typesafe-ai/sdk": "^0.6.0",
+    "knip": "^6.40.0",
+    "markdownlint-cli2": "^0.23.3",
     "typescript": "^7.0.2"
   },
   "scripts": {
@@ -61,6 +63,8 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "check:build-gate": "node scripts/build-gate.ts",
-    "check:version": "node scripts/check-version.ts"
+    "check:version": "node scripts/check-version.ts",
+    "lint:knip": "knip",
+    "lint:md": "markdownlint-cli2"
   }
 }

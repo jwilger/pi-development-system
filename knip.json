@@ -1,0 +1,11 @@
+{
+  "entry": [
+    "extensions/development-system.ts",
+    "scripts/*.ts",
+    "test/**/*.test.ts",
+    "test/live/*.live.ts"
+  ],
+  "project": ["extensions/**/*.ts", "src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"],
+  "ignoreDependencies": ["@types/shell-quote"],
+  "ignoreBinaries": ["biome"]
+}

@@ -14,6 +14,11 @@ pre-commit:
       run: npx tsc --noEmit
     lint:
       run: biome check .
+    knip:
+      run: npx knip
+    markdown:
+      glob: "*.md"
+      run: npx markdownlint-cli2 {staged_files}
     test:
       run: npm test
     jev-fixtures:
