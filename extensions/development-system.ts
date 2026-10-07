@@ -3,6 +3,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { appendContextTail, renderContextTail } from "../src/context/context-tail.ts";
 import { renderStatus, renderStatusLine, STATUS_KEY } from "../src/context/status.ts";
 import { applyPromptSection } from "../src/context/system-prompt.ts";
+import { DEFAULT_VERIFIER_MAX, registerTurnVerifier } from "../src/context/turn-verifier.ts";
 import { type Exec, timeoutAsFailure } from "../src/core/exec.ts";
 import { detectProfiles } from "../src/core/profile.ts";
 import { createApprovalStore } from "../src/gates/approvals.ts";
@@ -101,6 +102,15 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   });
   registerTestGuard({ pi, state, approvals, jev: (ctx) => jevHolder.forContext(ctx) });
   registerTestEvidence({ pi, state });
+  registerTurnVerifier({
+    pi,
+    state,
+    jev: (ctx) => jevHolder.forContext(ctx),
+    maxPerSession: async (ctx) => {
+      const config = await loadConfig(ctx.cwd);
+      return config.ok ? config.value.verifier.maxPerSession : DEFAULT_VERIFIER_MAX;
+    },
+  });
   registerRedFirstGuard({ pi, state });
   registerLintSuppressionGuard({ pi, state });
   pi.registerTool(createRecordDepartureTool({ pi, state }));

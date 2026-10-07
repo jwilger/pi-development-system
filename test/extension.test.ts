@@ -160,3 +160,17 @@ test("the red-first, lint-suppression and test-evidence modules are wired", asyn
   } as never);
   assert.equal(state.get().lastTestRun?.exitCode, 1);
 });
+
+test("the turn verifier is wired to turn_end and stays silent with Jev unavailable", async () => {
+  const fake = createFakePi({ hasUI: false });
+  const { state } = createDevelopmentSystem(fake.api);
+  assert.ok((fake.handlers.get("turn_end") ?? []).length > 0);
+  state.update((s) => ({ ...s, phase: "implementing" }));
+  const result = await fake.emit({
+    type: "turn_end",
+    turnIndex: 0,
+    message: { role: "assistant", content: [{ type: "text", text: "All tests pass." }] },
+    toolResults: [],
+  } as never);
+  assert.equal(result, undefined);
+});
