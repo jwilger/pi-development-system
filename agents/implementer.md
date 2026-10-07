@@ -37,7 +37,7 @@ You are an implementer. You receive exactly one task record and nothing else: do
 
 End with evidence the coordinator can check, one block per command you ran:
 
-```
+```text
 Run: <exact command>
 Expected: <what the task said>
 Actual: <what you saw, quoted>

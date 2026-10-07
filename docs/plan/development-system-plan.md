@@ -116,7 +116,7 @@ logs, decision entries, subagent prompts, or commits. Fixtures hold Jev
 
 ## 2. Target repository layout
 
-```
+```text
 package.json                  "pi": { extensions: ["./extensions/development-system.ts"], skills: ["./skills"], prompts: ["./prompts"] }
 extensions/development-system.ts   composition root only (wires modules, no logic)
 principles/                   NON-NEGOTIABLES.md, DEFAULTS.md (negative constraints + rationale; injected compactly)
@@ -307,7 +307,7 @@ delivery mode from `.development-system.toml`. **Why.** D9, non-negotiables
 
 - [x] **I3.1 Config loader.** Files: `src/state/config.ts`, `test/state/config.test.ts`. Interface: `loadConfig(repoRoot): Promise<Result<DevsysConfig, ConfigError>>` parsing Appendix B with defaults; unknown keys → error naming the key. Test: empty file → defaults; bad `delivery.mode` → error.
 - [x] **I3.1a Model matrix (pure).** Files: `src/core/models.ts`, `test/core/models.test.ts`.
-  Types: `type Slot = "frontier"|"strong"|"fast"|"planning"|"advisor"|"implementer"|"reviewer"|"lens"|"researcher"|"jev"`; `type ModelRef = \`${string}/${string}\``; a candidate is a `ModelRef` whose id may contain `*` (family pattern, e.g. `openai-codex/gpt-*-sol`) or a slot reference `@strong`.
+  Types: `type Slot = "frontier"|"strong"|"fast"|"planning"|"advisor"|"implementer"|"reviewer"|"lens"|"researcher"|"jev"`; ``type ModelRef = `${string}/${string}` ``; a candidate is a `ModelRef` whose id may contain `*` (family pattern, e.g. `openai-codex/gpt-*-sol`) or a slot reference `@strong`.
   Functions: `compareModelVersions(a: string, b: string): number` (natural order over numeric segments: `gpt-6.1-sol` > `gpt-6-sol` > `gpt-5.6-sol`; `claude-opus-5-5` > `claude-opus-5`; dated suffixes `-20251001` rank *below* the undated alias); `resolveCandidate(candidate: ModelRef, available: readonly {provider; id}[]): ModelRef | undefined` (exact match, or newest available id matching the pattern); `resolveSlot(matrix: ModelMatrix, slot: Slot, available): {model: ModelRef; via: ModelRef} | undefined` (first candidate in the slot's list that resolves; `@slot` indirection resolved recursively with a cycle check); `defaultMatrix(): ModelMatrix` (Appendix B defaults, families only, no dated ids); `renderMatrixToml(matrix): string`.
   Tests: version ordering table; pattern picks newest; slot falls through to next family when a provider is absent; `@slot` indirection; cycle → error; `defaultMatrix()` resolves every slot against a fixture of the current `pi --list-models` output *and* against an OpenAI-only fixture *and* an Anthropic-only fixture (`test/fixtures/models/*.json`).
 - [x] **I3.1b `/devsys-models` command + `devsys_models` tool.** Files: `src/state/models-command.ts`, `test/state/models-command.test.ts`.
