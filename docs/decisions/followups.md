@@ -217,3 +217,7 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 ## From I6 review round 9
 
 - correctness for a two-dot range the reviewer task still mentions untracked files, which that range's digest leaves out; harmless (reads more than was digested).
+
+## From I6 review round 11
+
+- correctness a new file's digest is its blob only, so a `chmod +x` after review is not seen; the reviewer cannot see untracked modes either.

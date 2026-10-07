@@ -73,10 +73,13 @@ export function splitDiffByFile(diff: string): Record<string, string> {
   // git ends its output with a newline: drop it so the last section digests like any other.
   for (const line of diff.replace(/\n$/, "").split("\n")) {
     // Git quotes unusual paths ("b/na\303\257ve.md"); strip the quotes rather than lose the section.
-    const header = /^diff --git "?a\/.*?"? "?b\/(.*?)"?$/.exec(line);
-    if (header !== null) {
+    // Without renames both sides are the same path, which pins a path that contains " b/".
+    const header =
+      /^diff --git ("?)a\/(.*)\1 \1b\/\2\1$/.exec(line)?.[2] ??
+      /^diff --git "?a\/.*?"? "?b\/(.*?)"?$/.exec(line)?.[1];
+    if (header !== undefined) {
       flush();
-      path = unquote(header[1] ?? line);
+      path = unquote(header);
       lines = [];
     }
     lines.push(line);

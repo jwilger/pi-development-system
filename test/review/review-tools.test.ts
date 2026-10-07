@@ -244,3 +244,15 @@ test("the start reply names a non-default diffRange so record is called with it"
   const reply = await t.start({ slice: "s1", diffRange: "HEAD~1..HEAD" });
   assert.match(text(reply), /diffRange "HEAD~1\.\.HEAD"/);
 });
+
+test("a review of a range other than HEAD says it does not clear the commit gate", async () => {
+  const t = setup(offline);
+  await t.start({ slice: "s1", diffRange: "main" });
+  const r = await t.record({
+    diffRange: "main",
+    packets: [packet("none", "no-blocking")],
+  });
+  assert.match(text(r), /does not clear it/);
+  const plain = await t.record({ packets: [packet("none", "no-blocking", 2)] });
+  assert.doesNotMatch(text(plain), /does not clear it/);
+});

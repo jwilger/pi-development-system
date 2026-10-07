@@ -12,7 +12,8 @@ Review is a soft gate (`review.unsatisfied`): skipping it needs a recorded depar
 ## Run a round
 
 1. `devsys_review_start` (slice defaults to the active slice; `diffRange` defaults
-   to `HEAD`: everything uncommitted, untracked files included). It computes the
+   to `HEAD`: everything uncommitted, untracked files included; the commit gate
+   checks that range, so use it for a review meant to clear a commit). It computes the
    diff digest, lets Jev choose lenses, and returns an exact `agent_spawn` payload.
 2. Run that `agent_spawn` unchanged. The reviewer is a top-level agent, not a
    child of this conversation, so it does not inherit your context.

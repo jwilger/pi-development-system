@@ -38,6 +38,9 @@ export type ReviewToolDeps = {
   now?: () => Date;
 };
 
+const GATE_RANGE_NOTE =
+  "Note: the commit gate checks the uncommitted diff (range HEAD). A review of another range does not clear it; review the default range before committing.";
+
 const reply = (payload: string, isError = false) => ({
   content: [{ type: "text" as const, text: payload }],
   details: undefined,
@@ -123,7 +126,7 @@ export function createReviewStartTool(
       const action = nextAction(review, snap.value.digest);
       if (action === "done") {
         return reply(
-          `${reviewLabel(review)}. Review of ${slice} is already satisfied on this diff; nothing to run.`,
+          `${reviewLabel(review)}. Review of ${slice} is already satisfied on this diff; nothing to run.${range === "HEAD" ? "" : ` ${GATE_RANGE_NOTE}`}`,
         );
       }
 
@@ -230,7 +233,8 @@ export function createReviewRecordTool(
       }
       const config = await loadConfig(ctx.cwd);
       if (!config.ok) return reply(`${CONFIG_FILE}: ${config.error.message}`, true);
-      const snap = await snapshotDiff(deps.exec, ctx.cwd, params.diffRange?.trim() || "HEAD");
+      const range = params.diffRange?.trim() || "HEAD";
+      const snap = await snapshotDiff(deps.exec, ctx.cwd, range);
       if (!snap.ok) return reply(`cannot read the diff: ${snap.error}`, true);
 
       if (params.diffDigest !== snap.value.digest) {
@@ -295,6 +299,7 @@ export function createReviewRecordTool(
           reviewLabel(review),
           ...notes,
           `next: ${nextAction(review, reviewed.digest)}`,
+          ...(range === "HEAD" ? [] : [GATE_RANGE_NOTE]),
         ].join("\n"),
       );
     },

@@ -159,3 +159,9 @@ test("splitDiffByFile undoes git's escapes in quoted paths so staged and untrack
     'diff --git "a/q\\"uote.txt" "b/q\\"uote.txt"\n+1\ndiff --git "a/t\\tab" "b/t\\tab"\n+2';
   assert.deepEqual(Object.keys(splitDiffByFile(diff)), ['q"uote.txt', "t\tab"]);
 });
+
+test("splitDiffByFile keys a path that contains ' b/' by its real path", () => {
+  const diff =
+    "diff --git a/my b/f.txt b/my b/f.txt\n+1\ndiff --git a/x a/y b/z.txt b/x a/y b/z.txt\n+2";
+  assert.deepEqual(Object.keys(splitDiffByFile(diff)), ["my b/f.txt", "x a/y b/z.txt"]);
+});
