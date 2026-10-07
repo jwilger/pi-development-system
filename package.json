@@ -1,6 +1,6 @@
 {
   "name": "@jwilger/pi-development-system",
-  "version": "0.10.6",
+  "version": "0.11.0",
   "description": "A pi extension package representing a seasoned approach to software development using a full AI SDLC.",
   "keywords": [
     "pi-package"
@@ -32,8 +32,10 @@
     ]
   },
   "dependencies": {
+    "fuzzysort": "^4.0.2",
     "shell-quote": "^1.12.0",
-    "smol-toml": "^1.4.0"
+    "smol-toml": "^1.4.0",
+    "yaml": "^2.9.1"
   },
   "peerDependencies": {
     "@earendil-works/pi-agent-core": "*",
@@ -52,7 +54,7 @@
     "typescript": "^7.0.2"
   },
   "scripts": {
-    "test": "node --test \"test/**/*.test.ts\"",
+    "test": "node --experimental-transform-types --no-warnings --test \"test/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",

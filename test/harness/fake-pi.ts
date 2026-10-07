@@ -55,6 +55,8 @@ export function createFakePi(init: FakePiOptions = {}) {
       return ui.hasUI;
     },
     cwd: init.cwd ?? process.cwd(),
+    isProjectTrusted: () => true,
+    isIdle: () => true,
     modelRegistry: {
       findOfType: (_type: string, provider: string, id: string) =>
         (init.classifiers ?? []).includes(`${provider}/${id}`)

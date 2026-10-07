@@ -19,6 +19,7 @@ import { loadConfig } from "../src/state/config.ts";
 import { createModelsTool, registerModelsCommand } from "../src/state/models-command.ts";
 import { createSessionState } from "../src/state/session-state.ts";
 import { registerTestEvidence } from "../src/state/test-evidence.ts";
+import piSubagent from "../src/subagents/index.ts";
 
 const nonNegotiables = readFileSync(
   new URL("../principles/NON-NEGOTIABLES.md", import.meta.url),
@@ -101,6 +102,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   pi.registerTool(createRequestApprovalTool({ pi, approvals }));
   pi.registerTool(createModelsTool());
   registerModelsCommand(pi);
+  piSubagent(pi);
 
   pi.registerCommand("devsys-status", {
     description: "Show development-system phase, sizing, slice, departures and Jev status",

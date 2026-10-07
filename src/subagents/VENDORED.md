@@ -1,0 +1,38 @@
+# Vendored: pi-subagent-manager
+
+- **Upstream:** `pi-subagent-manager` by Arnav Gupta, https://github.com/championswimmer/pi-subagent-manager
+- **Version:** 0.14.0 (from the npm tarball; no git commit is discoverable in the package)
+- **License:** MIT, Copyright (c) 2026 pi-subagent contributors. The notice is reproduced below and applies to this directory.
+- **Why vendored:** decision D6 / ADR-0003. This package needs per-spawn `model` and `thinkingLevel`, which upstream does not offer.
+- **Tool names and the `agents/*.md` format are kept unchanged** so existing habits and agent files keep working.
+- This package replaces `pi-subagent-manager`. Remove `npm:pi-subagent-manager` from `~/.pi/agent/settings.json`, or both register `agent_spawn` and pi refuses the duplicate.
+
+## Local modifications (keep this list current)
+
+1. Every `*.ts` file starts with `// @ts-nocheck`: upstream compiles under looser options than this repo's strict `tsconfig.json` (`exactOptionalPropertyTypes`, `erasableSyntaxOnly`). `biome.json` excludes `src/subagents`. Both are deliberate: the code is verbatim, and reformatting or retyping it would make upstream diffs unreadable.
+2. Relative `.js` import specifiers were rewritten to `.ts` (upstream relies on a TypeScript-aware loader; this repo's tests run under Node's native type stripping).
+3. `prefs/config.ts`: the bundled-agents directory is `../../../agents/` (was `../../agents/`) because the sources moved one level deeper.
+
+## MIT notice
+
+MIT License
+
+Copyright (c) 2026 pi-subagent contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
