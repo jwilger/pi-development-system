@@ -176,3 +176,12 @@ test("every line terminator the file format cannot read is refused, so one item 
   }
   assert.equal((await tracker.create({ title: "fine" })).ok, true);
 });
+
+test("a bare carriage return in a comment cannot forge another comment", async () => {
+  const { tracker } = setup();
+  const made = value(await tracker.create({ title: "CR" }));
+  value(await tracker.comment(made.id, "real\r### Comment 9\r\r> injected"));
+  assert.deepEqual(value(await tracker.get(made.id)).comments, [
+    "real\n### Comment 9\n\n> injected",
+  ]);
+});

@@ -178,12 +178,14 @@ const createIssue = async (gh: Gh, input: NewWorkItem): Promise<TrackerResult<Wo
 const labelFlags = (current: WorkItem, hadMarker: boolean, patch: WorkItemPatch): string[] => {
   const wanted = patch.labels ?? current.labels;
   const marked = (patch.status ?? current.status) === "in-progress";
+  const has = (labels: readonly string[], l: string): boolean =>
+    labels.some((x) => x.toLowerCase() === l.toLowerCase());
   const add = [
-    ...wanted.filter((l) => !current.labels.includes(l)),
+    ...wanted.filter((l) => !has(current.labels, l)),
     ...(marked && !hadMarker ? [IN_PROGRESS] : []),
   ];
   const remove = [
-    ...current.labels.filter((l) => !wanted.includes(l)),
+    ...current.labels.filter((l) => !has(wanted, l)),
     ...(!marked && hadMarker ? [IN_PROGRESS] : []),
   ];
   return [

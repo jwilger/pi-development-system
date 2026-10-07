@@ -212,3 +212,15 @@ test("an id that appears twice in a plan is ambiguous even when named", () => {
   assert.ok(isParseError(r));
   assert.match(r.message, /appears 2 times/);
 });
+
+test("a command with trailing words keeps them, and a bulleted Files list loses only its bullets", () => {
+  const r = parseTaskRecord(
+    GOOD.replace(/\*\*Run:\*\*.*\n/, "**Run:** `npm test` from repo root\n").replace(
+      /\*\*Files:\*\*.*\n/,
+      "**Files:**\n- `src/a.ts` (new)\n- `test/a.test.ts`\n",
+    ),
+  );
+  assert.ok(!isParseError(r));
+  assert.equal(r.run, "npm test");
+  assert.deepEqual(r.files, ["src/a.ts", "test/a.test.ts"]);
+});

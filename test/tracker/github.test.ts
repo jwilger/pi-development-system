@@ -262,3 +262,12 @@ test("a full page of closed issues is fine to list as done, but not as everythin
   assert.equal(open.ok, false);
   if (!open.ok) assert.doesNotMatch(open.error.message, /narrow/);
 });
+
+test("labels that differ only in case are the same label when replacing", async () => {
+  const { exec, calls } = fakeExec(() => ({
+    stdout: JSON.stringify(issue({ labels: [{ name: "Bug" }] })),
+  }));
+  await createGithubTracker({ exec, cwd: "/r" }).update("7", { labels: ["bug"], title: "t" });
+  const edit = lines(calls).find((j) => j.startsWith("issue edit 7")) ?? "";
+  assert.doesNotMatch(edit, /--add-label|--remove-label/);
+});

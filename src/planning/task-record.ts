@@ -121,7 +121,10 @@ const stripTicks = (text: string): string => {
     if (closes(body.at(-1) ?? "", fence)) body.pop();
     return body.join("\n").trim();
   }
-  return text.replace(/^`+|`+$/g, "").trim();
+  const trimmed = text.trim();
+  if (/^`+$/.test(trimmed)) return "";
+  const span = /^(`+)(.+?)\1(?!`)/.exec(trimmed);
+  return span?.[2]?.trim() ?? trimmed;
 };
 
 const stepsOf = (text: string): string[] => {
@@ -169,7 +172,7 @@ function problemsOf(markdown: string, split: Sections): string[] {
 const filesOf = (text: string): string[] =>
   text
     .split(/[,\n]/)
-    .map((f) => stripTicks(f.trim()))
+    .map((f) => stripTicks(f.trim().replace(/^(?:[-*+]|\d+[.)])\s+/, "")))
     .filter((f) => f !== "");
 
 const NO_HEADER = "header must be `## <id> — <title>` (an id, an em dash, then the title)";
