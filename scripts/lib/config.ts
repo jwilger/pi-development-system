@@ -16,11 +16,18 @@ export const MIN_BUMP_CONFIDENCE = 0.6;
 export const MAX_DIFF_CHARS = 60_000;
 export const MAX_LOG_CHARS = 12_000;
 
-/** Paths whose changes alter the published npm package. */
+/**
+ * Paths whose changes alter the published npm package: every entry of package.json `files`
+ * plus the manifest and README that npm always includes. test/gate-config.test.ts keeps this
+ * equal to package.json, so a new published directory cannot silently escape the version gate.
+ */
 export const PUBLISHED_PATHS = [
   "extensions/",
+  "src/",
   "skills/",
   "prompts/",
+  "principles/",
+  "agents/",
   "themes/",
   "README.md",
   "package.json",

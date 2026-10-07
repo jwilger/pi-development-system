@@ -23,3 +23,16 @@ export function fail(message: string): never {
   console.error(`\n✖ ${message}\n`);
   process.exit(1);
 }
+
+/**
+ * Shrinks a unified diff to `max` characters by giving every file an equal share (at least
+ * `floor`), so one huge file cannot hide the others. Each cut file ends with a marker.
+ */
+export function budgetDiff(diff: string, max: number, floor = 1500): string {
+  if (diff.length <= max) return diff;
+  const files = diff.split(/(?=^diff --git )/m).filter(Boolean);
+  const share = Math.max(floor, Math.floor(max / Math.max(files.length, 1)));
+  return files
+    .map((f) => (f.length <= share ? f : `${f.slice(0, share)}\n…[file truncated]\n`))
+    .join("");
+}

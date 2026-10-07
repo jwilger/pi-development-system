@@ -113,7 +113,9 @@ async function main(): Promise<void> {
           );
         }
         required = j.bump;
-        console.log(`Jev: ${j.bump} bump required (confidence ${j.confidence.toFixed(2)})`);
+        console.log(
+          `Jev: ${j.bump} bump required (confidence ${j.confidence.toFixed(2)}; breaking ${j.evidence.breaking.toFixed(2)}, feature ${j.evidence.feature.toFixed(2)}, observable ${j.evidence.observable.toFixed(2)})`,
+        );
       } catch (error) {
         fail(`Could not ask Jev for the semver bump: ${String(error)}`);
       }

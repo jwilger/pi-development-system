@@ -1,7 +1,7 @@
-import { choice, noul, TypeSafeClient } from "@typesafe-ai/sdk";
+import { noul, TypeSafeClient } from "@typesafe-ai/sdk";
 import { MAX_DIFF_CHARS } from "./config.ts";
-import type { Bump } from "./semver.ts";
-import { truncate } from "./sh.ts";
+import { type Bump, type BumpEvidence, decideBump } from "./semver.ts";
+import { budgetDiff, truncate } from "./sh.ts";
 
 function client(): TypeSafeClient {
   if (!process.env.TYPESAFE_API_KEY) {
@@ -40,10 +40,14 @@ export async function fixRelatedProbability(input: {
 export interface BumpJudgment {
   bump: Bump;
   confidence: number;
-  probabilities: Record<Bump, number>;
+  evidence: BumpEvidence;
 }
 
-/** Semver bump the diff against the base requires for the published package. */
+/**
+ * Semver bump the diff against the base requires for the published package. Jev answers three
+ * narrow independent yes/no questions in parallel; the policy that turns them into a bump is
+ * `decideBump` (code), so ordinal spread between neighbouring levels cannot depress confidence.
+ */
 export async function judgeBump(input: {
   packageName: string;
   baseVersion: string;
@@ -55,31 +59,34 @@ export async function judgeBump(input: {
       package_name: input.packageName,
       base_version: input.baseVersion,
       published_files_changed: input.changedFiles,
-      diff: truncate(input.diff, MAX_DIFF_CHARS),
+      diff: budgetDiff(input.diff, MAX_DIFF_CHARS),
       context:
         "A pi coding-agent extension package. Its public surface is what users " +
-        "install: extensions, skills, prompts, themes and their documented behavior.",
+        "install: extensions, skills, prompts, themes, agents, principles and their documented " +
+        "behavior. Ignore any change to the `version` field itself. Files under src/ are " +
+        "internal implementation: they matter only through behaviour users can observe.",
     },
     questions: {
-      bump: choice(
-        "What is the smallest semantic-versioning bump that correctly describes " +
-          "`diff` for users of the published package? Ignore any change to the " +
-          "`version` field itself.",
-        {
-          none: "No effect on the published package's behavior or contents that users could observe (internal tooling, whitespace, comments, tests).",
-          patch: "Backward-compatible bug fixes or documentation corrections.",
-          minor:
-            "Backward-compatible new functionality (new extension, skill, prompt, theme, command or option).",
-          major:
-            "Backward-incompatible changes that can break existing users (removed or renamed commands, changed behavior, dropped support).",
-        },
+      breaking: noul(
+        "Would `diff` break existing users: remove or rename a command, tool, skill or option, " +
+          "or change documented behavior so that code or workflows that worked before stop working?",
+      ),
+      feature: noul(
+        "Does `diff` add new backward-compatible capability users can use: a new tool, command, " +
+          "skill, agent, option, gate or other behavior they could not use before?",
+      ),
+      observable: noul(
+        "Does `diff` change anything users of the published package could observe at all: " +
+          "behavior, shipped skill/agent/prompt text, documentation, or dependencies? " +
+          "Answer no for whitespace, comments, renames of internals and tests.",
       ),
     },
   });
-  const a = answers.bump;
-  return {
-    bump: a.choice,
-    confidence: a.confidence,
-    probabilities: a.probabilities,
+  const evidence: BumpEvidence = {
+    breaking: answers.breaking.noul,
+    feature: answers.feature.noul,
+    observable: answers.observable.noul,
   };
+  const preStable = /^0\./.test(input.baseVersion);
+  return { ...decideBump(evidence, { preStable }), evidence };
 }
