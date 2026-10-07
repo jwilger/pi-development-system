@@ -1,0 +1,75 @@
+{
+  "questionHash": "0f78c45f6caaa9b03380b02f11430f96",
+  "cases": [
+    {
+      "state": {
+        "task": "Fix the typo 'recieve' in README.md",
+        "files": "README.md"
+      },
+      "expected": "trivial/low"
+    },
+    {
+      "state": {
+        "task": "Rename the local variable tmp to buffer in format.ts",
+        "files": "src/format.ts"
+      },
+      "expected": "trivial/low"
+    },
+    {
+      "state": {
+        "task": "Add a --verbose flag to the CLI that prints each step, following the existing --quiet flag",
+        "files": "src/cli.ts,test/cli.test.ts"
+      },
+      "expected": "routine/low"
+    },
+    {
+      "state": {
+        "task": "Add a new pure function that sums cart line totals with a unit test",
+        "files": "src/cart.ts,test/cart.test.ts"
+      },
+      "expected": "routine/low"
+    },
+    {
+      "state": {
+        "task": "Change the password reset token expiry from 24h to 1h",
+        "files": "src/auth/reset.ts"
+      },
+      "expected": "routine/high"
+    },
+    {
+      "state": {
+        "task": "Add a column to the orders table and backfill it for existing rows",
+        "files": "migrations/0042_orders.sql,src/orders.ts"
+      },
+      "expected": "complex/high"
+    },
+    {
+      "state": {
+        "task": "Make the job queue safe for concurrent workers without double-processing",
+        "files": "src/queue.ts,src/worker.ts"
+      },
+      "expected": "expert/high"
+    },
+    {
+      "state": {
+        "task": "Introduce a state machine for the checkout flow replacing scattered boolean flags",
+        "files": "src/checkout/index.ts,src/checkout/state.ts,test/checkout.test.ts"
+      },
+      "expected": "complex/medium"
+    },
+    {
+      "state": {
+        "task": "Update the docs site colour of the footer link",
+        "files": "docs/site.css"
+      },
+      "expected": "trivial/low"
+    },
+    {
+      "state": {
+        "task": "Rotate the signing key format used for webhook verification",
+        "files": "src/webhooks/verify.ts"
+      },
+      "expected": "expert/high"
+    }
+  ]
+}

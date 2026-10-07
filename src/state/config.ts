@@ -3,24 +3,22 @@ import { join } from "node:path";
 import { parse as parseToml } from "smol-toml";
 import { defaultMatrix, isSlot, type ModelMatrix, SLOTS, type Slot } from "../core/models.ts";
 import { err, ok, type Result } from "../core/result.ts";
+import type { Route } from "../core/routing.ts";
+import { THINKING_LEVELS } from "../core/spawn-overrides.ts";
 
 export const CONFIG_FILE = ".development-system.toml";
 
 const DELIVERY_MODES = ["trunk", "pull-request", "local-only"] as const;
 const TRACKER_KINDS = ["repo-files", "github", "jira", "linear"] as const;
-const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
 
 export type DeliveryMode = (typeof DELIVERY_MODES)[number];
 export type TrackerKind = (typeof TRACKER_KINDS)[number];
-export type ThinkingLevel = (typeof THINKING_LEVELS)[number];
 
 export type ConfigError = {
   readonly kind: "config-error";
   readonly message: string;
   readonly key?: string;
 };
-
-export type Route = { readonly slot: Slot; readonly thinkingLevel: ThinkingLevel };
 
 export type DevsysConfig = {
   readonly delivery: {

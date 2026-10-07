@@ -17,6 +17,7 @@ import { createJevHolder } from "../src/jev/holder.ts";
 import { registerCiCommand } from "../src/state/ci-command.ts";
 import { loadConfig } from "../src/state/config.ts";
 import { createModelsTool, registerModelsCommand } from "../src/state/models-command.ts";
+import { createRouteTaskTool } from "../src/state/route-task-tool.ts";
 import { createSessionState } from "../src/state/session-state.ts";
 import { registerTestEvidence } from "../src/state/test-evidence.ts";
 import piSubagent from "../src/subagents/index.ts";
@@ -101,6 +102,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   pi.registerTool(createRecordDepartureTool({ pi, state }));
   pi.registerTool(createRequestApprovalTool({ pi, approvals }));
   pi.registerTool(createModelsTool());
+  pi.registerTool(createRouteTaskTool({ jev: (ctx) => jevHolder.forContext(ctx) }));
   registerModelsCommand(pi);
   piSubagent(pi);
 
