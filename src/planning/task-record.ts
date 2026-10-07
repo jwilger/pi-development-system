@@ -28,8 +28,8 @@ type Section = (typeof SECTIONS)[number];
 
 const HEADER = /^## (\S+) [—-] (.+)$/;
 const SECTION_LINE = /^\*\*([^:*]+)(?::\*\*|\*\*:)\s*(.*)$/;
-/** Top-level list items only; indented sub-items belong to the step above them. */
-const STEP = /^(?:\d+[.)]|[-*])\s+(.*)$/;
+/** Top-level list items only (CommonMark allows up to three spaces of indent); deeper items belong to the step above. */
+const STEP = /^ {0,3}(?:\d+[.)]|[-*+])\s+(.*)$/;
 const STEPS_MIN = 3;
 const STEPS_MAX = 7;
 /** Words that stand in for a command or an observable result. */
@@ -88,7 +88,19 @@ function splitSections(lines: readonly string[]): Sections {
       found.set(name, current);
     } else current?.push(line);
   }
-  const text = new Map([...found].map(([name, body]) => [name, body.join("\n").trim()] as const));
+  // Leading indentation is kept so the first list item of a section is read like the others.
+  const text = new Map(
+    [...found].map(
+      ([name, body]) =>
+        [
+          name,
+          body
+            .join("\n")
+            .replace(/^\s*\n/, "")
+            .trimEnd(),
+        ] as const,
+    ),
+  );
   return { text, duplicates };
 }
 
@@ -131,9 +143,14 @@ const stripTicks = (text: string): string => {
 const stepsOf = (text: string): string[] => {
   const lines = text.split("\n");
   const fenced = fencedFlags(lines);
+  // The first item sets the list's indent; an item two or more columns deeper is nested under a step.
+  let base: number | undefined;
   return lines.flatMap((line, at) => {
     const item = fenced[at] === true ? undefined : STEP.exec(line)?.[1]?.trim();
-    return item === undefined || item === "" ? [] : [item];
+    if (item === undefined || item === "") return [];
+    const indent = line.length - line.trimStart().length;
+    base ??= indent;
+    return indent >= base + 2 ? [] : [item];
   });
 };
 
@@ -148,6 +165,7 @@ function concrete(name: "Run" | "Expected", text: string): string | undefined {
 }
 
 const get = (sections: ReadonlyMap<Section, string>, s: Section): string => sections.get(s) ?? "";
+const got = (sections: ReadonlyMap<Section, string>, s: Section): string => get(sections, s).trim();
 
 /** Every readiness problem in the sections, so the author fixes them in one pass. */
 function problemsOf(markdown: string, split: Sections): string[] {
@@ -156,7 +174,7 @@ function problemsOf(markdown: string, split: Sections): string[] {
   if (split.duplicates.length > 0) {
     problems.push(`duplicate section: ${[...new Set(split.duplicates)].join(", ")}`);
   }
-  const missing = SECTIONS.filter((s) => get(sections, s) === "");
+  const missing = SECTIONS.filter((s) => got(sections, s) === "");
   if (missing.length > 0) problems.push(`missing section: ${missing.join(", ")}`);
   if (/\bTBD\b/.test(markdown)) problems.push("contains TBD; decide it or split the task");
   const steps = stepsOf(get(sections, "Steps"));
@@ -164,7 +182,7 @@ function problemsOf(markdown: string, split: Sections): string[] {
     problems.push(`Steps must be ${STEPS_MIN}-${STEPS_MAX} steps, found ${steps.length}`);
   }
   for (const name of ["Run", "Expected"] as const) {
-    const why = missing.includes(name) ? undefined : concrete(name, get(sections, name));
+    const why = missing.includes(name) ? undefined : concrete(name, got(sections, name));
     if (why !== undefined) problems.push(why);
   }
   return problems;
@@ -202,9 +220,9 @@ export function parseTaskRecord(markdown: string, id?: string): TaskRecord | Par
   const found = locate(markdown.replace(/\r\n?/g, "\n"), id);
   if (isParseError(found)) return found;
   const split = splitSections(found.lines);
-  const problems = problemsOf(found.lines.join("\n"), split);
+  const problems = problemsOf(`${found.id} ${found.title}\n${found.lines.join("\n")}`, split);
   if (problems.length > 0) return parseError(problems.join("; "));
-  const text = (s: Section): string => get(split.text, s);
+  const text = (s: Section): string => got(split.text, s);
   return {
     id: found.id,
     title: found.title,
@@ -212,7 +230,7 @@ export function parseTaskRecord(markdown: string, id?: string): TaskRecord | Par
     files: filesOf(text("Files")),
     interfaces: text("Interfaces"),
     firstFailingTest: text("First failing test"),
-    steps: stepsOf(text("Steps")),
+    steps: stepsOf(get(split.text, "Steps")),
     run: stripTicks(text("Run")),
     expected: text("Expected"),
     outOfScope: text("Out of scope"),

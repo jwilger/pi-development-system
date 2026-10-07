@@ -240,3 +240,20 @@ test("text that is more than one code span is kept whole; a lone span is unwrapp
   );
   assert.ok(!isParseError(lead));
 });
+
+test("list items indented up to three spaces, and plus bullets, are steps; the first item counts too", () => {
+  for (const marker of [" 1.", "  1)", "   -", "+"]) {
+    const steps = `**Steps:**\n${marker} a\n${marker.replace("1", "2")} b\n${marker.replace("1", "3")} c`;
+    const r = parseTaskRecord(
+      GOOD.replace(/\*\*Steps:\*\*[\s\S]*?\*\*Run:\*\*/, `${steps}\n**Run:**`),
+    );
+    assert.ok(!isParseError(r), marker);
+    assert.equal(r.steps.length, 3, marker);
+  }
+});
+
+test("TBD in the header title is a problem like TBD anywhere else", () => {
+  const r = parseTaskRecord(GOOD.replace("Trim emails on login", "TBD later"));
+  assert.ok(isParseError(r));
+  assert.match(r.message, /contains TBD/);
+});

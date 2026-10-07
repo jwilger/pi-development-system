@@ -463,3 +463,11 @@ test("a departure written to a staged decision log is not an edit after review",
   t.state.update((s) => upsertReview(s, cleanRounds(3, digest)));
   assert.equal(await t.bash(commit(GOOD)), undefined);
 });
+
+test("a fix is sized without a review, so the commit gate does not ask for review rounds", async () => {
+  const t = setup(jevJudging(0.9, 0.1), DIFF);
+  withPhase(t, "implementing");
+  t.state.update((s) => ({ ...s, sizing: "fix" }));
+  const r = await t.bash(commit(GOOD));
+  assert.doesNotMatch(r?.reason ?? "", /review\.unsatisfied/);
+});
