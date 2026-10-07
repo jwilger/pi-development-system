@@ -90,7 +90,6 @@ test("parseDevsysState accepts a complete departure", () => {
 });
 
 test("ci state round-trips and bad ci is rejected", async () => {
-  const { parseDevsysState } = await import("../../src/state/session-state.ts");
   const ok = parseDevsysState({ ...initialState(), ci: { status: "red", sha: "abc" } });
   assert.deepEqual("ci" in ok ? ok.ci : undefined, { status: "red", sha: "abc" });
   assert.equal("kind" in parseDevsysState({ ...initialState(), ci: { status: "purple" } }), true);
@@ -98,7 +97,6 @@ test("ci state round-trips and bad ci is rejected", async () => {
 });
 
 test("profiles and lastTestRun round-trip; bad ones are rejected", async () => {
-  const { parseDevsysState } = await import("../../src/state/session-state.ts");
   const run = { at: "2026-10-06T17:12:00Z", exitCode: 1, summary: "1 failed" };
   const ok = parseDevsysState({ ...initialState(), profiles: ["rust"], lastTestRun: run });
   assert.deepEqual("profiles" in ok ? ok.profiles : undefined, ["rust"]);

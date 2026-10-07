@@ -36,6 +36,7 @@ const jevJudging = (rationale: number, mix: number): Jev => ({
 });
 
 const DIFF = "diff --git a/a.ts b/a.ts\n+1\n";
+const sectionA = new Map(Object.entries(splitDiffByFile(DIFF))).get("a.ts") ?? "";
 type Names = { staged?: string; unstaged?: string; fail?: boolean };
 const setup = (jev: Jev, diff = "a.ts | 2 +-", names: Names = {}) => {
   const cwd = mkdtempSync(join(tmpdir(), "devsys-commit-"));
@@ -48,11 +49,10 @@ const setup = (jev: Jev, diff = "a.ts | 2 +-", names: Names = {}) => {
     jev: () => jev,
     exec: async (command, args) => {
       execCalls.push([command, ...args]);
-      const stdout = args.includes("ls-files")
-        ? ""
-        : args.includes("--name-only")
-          ? ((args.includes("--cached") ? names.staged : names.unstaged) ?? "")
-          : diff;
+      const nameList = args.includes("--cached") ? names.staged : names.unstaged;
+      let stdout = diff;
+      if (args.includes("ls-files")) stdout = "";
+      else if (args.includes("--name-only")) stdout = nameList ?? "";
       const failed = names.fail === true && args.includes("--name-only");
       return { code: failed ? 1 : 0, stdout, stderr: "" };
     },
@@ -317,7 +317,7 @@ test("committing a reviewed change in parts passes: the rest is only reviewed fi
         findings: [],
         reviewedAt: "t",
         diffDigest: "earlier",
-        files: { "a.ts": digestOf(splitDiffByFile(DIFF)["a.ts"] ?? ""), "gone.ts": "x" },
+        files: { "a.ts": digestOf(sectionA), "gone.ts": "x" },
       }),
     startReview("s1" as SliceRef, 3),
   );
@@ -445,7 +445,7 @@ test("recording a departure after review does not make the review stale", async 
         findings: [],
         reviewedAt: "t",
         diffDigest: "earlier",
-        files: { "a.ts": digestOf(splitDiffByFile(DIFF)["a.ts"] ?? "") },
+        files: { "a.ts": digestOf(sectionA) },
       }),
     startReview("s1" as SliceRef, 3),
   );

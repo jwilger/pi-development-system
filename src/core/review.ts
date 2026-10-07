@@ -141,7 +141,7 @@ function parseRound(input: unknown): ReviewRound | ParseError {
   if (typeof n !== "number" || typeof reviewedAt !== "string" || typeof diffDigest !== "string") {
     return parseError("round needs number n and string reviewedAt and diffDigest");
   }
-  if (!Array.isArray(lenses) || !lenses.every((l) => typeof l === "string")) {
+  if (!(Array.isArray(lenses) && lenses.every((l) => typeof l === "string"))) {
     return parseError("round lenses must be an array of strings");
   }
   if (!Array.isArray(findings)) return parseError("round findings must be an array");

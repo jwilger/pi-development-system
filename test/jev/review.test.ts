@@ -45,8 +45,7 @@ test("a lens applies at 0.5 and above", () => {
 });
 
 test("a missing or malformed lens answer is a provider error", async () => {
-  const partial = allLenses(0.5);
-  delete partial.ux;
+  const { ux: _dropped, ...partial } = allLenses(0.5);
   assert.equal((await judgeLenses(jevWith(partial), input)).ok, false);
   const nan = {
     ...allLenses(0.5),

@@ -31,7 +31,10 @@ test("before_agent_start puts the non-negotiables into the development-system se
     systemPrompt: "",
     systemPromptOptions: options,
   } as never);
-  assert.match(options.sections["development-system"] ?? "", /Never rewrite pushed history/);
+  assert.match(
+    new Map(Object.entries(options.sections)).get("development-system") ?? "",
+    /Never rewrite pushed history/,
+  );
 });
 
 test("/devsys-status notifies with the status report", async () => {

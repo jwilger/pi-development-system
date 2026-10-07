@@ -31,7 +31,8 @@ function resultingText(
   event: ToolCallEvent,
   cwd: string,
 ): { path: string; before: string; after: string } | undefined {
-  if (!isToolCallEventType("write", event) && !isToolCallEventType("edit", event)) return undefined;
+  if (!(isToolCallEventType("write", event) || isToolCallEventType("edit", event)))
+    return undefined;
   const path = normalizeRepoPath(cwd, event.input.path, homedir());
   const class_ = classifyPath(path);
   if (class_ !== "source" && class_ !== "test") return undefined;
@@ -74,7 +75,7 @@ export function registerLintSuppressionGuard(deps: LintSuppressionGuardDeps): vo
         `${GATE_ID}: ${change.path} adds a suppression without a reason: ${list}. A suppression hides a ` +
         `finding from every later reader, so it must say why (at least ${MIN_RATIONALE} characters, on the ` +
         `same line or the next, e.g. "// biome-ignore lint/x: boundary parse of foreign JSON"). Add the ` +
-        `reason, or fix the finding instead. If a bare suppression is truly right, call ` +
+        "reason, or fix the finding instead. If a bare suppression is truly right, call " +
         `devsys_record_departure with gate "${GATE_ID}", what you are doing, why, and the cost if wrong; then retry.`,
     };
   });

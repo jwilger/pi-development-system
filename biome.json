@@ -1,5 +1,9 @@
 {
-  "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
   "files": {
     "includes": [
       "scripts/**",
@@ -11,5 +15,63 @@
       "!src/subagents"
     ]
   },
-  "linter": { "enabled": true, "rules": { "preset": "recommended" } }
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "suspicious": {
+        "noUnnecessaryConditions": "error",
+        "useAwait": "error",
+        "noShadow": "error",
+        "noMisplacedAssertion": "error",
+        "useArraySortCompare": "error",
+        "noEmptyBlockStatements": "error",
+        "noConsole": "error"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": {
+            "maxAllowedComplexity": 25
+          }
+        },
+        "useSimplifiedLogicExpression": "error",
+        "noVoid": "error",
+        "noUselessStringConcat": "error"
+      },
+      "style": {
+        "useDefaultSwitchClause": "error",
+        "noNestedTernary": "error",
+        "useErrorCause": "error",
+        "useAtIndex": "error",
+        "useExplicitLengthCheck": "error",
+        "noUnusedTemplateLiteral": "error"
+      },
+      "performance": {
+        "noDelete": "error"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["scripts/**", "test/live/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["test/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "useAwait": "off"
+          }
+        }
+      }
+    }
+  ]
 }

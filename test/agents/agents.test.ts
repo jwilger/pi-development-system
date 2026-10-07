@@ -16,7 +16,7 @@ type Agent = {
 function load(name: string): { front: Agent; body: string } {
   const text = readFileSync(new URL(`../../agents/${name}.md`, import.meta.url), "utf8");
   const match = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(text);
-  assert.ok(match, `${name}.md has frontmatter`);
+  if (!match) throw new Error(`${name}.md has no frontmatter`);
   return { front: parse(match[1] ?? "") as Agent, body: match[2] ?? "" };
 }
 
@@ -49,7 +49,7 @@ test("read-only agents cannot edit or write", () => {
     ...Object.keys(SLOT_OF).filter((n) => n.startsWith("lens-")),
   ]) {
     const allow = load(name).front.tools?.allow ?? [];
-    assert.ok(!allow.includes("edit") && !allow.includes("write"), `${name} must not edit`);
+    assert.ok(!(allow.includes("edit") || allow.includes("write")), `${name} must not edit`);
   }
 });
 

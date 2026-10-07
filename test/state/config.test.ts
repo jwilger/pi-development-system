@@ -8,12 +8,12 @@ import { CONFIG_FILE, loadConfig, parseConfig } from "../../src/state/config.ts"
 
 const value = (text: string) => {
   const r = parseConfig(text);
-  assert.ok(r.ok, r.ok ? "" : r.error.message);
+  if (!r.ok) throw new Error(r.error.message);
   return r.value;
 };
 const failure = (text: string) => {
   const r = parseConfig(text);
-  assert.ok(!r.ok, "expected a config error");
+  if (r.ok) throw new Error("expected a config error");
   return r.error;
 };
 

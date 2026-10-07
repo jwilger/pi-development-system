@@ -38,15 +38,17 @@ const offline: Jev = {
   model: () => undefined,
 };
 
+const fakeGitOutput = (args: string[], diff: string, untracked: string): string => {
+  if (args.includes("ls-files")) return untracked;
+  if (args.includes("hash-object")) return "abc123\n";
+  return diff;
+};
+
 const exec =
   (diff: string, untracked = ""): Exec =>
   async (_command, args) => ({
     code: 0,
-    stdout: args.includes("ls-files")
-      ? untracked
-      : args.includes("hash-object")
-        ? "abc123\n"
-        : diff,
+    stdout: fakeGitOutput(args, diff, untracked),
     stderr: "",
   });
 

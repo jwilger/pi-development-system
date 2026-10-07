@@ -5,7 +5,7 @@ import { ModelRegistry, ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { createJev, type Jev } from "../../src/jev/client.ts";
 import { DEFAULT_JEV_CANDIDATES } from "../../src/jev/models.ts";
 
-export type FixtureCase = { state: Record<string, string>; expected: string };
+export type FixtureCase = { state: Record<string, string | undefined>; expected: string };
 export type Fixture = { questionHash: string; cases: FixtureCase[] };
 
 export const questionHash = (question: ClassifierQuestion): string =>

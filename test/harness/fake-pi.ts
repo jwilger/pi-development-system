@@ -132,7 +132,7 @@ export function createFakePi(init: FakePiOptions = {}) {
     sendUserMessage: (message: unknown) => {
       sentMessages.push(message);
     },
-    setSessionName: () => {},
+    setSessionName: () => undefined,
     exec: async () => ({ code: 0, stdout: "", stderr: "", killed: false }),
   } as unknown as ExtensionAPI;
 

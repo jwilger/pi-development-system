@@ -5,6 +5,7 @@ import {
   type Available,
   compareModelVersions,
   defaultMatrix,
+  flattenSlot,
   type ModelMatrix,
   renderMatrixToml,
   resolveCandidate,
@@ -199,17 +200,15 @@ test("upsertModelsTable matches a [models] header with a trailing comment", () =
 });
 
 test("flattenSlot expands slot references in order and drops duplicates", async () => {
-  const { flattenSlot } = await import("../../src/core/models.ts");
-  const matrix = {
+  const custom = {
     ...defaultMatrix(),
     strong: ["a/x-*", "b/y-*"],
     implementer: ["@strong", "a/x-*", "c/z-*"],
   };
-  assert.deepEqual(flattenSlot(matrix, "implementer"), ["a/x-*", "b/y-*", "c/z-*"]);
+  assert.deepEqual(flattenSlot(custom, "implementer"), ["a/x-*", "b/y-*", "c/z-*"]);
 });
 
 test("flattenSlot stops at reference cycles instead of looping", async () => {
-  const { flattenSlot } = await import("../../src/core/models.ts");
-  const matrix = { ...defaultMatrix(), planning: ["@advisor", "a/p-*"], advisor: ["@planning"] };
-  assert.deepEqual(flattenSlot(matrix, "planning"), ["a/p-*"]);
+  const cyclic = { ...defaultMatrix(), planning: ["@advisor", "a/p-*"], advisor: ["@planning"] };
+  assert.deepEqual(flattenSlot(cyclic, "planning"), ["a/p-*"]);
 });

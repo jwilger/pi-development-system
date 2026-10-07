@@ -38,7 +38,7 @@ const setup = (results: ReturnType<typeof run>[], trunk = "main") => {
     pi: fake.api,
     state,
     exec,
-    sleep: async () => {},
+    sleep: () => Promise.resolve(),
     intervalMs: 1,
     maxPolls: 5,
   };

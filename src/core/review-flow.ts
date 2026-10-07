@@ -1,3 +1,4 @@
+import { assertNever } from "./exhaustive.ts";
 import {
   cleanStreak,
   type Finding,
@@ -47,7 +48,8 @@ export function reviewGap(state: DevsysState, slice: SliceRef, now: DiffNow): st
   if (review === undefined || review.rounds.length === 0) {
     return `no review has been recorded for slice ${slice}`;
   }
-  switch (nextAction(review, now.digest)) {
+  const action = nextAction(review, now.digest);
+  switch (action) {
     case "done":
       return undefined;
     case "fix-findings":
@@ -58,6 +60,8 @@ export function reviewGap(state: DevsysState, slice: SliceRef, now: DiffNow): st
       return `the diff has changed since slice ${slice} was last reviewed; review it again`;
     case "review":
       return `slice ${slice} has ${cleanStreak(review)}/${review.required} clean review rounds`;
+    default:
+      return assertNever(action);
   }
 }
 

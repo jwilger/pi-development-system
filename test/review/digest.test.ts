@@ -40,7 +40,7 @@ const repo = (): string => {
 
 const digest = async (dir: string): Promise<string> => {
   const snap = await snapshotDiff(exec, dir, "HEAD");
-  assert.ok(snap.ok, snap.ok ? "" : snap.error);
+  if (!snap.ok) throw new Error(snap.error);
   return snap.value.digest;
 };
 
@@ -177,8 +177,8 @@ test("untracked files with non-ASCII, quote or space in the name are digested by
   const snap = await snapshotDiff(exec, dir, "HEAD");
   assert.ok(snap.ok, snap.ok ? "" : snap.error);
   assert.deepEqual(
-    Object.keys(snap.value.files).sort(),
-    ['say "hi".txt', "naïve-new.md", "with space.txt"].sort(),
+    Object.keys(snap.value.files).sort((a, b) => a.localeCompare(b)),
+    ['say "hi".txt', "naïve-new.md", "with space.txt"].sort((a, b) => a.localeCompare(b)),
   );
 });
 

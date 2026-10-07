@@ -68,7 +68,7 @@ export async function runCiWatch(
 export function registerCiCommand(deps: CiCommandDeps): void {
   deps.pi.registerCommand("devsys-ci", {
     description: "Watch CI on the trunk and show its state in the status line",
-    handler: async (_args, ctx) => {
+    handler: (_args, ctx) => {
       ctx.ui.notify("watching CI on the trunk…", "info");
       runCiWatch(deps, ctx).catch((cause: unknown) => {
         // ctx goes stale if the session is replaced or reloaded mid-watch; there is nobody left to tell.
@@ -81,6 +81,7 @@ export function registerCiCommand(deps: CiCommandDeps): void {
           // stale context
         }
       });
+      return Promise.resolve();
     },
   });
 }

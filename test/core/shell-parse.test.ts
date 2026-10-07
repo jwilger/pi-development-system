@@ -5,7 +5,7 @@ import { parseShell } from "../../src/core/shell-parse.ts";
 import { bashMutations } from "../../src/core/test-weakening.ts";
 
 /** Opens a JS template expression; built here so the literal is not mistaken for a template string. */
-const OPEN = "$" + "{";
+const OPEN = "${";
 const HEREDOC = [
   "cat > a.ts <<'EOF'",
   `const s = \`${OPEN}a + b}\`;`,

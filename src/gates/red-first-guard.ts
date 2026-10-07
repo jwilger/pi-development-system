@@ -69,7 +69,7 @@ export function registerRedFirstGuard(deps: RedFirstGuardDeps): void {
   const departure = departureUse(deps.state, gate);
 
   deps.pi.on("tool_call", (event, ctx) => {
-    if (!isToolCallEventType("edit", event) && !isToolCallEventType("write", event))
+    if (!(isToolCallEventType("edit", event) || isToolCallEventType("write", event)))
       return undefined;
     const { phase, lastTestRun, activeSlice } = deps.state.get();
     if (phase !== "implementing") return undefined;

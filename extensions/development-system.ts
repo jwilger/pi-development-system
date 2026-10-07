@@ -148,8 +148,9 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
 
   pi.registerCommand("devsys-status", {
     description: "Show development-system phase, sizing, slice, departures and Jev status",
-    handler: async (_args, ctx) => {
+    handler: (_args, ctx) => {
       ctx.ui.notify(renderStatus(state.get(), jevModel), "info");
+      return Promise.resolve();
     },
   });
 

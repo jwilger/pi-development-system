@@ -20,6 +20,23 @@ export type DiffSnapshot = {
 
 const MAX_UNTRACKED = 200;
 
+const PLAIN_DIFF = [
+  "-c",
+  "core.quotePath=false",
+  "diff",
+  "--no-ext-diff",
+  "--no-color",
+  // diff.mnemonicPrefix / diff.noprefix change the `a/` `b/` header prefixes the file keys are cut from.
+  "--src-prefix=a/",
+  "--dst-prefix=b/",
+  // Every changed path gets a `diff --git` section: no submodule log summaries, no textconv that
+  // can hide an edit whose converted text is unchanged.
+  "--submodule=short",
+  "--no-textconv",
+  // diff.ignoreSubmodules=all would hide a bump that `git add` still stages.
+  "--ignore-submodules=dirty",
+];
+
 /**
  * The change in `range` (default `HEAD`: everything not yet committed) with its digest. `git diff`
  * leaves out untracked files, so for a range that includes the work tree they are listed and
@@ -33,25 +50,9 @@ export async function snapshotDiff(
   try {
     // Plain, parseable output whatever the user's git config says: an external diff driver or
     // forced colour removes the `diff --git` headers the per-file digests are cut from.
-    const plain = [
-      "-c",
-      "core.quotePath=false",
-      "diff",
-      "--no-ext-diff",
-      "--no-color",
-      // diff.mnemonicPrefix / diff.noprefix change the `a/` `b/` header prefixes the file keys are cut from.
-      "--src-prefix=a/",
-      "--dst-prefix=b/",
-      // Every changed path gets a `diff --git` section: no submodule log summaries, no textconv that
-      // can hide an edit whose converted text is unchanged.
-      "--submodule=short",
-      "--no-textconv",
-      // diff.ignoreSubmodules=all would hide a bump that `git add` still stages.
-      "--ignore-submodules=dirty",
-    ];
     const [diff, stat, others] = await Promise.all([
-      exec("git", [...plain, "--full-index", "--no-renames", range], { cwd, timeout: 15_000 }),
-      exec("git", [...plain, "--stat", range], { cwd, timeout: 15_000 }),
+      exec("git", [...PLAIN_DIFF, "--full-index", "--no-renames", range], { cwd, timeout: 15_000 }),
+      exec("git", [...PLAIN_DIFF, "--stat", range], { cwd, timeout: 15_000 }),
       // Any range that ends in the work tree (HEAD, HEAD~1, a branch) leaves untracked files out of git diff.
       !range.includes("..")
         ? exec(
@@ -79,30 +80,10 @@ export async function snapshotDiff(
     if (diff.stdout.trim() !== "" && Object.keys(files).length === 0) {
       return err("could not read the diff: no per-file sections were found");
     }
-    if (untracked.length > 0) {
-      const links = new Set<string>();
-      for (const path of untracked) {
-        const target = await linkTarget(cwd, path);
-        if (target !== undefined) {
-          files[path] = `new:${blobOf(target)}`;
-          links.add(path);
-        }
-      }
-      // `git hash-object <path>` follows symlinks (and fails on dangling ones), so links are hashed above.
-      const regular = untracked.filter((p) => !links.has(p));
-      if (regular.length > 0) {
-        const hashes = await exec("git", ["hash-object", "--", ...regular], {
-          cwd,
-          timeout: 15_000,
-        });
-        const lines = hashes.stdout.split("\n").filter((l) => l !== "");
-        if (hashes.code !== 0 || lines.length !== regular.length) {
-          return err(hashes.stderr.trim() || "git hash-object could not hash every untracked file");
-        }
-        for (const [i, path] of regular.entries()) files[path] = `new:${lines[i]}`;
-      }
-    }
-    const names = Object.keys(files).sort();
+    const hashed = await hashUntracked(exec, cwd, untracked);
+    if (!hashed.ok) return hashed;
+    Object.assign(files, hashed.value);
+    const names = Object.keys(files).sort((a, b) => a.localeCompare(b));
     const untrackedStat = [
       ...untracked.map((p) => ` ${p} (untracked)`),
       ...nested.map((p) => ` ${p} (nested repository, not reviewable)`),
@@ -116,6 +97,33 @@ export async function snapshotDiff(
   } catch (cause) {
     return err(cause instanceof Error ? cause.message : String(cause));
   }
+}
+
+/** Content digests (`new:<blob>`) of untracked files; symlinks are hashed by target, not followed. */
+async function hashUntracked(
+  exec: Exec,
+  cwd: string,
+  untracked: string[],
+): Promise<Result<Record<string, string>, string>> {
+  const files: Record<string, string> = {};
+  const links = new Set<string>();
+  for (const path of untracked) {
+    const target = await linkTarget(cwd, path);
+    if (target !== undefined) {
+      files[path] = `new:${blobOf(target)}`;
+      links.add(path);
+    }
+  }
+  // `git hash-object <path>` follows symlinks (and fails on dangling ones), so links are hashed above.
+  const regular = untracked.filter((p) => !links.has(p));
+  if (regular.length === 0) return ok(files);
+  const hashes = await exec("git", ["hash-object", "--", ...regular], { cwd, timeout: 15_000 });
+  const lines = hashes.stdout.split("\n").filter((l) => l !== "");
+  if (hashes.code !== 0 || lines.length !== regular.length) {
+    return err(hashes.stderr.trim() || "git hash-object could not hash every untracked file");
+  }
+  for (const [i, path] of regular.entries()) files[path] = `new:${lines[i]}`;
+  return ok(files);
 }
 
 const NEW_FILE = /^new file mode .*\nindex 0+\.\.([0-9a-f]+)/m;

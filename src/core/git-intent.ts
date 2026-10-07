@@ -24,6 +24,7 @@ const worst = (a: GitIntent, b: GitIntent): GitIntent =>
   SEVERITY.indexOf(a) <= SEVERITY.indexOf(b) ? a : b;
 
 /** Splits a command string on newlines that are outside quotes; backslash-newline is a continuation. */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: a shell lexer is one flat branch per character class; splitting it would scatter a single state machine across helpers
 export function splitLines(command: string): string[] {
   const lines: string[] = [];
   let current = "";
@@ -63,7 +64,7 @@ export function segments(line: string): string[][] {
   const result: string[][] = [[]];
   let skipOperand = false;
   for (const token of parseShell(line, (name) => `$${name}`)) {
-    const current = result[result.length - 1];
+    const current = result.at(-1);
     if (typeof token === "string" || "pattern" in token) {
       const text = typeof token === "string" ? token : token.pattern;
       if (!skipOperand) current?.push(text);
@@ -179,26 +180,50 @@ function classifyGitArgs(globals: string[], sub: string | undefined, args: strin
   }
 }
 
-function classifySegment(tokens: string[]): GitIntent {
+/** Skips leading `NAME=value` words, wrappers and shell keywords; `index` is the command word (-1: none). */
+function skipPrefix(tokens: string[]): { index: number; hookSkip: boolean } {
   let hookSkip = false;
-  let i = 0;
+  let index = 0;
   for (;;) {
-    const t = tokens[i];
-    if (t === undefined) return "ordinary";
+    const t = tokens[index];
+    if (t === undefined) return { index: -1, hookSkip };
     if (isAssignment(t)) {
       if (HOOK_SKIP_ENV.has(t)) hookSkip = true;
-      i++;
-    } else if (WRAPPERS.has(t) || KEYWORDS.has(t)) {
-      i++;
+    } else if (!(WRAPPERS.has(t) || KEYWORDS.has(t))) {
+      return { index, hookSkip };
+    }
+    index++;
+  }
+}
+
+/** Git's global options (`-c k=v`, `-C dir`, flags) before the subcommand. */
+function splitGlobals(rest: string[]): {
+  globals: string[];
+  sub: string | undefined;
+  args: string[];
+} {
+  const globals: string[] = [];
+  let j = 0;
+  while (j < rest.length && (rest[j] ?? "").startsWith("-")) {
+    const opt = rest[j] ?? "";
+    if (GLOBAL_WITH_VALUE.has(opt)) {
+      globals.push(rest[j + 1] ?? "");
+      j += 2;
     } else {
-      break;
+      j++;
     }
   }
+  return { globals, sub: rest[j], args: rest.slice(j + 1) };
+}
+
+function classifySegment(tokens: string[]): GitIntent {
+  const { index: i, hookSkip } = skipPrefix(tokens);
+  if (i < 0) return "ordinary";
   const head = tokens[i] ?? "";
   const rest = tokens.slice(i + 1);
   const base = basename(head);
-  const withHookSkip = (intent: GitIntent): GitIntent =>
-    hookSkip ? worst(intent, "no-verify") : intent;
+  const withHookSkip = (found: GitIntent): GitIntent =>
+    hookSkip ? worst(found, "no-verify") : found;
   if (head.startsWith("$") || base === "$GIT") return "unknown";
   if (SHELLS.has(base)) {
     const c = rest.findIndex((t) => /^-[A-Za-z]*c[A-Za-z]*$/.test(t));
@@ -213,19 +238,7 @@ function classifySegment(tokens: string[]): GitIntent {
     const at = rest.findIndex((t) => basename(t) === "git");
     return at >= 0 ? withHookSkip(classifySegment(rest.slice(at))) : "ordinary";
   }
-  const globals: string[] = [];
-  let j = 0;
-  while (j < rest.length && (rest[j] ?? "").startsWith("-")) {
-    const opt = rest[j] ?? "";
-    if (GLOBAL_WITH_VALUE.has(opt)) {
-      globals.push(rest[j + 1] ?? "");
-      j += 2;
-    } else {
-      j++;
-    }
-  }
-  const sub = rest[j];
-  const args = rest.slice(j + 1);
+  const { globals, sub, args } = splitGlobals(rest);
   const dynamic =
     (sub ?? "").startsWith("$") ||
     (["push", "reset", "rebase"].includes(sub ?? "") &&

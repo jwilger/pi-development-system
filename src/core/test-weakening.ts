@@ -125,6 +125,7 @@ type Segment = { words: string[]; truncates: string[] };
 type Token = { kind: "word"; value: string } | { kind: "op"; op: string };
 
 /** Turns unquoted newlines into `;` (and joins backslash continuations) so shell-quote sees every command. */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: a shell lexer is one flat branch per character class; splitting it would scatter a single state machine across helpers
 function splitLines(command: string): string {
   let out = "";
   let quote: "'" | '"' | undefined;

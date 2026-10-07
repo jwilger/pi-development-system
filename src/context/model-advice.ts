@@ -56,6 +56,6 @@ export function registerModelAdvice(deps: ModelAdviceDeps): void {
   deps.state.onChange((state) => {
     if (state.phase === phase) return;
     phase = state.phase;
-    if (last !== undefined) void check(last).catch(() => undefined);
+    if (last !== undefined) check(last).catch(() => undefined);
   });
 }

@@ -280,21 +280,24 @@ export function parseConfig(source: string): Result<DevsysConfig, ConfigError> {
   const delivery = deliveryAndReview(root);
   const lim = limits(root);
   const matrix = models(root);
-  const route = routing(root);
+  const routes = routing(root);
   const prof = profiles(root);
   if (!delivery.ok) return delivery;
   if (!lim.ok) return lim;
   if (!matrix.ok) return matrix;
-  if (!route.ok) return route;
+  if (!routes.ok) return routes;
   if (!prof.ok) return prof;
   return ok({
     ...delivery.value,
     ...lim.value,
     profiles: { override: prof.value },
     models: matrix.value,
-    routing: route.value,
+    routing: routes.value,
   });
 }
+
+const isMissingFile = (cause: unknown): boolean =>
+  cause instanceof Error && "code" in cause && String(cause.code) === "ENOENT";
 
 /** Reads `<repoRoot>/.development-system.toml`; a missing file means all defaults. */
 export async function loadConfig(repoRoot: string): Promise<Result<DevsysConfig, ConfigError>> {
@@ -302,9 +305,7 @@ export async function loadConfig(repoRoot: string): Promise<Result<DevsysConfig,
   try {
     source = await readFile(join(repoRoot, CONFIG_FILE), "utf8");
   } catch (cause) {
-    if (typeof cause === "object" && cause !== null && "code" in cause && cause.code === "ENOENT") {
-      return parseConfig("");
-    }
+    if (isMissingFile(cause)) return parseConfig("");
     return fail(
       `cannot read ${CONFIG_FILE}: ${cause instanceof Error ? cause.message : String(cause)}`,
     );

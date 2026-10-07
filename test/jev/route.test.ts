@@ -89,7 +89,6 @@ test("fixture pins the current question text", () => {
 });
 
 test("medianLabel: an exact tie resolves to the higher level", async () => {
-  const { medianLabel } = await import("../../src/jev/questions/route.ts");
   assert.equal(
     medianLabel(["low", "medium", "high"], {
       choice: "low",

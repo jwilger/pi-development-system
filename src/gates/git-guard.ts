@@ -26,6 +26,35 @@ export type GitGuardDeps = {
   now?: () => Date;
 };
 
+type Resolved = { intent: GitIntent } | { block: true; reason: string };
+
+/** An unclassifiable command: Jev may classify it; otherwise the user decides (headless: blocked). */
+async function resolveUnknown(
+  deps: GitGuardDeps,
+  ctx: ExtensionContext,
+  command: string,
+): Promise<Resolved> {
+  const judged =
+    deps.jev === undefined ? undefined : await judgeShellIntent(deps.jev(ctx), command);
+  if (judged?.ok === true && judged.value.intent !== "unknown") {
+    return { intent: judged.value.intent };
+  }
+  const why = judged?.ok === false ? `unavailable: ${judged.error.kind}` : "not confident";
+  const approved = ctx.hasUI
+    ? await ctx.ui.confirm(
+        "Development system — unclassified command",
+        `${redactSecrets(command)}\nCould not classify this command (Jev ${why}). It may run an irreversible git operation. Approve?`,
+      )
+    : false;
+  if (approved) return { intent: "ordinary" };
+  return {
+    block: true,
+    reason: ctx.hasUI
+      ? "the user declined an unclassifiable command; propose a simpler, explicit git command"
+      : "could not classify this command and Jev is unavailable or unsure; run interactively or use an explicit git command",
+  };
+}
+
 /** Registers the `tool_call` hard stop for irreversible git operations in bash. */
 export function registerGitGuard(deps: GitGuardDeps): void {
   deps.pi.on("tool_call", async (event, ctx) => {
@@ -33,26 +62,9 @@ export function registerGitGuard(deps: GitGuardDeps): void {
     const command = event.input.command;
     let intent = classifyGitCommand(command);
     if (intent === "unknown") {
-      const judged =
-        deps.jev === undefined ? undefined : await judgeShellIntent(deps.jev(ctx), command);
-      if (judged?.ok === true && judged.value.intent !== "unknown") {
-        intent = judged.value.intent;
-      } else {
-        const approved = ctx.hasUI
-          ? await ctx.ui.confirm(
-              "Development system — unclassified command",
-              `${redactSecrets(command)}\nCould not classify this command (Jev ${judged?.ok === false ? `unavailable: ${judged.error.kind}` : "not confident"}). It may run an irreversible git operation. Approve?`,
-            )
-          : false;
-        return approved
-          ? undefined
-          : {
-              block: true,
-              reason: ctx.hasUI
-                ? "the user declined an unclassifiable command; propose a simpler, explicit git command"
-                : "could not classify this command and Jev is unavailable or unsure; run interactively or use an explicit git command",
-            };
-      }
+      const resolved = await resolveUnknown(deps, ctx, command);
+      if ("block" in resolved) return resolved;
+      intent = resolved.intent;
     }
     if (!HARD.has(intent)) return undefined;
     const gate = parseGateId(`git.${intent}`);

@@ -35,7 +35,7 @@ const references = (text: string): string[] => {
 const files = skillFiles(ROOT);
 
 test("the repository ships skills", () => {
-  assert.ok(files.length >= 1);
+  assert.ok(files.length > 0);
 });
 
 for (const file of files) {
@@ -46,7 +46,10 @@ for (const file of files) {
     const fm = frontmatter(text);
     assert.ok(fm, "missing frontmatter");
     assert.equal(fm.name, dirname(file).split("/").at(-1));
-    assert.ok((fm.description ?? "").length >= 40, "description too short to trigger on");
+    assert.ok(
+      (new Map(Object.entries(fm)).get("description") ?? "").length >= 40,
+      "description too short to trigger on",
+    );
   });
 
   test(`${label}: stays within ${MAX_LINES} lines`, () => {

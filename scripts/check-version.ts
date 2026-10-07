@@ -54,26 +54,31 @@ function lastRelease(tip: string): string | null {
   }
 }
 
-async function main(): Promise<void> {
-  let tip: string;
-  let headRef: string | null; // null = the index
-  let overrides: string[] = [];
+type Range = {
+  tip: string;
+  /** null = the index */
+  headRef: string | null;
+  overrides: string[];
+};
+
+/** The commits under check: `--ci` compares two SHAs, `--staged` the index against origin/main. */
+function resolveRange(): Range {
   if (values.ci) {
-    if (!values.before || !values.after) fail("--ci requires --before and --after");
-    if (ZERO_SHA.test(values.before)) return;
-    tip = values.before;
-    headRef = values.after;
-    overrides = commitsBetween(tip, headRef, true)
+    if (!(values.before && values.after)) fail("--ci requires --before and --after");
+    if (ZERO_SHA.test(values.before)) process.exit(0);
+    const overrides = commitsBetween(values.before, values.after, true)
       .map((c) => overrideReason(c.message))
       .filter((r): r is string => r !== null);
-  } else {
-    if (!values.staged) fail("Pass --staged or --ci");
-    git("fetch", "--quiet", "origin", MAIN_BRANCH);
-    tip = `origin/${MAIN_BRANCH}`;
-    headRef = null;
-    const env = process.env.JEV_OVERRIDE?.trim();
-    if (env) overrides = [env];
+    return { tip: values.before, headRef: values.after, overrides };
   }
+  if (!values.staged) fail("Pass --staged or --ci");
+  git("fetch", "--quiet", "origin", MAIN_BRANCH);
+  const env = process.env.JEV_OVERRIDE?.trim();
+  return { tip: `origin/${MAIN_BRANCH}`, headRef: null, overrides: env ? [env] : [] };
+}
+
+async function main(): Promise<void> {
+  const { tip, headRef, overrides } = resolveRange();
 
   // While broken, the version in main was bumped but never released, so compare
   // against the last release to avoid demanding a second bump for the fix.

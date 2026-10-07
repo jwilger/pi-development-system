@@ -3,12 +3,11 @@ import test from "node:test";
 import { judgeCommit, MIX_QUESTION, RATIONALE_QUESTION } from "../../src/jev/questions/commit.ts";
 import { loadFixture, questionHash, realJev } from "../jev/fixture-runner.ts";
 
-const judged = async (
+const score = async (
   name: string,
   hash: string,
   pick: (v: { rationale: number; mixesStructuralAndBehavioural: number }) => string,
 ) => {
-  assert.equal(loadFixture(name).questionHash, hash);
   const jev = await realJev();
   let passed = 0;
   const fixture = loadFixture(name);
@@ -20,17 +19,21 @@ const judged = async (
     });
     if (r.ok && pick(r.value) === c.expected) passed++;
   }
-  assert.ok(passed / fixture.cases.length >= 0.8, `${passed}/${fixture.cases.length}`);
+  return { passed, total: fixture.cases.length, pinned: loadFixture(name).questionHash === hash };
 };
 
 test("commit-rationale fixture reaches 0.8 with a real Jev", async () => {
-  await judged("commit-rationale", questionHash({ ...RATIONALE_QUESTION }), (v) =>
+  const r = await score("commit-rationale", questionHash({ ...RATIONALE_QUESTION }), (v) =>
     v.rationale >= 0.5 ? "rationale" : "none",
   );
+  assert.ok(r.pinned, "fixture questionHash is stale");
+  assert.ok(r.passed / r.total >= 0.8, `${r.passed}/${r.total}`);
 });
 
 test("commit-mix fixture reaches 0.8 with a real Jev", async () => {
-  await judged("commit-mix", questionHash({ ...MIX_QUESTION }), (v) =>
+  const r = await score("commit-mix", questionHash({ ...MIX_QUESTION }), (v) =>
     v.mixesStructuralAndBehavioural >= 0.7 ? "mixed" : "clean",
   );
+  assert.ok(r.pinned, "fixture questionHash is stale");
+  assert.ok(r.passed / r.total >= 0.8, `${r.passed}/${r.total}`);
 });

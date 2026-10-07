@@ -75,8 +75,7 @@ const NO_SIGNALS: WeakeningSignals = { addsSkip: false, emptied: false, commente
 
 /** Adding lines never weakens a test unless an added line itself disables something. */
 const isHarmlessAddition = (before: string, after: string, signals: WeakeningSignals): boolean =>
-  !signals.addsSkip &&
-  !signals.commentedOut &&
+  !(signals.addsSkip || signals.commentedOut) &&
   isPureAddition(before, after) &&
   !addedLines(before, after).some((line) => RISKY_ADDITION.test(line));
 
@@ -134,19 +133,24 @@ export function registerTestGuard(deps: TestGuardDeps): void {
   const collectChanges = (event: ToolCallEvent, ctx: ExtensionContext): Change[] => {
     if (isToolCallEventType("bash", event)) {
       const { command } = event.input;
-      return bashMutations(command).flatMap(({ path: raw, kind }): Change[] => {
-        const path = repoPath(ctx.cwd, raw);
+      return bashMutations(command).flatMap(({ path: written, kind }): Change[] => {
+        const target = repoPath(ctx.cwd, written);
         // Missing plain paths have nothing to weaken; globs and directories may still hide tests.
-        const touched = GLOB.test(path) || existsSync(join(ctx.cwd, path));
-        if (!isTestPath(path) || !touched) return [];
+        const touched = GLOB.test(target) || existsSync(join(ctx.cwd, target));
+        if (!(isTestPath(target) && touched)) return [];
         const rewritten =
           kind === "overwrite" ? `(rewritten by shell command) ${command}` : undefined;
         return [
-          { path, before: readIfExists(join(ctx.cwd, path)) ?? "", after: undefined, rewritten },
+          {
+            path: target,
+            before: readIfExists(join(ctx.cwd, target)) ?? "",
+            after: undefined,
+            rewritten,
+          },
         ];
       });
     }
-    if (!isToolCallEventType("write", event) && !isToolCallEventType("edit", event)) return [];
+    if (!(isToolCallEventType("write", event) || isToolCallEventType("edit", event))) return [];
     const path = repoPath(ctx.cwd, event.input.path);
     const raw = isTestPath(path) ? readIfExists(join(ctx.cwd, path)) : undefined;
     if (raw === undefined) return [];
@@ -215,7 +219,7 @@ export function registerTestGuard(deps: TestGuardDeps): void {
       block: true,
       reason:
         `${GATE_ID}: ${first.why} (${needing.map((n) => n.change.path).join(", ")}). Tests are the oracle; ` +
-        `weakening them needs a recorded decision. If this is deliberate, call devsys_record_departure ` +
+        "weakening them needs a recorded decision. If this is deliberate, call devsys_record_departure " +
         `with gate "${GATE_ID}", what you are doing instead, why, and the cost if wrong; then retry. ` +
         "Otherwise fix the code, not the test.",
     };

@@ -2,6 +2,7 @@ import type { ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding
 import { type Static, Type } from "typebox";
 import type { Exec } from "../core/exec.ts";
 import { resolveSlot } from "../core/models.ts";
+import type { Lens } from "../core/review.ts";
 import {
   addRound,
   DEFAULT_LENSES,
@@ -72,6 +73,51 @@ const pathSafe = (slice: string): string =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 32);
 
+type LensJudgement = Awaited<ReturnType<typeof judgeLenses>>;
+
+/** Jev's lenses for the diff, or the defaults (with the reason) when Jev is offline or names none. */
+function chooseLenses(judged: LensJudgement): { lenses: Lens[]; basis: string } {
+  if (!judged.ok) {
+    return {
+      lenses: [...DEFAULT_LENSES],
+      basis: `Jev unavailable (${judged.error.kind}); using the default lenses.`,
+    };
+  }
+  const selected = selectLenses(judged.value);
+  if (selected.length === 0) {
+    return {
+      lenses: [...DEFAULT_LENSES],
+      basis: "Jev found no specific lens; using the defaults.",
+    };
+  }
+  return { lenses: selected, basis: "Jev chose the lenses." };
+}
+
+/** The agent_spawn arguments for one reviewer round. */
+function spawnPayload(input: {
+  slice: SliceRef;
+  round: number;
+  lenses: Lens[];
+  range: string;
+  model: ReturnType<typeof resolveSlot>;
+  now: Date;
+}): Record<string, unknown> {
+  return {
+    // A fresh path per attempt: a failed spawn must not leave a thread that blocks the retry.
+    path: `/review-${pathSafe(input.slice)}-r${input.round}-${input.now.getTime().toString(36)}`,
+    type: "reviewer",
+    task: reviewerTask({
+      slice: input.slice,
+      round: input.round,
+      lenses: input.lenses,
+      diffRange: input.range,
+    }),
+    ...(input.model.ok ? { model: input.model.value.model } : {}),
+    thinkingLevel: "high",
+    wait: true,
+  };
+}
+
 /** `devsys_review_start`: Jev picks lenses for the diff; the reply carries the agent_spawn payload for a fresh reviewer. */
 export function createReviewStartTool(
   deps: ReviewToolDeps,
@@ -106,13 +152,7 @@ export function createReviewStartTool(
         diffSample: snap.value.sample,
         profiles: deps.state.get().profiles ?? [],
       });
-      const selected = judged.ok ? selectLenses(judged.value) : [];
-      const lenses = selected.length > 0 ? selected : [...DEFAULT_LENSES];
-      const basis = judged.ok
-        ? selected.length > 0
-          ? "Jev chose the lenses."
-          : "Jev found no specific lens; using the defaults."
-        : `Jev unavailable (${judged.error.kind}); using the default lenses.`;
+      const { lenses, basis } = chooseLenses(judged);
 
       const required = Math.max(
         config.value.review.requiredCleanRounds,
@@ -137,20 +177,14 @@ export function createReviewStartTool(
       }
 
       const round = review.rounds.length + 1;
-      const resolved = resolveSlot(
-        config.value.models,
-        "reviewer",
-        availableModels(ctx.modelRegistry),
-      );
-      const spawn = {
-        // A fresh path per attempt: a failed spawn must not leave a thread that blocks the retry.
-        path: `/review-${pathSafe(slice)}-r${round}-${(deps.now?.() ?? new Date()).getTime().toString(36)}`,
-        type: "reviewer",
-        task: reviewerTask({ slice, round, lenses, diffRange: range }),
-        ...(resolved.ok ? { model: resolved.value.model } : {}),
-        thinkingLevel: "high",
-        wait: true,
-      };
+      const spawn = spawnPayload({
+        slice,
+        round,
+        lenses,
+        range,
+        model: resolveSlot(config.value.models, "reviewer", availableModels(ctx.modelRegistry)),
+        now: deps.now?.() ?? new Date(),
+      });
       return reply(
         [
           `${reviewLabel(review)}; round ${round}; diff ${snap.value.digest}. ${basis}`,

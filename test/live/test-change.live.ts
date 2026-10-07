@@ -3,6 +3,13 @@ import test from "node:test";
 import { judgeTestChange } from "../../src/jev/questions/test-change.ts";
 import { loadFixture, realJev } from "../jev/fixture-runner.ts";
 
+type Judged = Awaited<ReturnType<typeof judgeTestChange>>;
+
+const verdict = (r: Judged): string => {
+  if (!r.ok) return "error";
+  return r.value.weakens >= 0.7 ? `weakens:${r.value.motive}` : "ok";
+};
+
 test("test-change fixture reaches 0.9 with a real Jev", async () => {
   const jev = await realJev();
   const fixture = loadFixture("test-change");
@@ -14,7 +21,7 @@ test("test-change fixture reaches 0.9 with a real Jev", async () => {
       ...(c.state.after !== undefined ? { after: c.state.after } : {}),
       ...(c.state.recentFailure !== undefined ? { recentFailure: c.state.recentFailure } : {}),
     });
-    const got = r.ok ? (r.value.weakens >= 0.7 ? `weakens:${r.value.motive}` : "ok") : "error";
+    const got = verdict(r);
     if (got === c.expected) passed++;
     else console.log("  miss:", c.state.path, "→", got, "expected", c.expected);
   }

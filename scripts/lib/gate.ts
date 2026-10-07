@@ -20,7 +20,7 @@ export type BuildState =
  */
 export function classifyChain(chain: ChainEntry[]): BuildState {
   const failures = chain.filter((c) => c.state === "failure");
-  const oldest = failures[failures.length - 1];
+  const oldest = failures.at(-1);
   const newest = failures[0];
   if (oldest && newest) {
     return { kind: "broken", breakSha: oldest.sha, failure: newest };

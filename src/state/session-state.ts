@@ -77,30 +77,45 @@ function parseReviews(input: unknown): ReviewState[] | ParseError {
   return out;
 }
 
-/** Boundary parse for persisted state: the only place state is cast from `unknown`. */
-export function parseDevsysState(input: unknown): DevsysState | ParseError {
-  if (!isRecord(input)) return parseError("devsys state must be an object");
-  const {
-    phase,
-    sizing,
-    activeSlice,
-    openDepartures,
-    jev,
-    lastPushAt,
-    ci,
-    profiles,
-    lastTestRun,
-    reviews,
-  } = input;
-  if (!PHASES.includes(phase as Phase)) return parseError(`unknown phase: ${String(phase)}`);
-  if (!JEV.includes(jev as JevStatus)) return parseError(`unknown jev status: ${String(jev)}`);
-  if (!Array.isArray(openDepartures)) return parseError("openDepartures must be an array");
+type Nested = Pick<DevsysState, "ci" | "profiles" | "lastTestRun" | "reviews">;
+
+/** Parses each optional nested field that is present; the first malformed one is the error. */
+function parseNested(input: Record<string, unknown>): Nested | ParseError {
+  const out: Record<string, unknown> = {};
+  const fields = [
+    ["ci", parseCi],
+    ["profiles", parseProfileList],
+    ["lastTestRun", parseTestRun],
+    ["reviews", parseReviews],
+  ] as const;
+  for (const [key, parse] of fields) {
+    if (input[key] === undefined) continue;
+    const parsed = parse(input[key]);
+    if (isParseError(parsed)) return parsed;
+    out[key] = parsed;
+  }
+  return out as Nested;
+}
+
+function parseDepartures(raw: unknown): Departure[] | ParseError {
+  if (!Array.isArray(raw)) return parseError("openDepartures must be an array");
   const departures: Departure[] = [];
-  for (const raw of openDepartures) {
-    const departure = parseDeparture(raw);
+  for (const item of raw) {
+    const departure = parseDeparture(item);
     if (isParseError(departure)) return departure;
     departures.push(departure);
   }
+  return departures;
+}
+
+/** Boundary parse for persisted state: the only place state is cast from `unknown`. */
+export function parseDevsysState(input: unknown): DevsysState | ParseError {
+  if (!isRecord(input)) return parseError("devsys state must be an object");
+  const { phase, sizing, activeSlice, openDepartures, jev, lastPushAt } = input;
+  if (!PHASES.includes(phase as Phase)) return parseError(`unknown phase: ${String(phase)}`);
+  if (!JEV.includes(jev as JevStatus)) return parseError(`unknown jev status: ${String(jev)}`);
+  const departures = parseDepartures(openDepartures);
+  if (isParseError(departures)) return departures;
   if (sizing !== undefined && !SIZINGS.includes(sizing as Sizing)) {
     return parseError(`unknown sizing: ${String(sizing)}`);
   }
@@ -110,14 +125,8 @@ export function parseDevsysState(input: unknown): DevsysState | ParseError {
   if (lastPushAt !== undefined && typeof lastPushAt !== "string") {
     return parseError("lastPushAt must be a string");
   }
-  const parsedCi = ci === undefined ? undefined : parseCi(ci);
-  if (isParseError(parsedCi)) return parsedCi;
-  const parsedProfiles = profiles === undefined ? undefined : parseProfileList(profiles);
-  if (isParseError(parsedProfiles)) return parsedProfiles;
-  const parsedRun = lastTestRun === undefined ? undefined : parseTestRun(lastTestRun);
-  if (isParseError(parsedRun)) return parsedRun;
-  const parsedReviews = reviews === undefined ? undefined : parseReviews(reviews);
-  if (isParseError(parsedReviews)) return parsedReviews;
+  const nested = parseNested(input);
+  if (isParseError(nested)) return nested;
   return {
     phase: phase as Phase,
     jev: jev as JevStatus,
@@ -125,10 +134,7 @@ export function parseDevsysState(input: unknown): DevsysState | ParseError {
     ...(sizing !== undefined ? { sizing: sizing as Sizing } : {}),
     ...(activeSlice !== undefined ? { activeSlice: activeSlice as SliceRef } : {}),
     ...(lastPushAt !== undefined ? { lastPushAt } : {}),
-    ...(parsedCi !== undefined ? { ci: parsedCi } : {}),
-    ...(parsedProfiles !== undefined ? { profiles: parsedProfiles } : {}),
-    ...(parsedRun !== undefined ? { lastTestRun: parsedRun } : {}),
-    ...(parsedReviews !== undefined ? { reviews: parsedReviews } : {}),
+    ...nested,
   };
 }
 

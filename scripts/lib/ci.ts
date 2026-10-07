@@ -20,7 +20,9 @@ export function runStateOf(sha: string): { state: RunState; runId?: number } {
   try {
     runs = JSON.parse(json) as WorkflowRun[];
   } catch (error) {
-    throw new Error(`Unexpected response listing workflow runs for ${sha}: ${String(error)}`);
+    throw new Error(`Unexpected response listing workflow runs for ${sha}: ${String(error)}`, {
+      cause: error,
+    });
   }
   const run = runs[0];
   if (!run) return { state: "none" };

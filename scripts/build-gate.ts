@@ -27,7 +27,7 @@ const { values } = parseArgs({
 async function main(): Promise<void> {
   let tip: string;
   if (values.ci) {
-    if (!values.before || !values.after) fail("--ci requires --before and --after");
+    if (!(values.before && values.after)) fail("--ci requires --before and --after");
     if (ZERO_SHA.test(values.before)) return; // new branch: nothing to gate
     tip = values.before;
   } else {
@@ -60,7 +60,7 @@ async function main(): Promise<void> {
   if (verdict.violations.length > 0) {
     fail(
       `The ${MAIN_BRANCH} build is broken (since ${state.breakSha.slice(0, 8)}). ` +
-        `Only fix(ci): commits are allowed until it is green, and offending commits must be reverted:\n  - ` +
+        "Only fix(ci): commits are allowed until it is green, and offending commits must be reverted:\n  - " +
         verdict.violations.join("\n  - "),
     );
   }

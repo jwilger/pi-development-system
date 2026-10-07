@@ -77,9 +77,12 @@ test("combinePackets merges lenses and findings with unique ids", () => {
       "blocking",
     ),
   );
-  assert.ok(!("kind" in p1) && !("kind" in p2));
+  assert.ok(!("kind" in p1 || "kind" in p2));
   const merged = combinePackets([p1, p2]);
-  assert.deepEqual(merged.lenses.toSorted(), ["tests", "types"]);
+  assert.deepEqual(
+    merged.lenses.toSorted((a, b) => a.localeCompare(b)),
+    ["tests", "types"],
+  );
   assert.equal(merged.findings.length, 3);
   assert.equal(new Set(merged.findings.map((f: Finding) => f.id)).size, 3);
 });
@@ -121,7 +124,7 @@ test("splitDiffByFile keys each file's section by its new path", () => {
   const diff = "diff --git a/a.ts b/a.ts\n+1\ndiff --git a/old b/new dir/b.ts\n+2";
   const parts = splitDiffByFile(diff);
   assert.deepEqual(Object.keys(parts), ["a.ts", "new dir/b.ts"]);
-  assert.match(parts["a.ts"] ?? "", /\+1/);
+  assert.match(new Map(Object.entries(parts)).get("a.ts") ?? "", /\+1/);
 });
 
 test("splitDiffByFile keeps git-quoted paths as their own section", () => {

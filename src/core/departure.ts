@@ -1,3 +1,4 @@
+import { assertNever } from "./exhaustive.ts";
 import {
   type Departure,
   type DepartureId,
@@ -69,6 +70,8 @@ function renderScope(scope: DepartureScope): string {
       return "session";
     case "once":
       return `once (${scope.toolCallId})`;
+    default:
+      return assertNever(scope);
   }
 }
 
