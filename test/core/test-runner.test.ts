@@ -147,6 +147,14 @@ test("a repo with no test script is not a failing test run", () => {
   assert.equal(exitCodeOf({ isError: true, text, command: "npm test" }), 0);
 });
 
+test("a missing test script is still green with pi's own exit-status line appended", () => {
+  const text = 'npm error Missing script: "test"\n\nCommand exited with code 1';
+  assert.equal(
+    exitCodeOf({ isError: true, text, structured: { exit_code: 1 }, command: "npm test" }),
+    0,
+  );
+});
+
 test("a missing test script in one workspace does not hide a failing test in another", () => {
   const text = 'npm error Missing script: "test"\n# fail 2\nnot ok 1 - boom';
   assert.equal(exitCodeOf({ isError: true, text, command: "npm test --workspaces" }), 1);

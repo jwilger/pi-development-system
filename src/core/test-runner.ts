@@ -65,7 +65,7 @@ export type ResultLike = {
 const NO_TEST_SCRIPT = /Missing script: "?test/;
 /** What npm prints around a missing script; any other line means something else ran or failed. */
 const NPM_MISSING_SCRIPT_NOISE =
-  /^(?:npm (?:error|ERR!)\s*)?(?:$|.*Missing script.*|.*To see a list of scripts.*|.*A complete log of this run.*|.*Did you mean.*|.*npm run.*)$/;
+  /^(?:npm (?:error|ERR!)\s*)?(?:$|.*Missing script.*|.*To see a list of scripts.*|.*A complete log of this run.*|.*Did you mean.*|.*npm run.*|Command exited with code \d+)$/;
 const onlyMissingScript = (text: string): boolean =>
   NO_TEST_SCRIPT.test(text) &&
   text.split("\n").every((l) => NPM_MISSING_SCRIPT_NOISE.test(l.trim()));
