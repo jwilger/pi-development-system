@@ -48,8 +48,9 @@ The verdict must agree with the findings.
 
 - **blocking**: a demonstrable defect or a broken non-negotiable.
 - **should-fix**: a real defect or missing test with a realistic trigger.
-- **nit**: style or report-only. Nits never reset the streak; they go to
-  `docs/decisions/followups.md`.
+- **nit**: style or report-only. Reviewers should not send these. If one arrives it
+  never resets the streak, and nothing stores it: fix it now, or drop it and say why
+  in your reply. A finding nobody will act on is not worth recording.
 - **false-positive**: refuted; ignored.
 
 Jev may raise a finding's severity when it is at least 0.8 confident; it never

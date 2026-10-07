@@ -1,5 +1,3 @@
-import { appendFile, mkdir } from "node:fs/promises";
-import { join } from "node:path";
 import type { ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { type Static, Type } from "typebox";
 import type { Exec } from "../core/exec.ts";
@@ -16,7 +14,7 @@ import {
 import {
   adoptSeverity,
   combinePackets,
-  renderFollowups,
+  nitLines,
   reviewerTask,
   reviewLabel,
   reviewOf,
@@ -209,7 +207,7 @@ export function createReviewRecordTool(
     name: "devsys_review_record",
     label: "Record review round",
     description:
-      "Record one review round from the reviewer's packet(s): parses findings, lets Jev adjust severity when confident, files nits in docs/decisions/followups.md, and returns the clean-round count and the next action.",
+      "Record one review round from the reviewer's packet(s): parses findings, lets Jev adjust severity when confident, and returns the clean-round count and the next action.",
     promptSnippet: "Record a reviewer packet as a review round",
     parameters: RecordParameters,
     exposure: "direct",
@@ -259,27 +257,7 @@ export function createReviewRecordTool(
 
       const merged = combinePackets(packets);
       const { findings, notes } = await adjusted(deps, ctx, merged.findings, snap.value.sample);
-      // File the nits first: if this fails nothing is recorded and a retry cannot count the round twice.
-      const followups = renderFollowups(slice, expected, findings);
-      let reviewed = snap.value;
-      if (followups !== undefined) {
-        try {
-          const dir = join(ctx.cwd, "docs", "decisions");
-          await mkdir(dir, { recursive: true });
-          await appendFile(join(dir, "followups.md"), followups);
-        } catch (cause) {
-          return reply(
-            `could not write docs/decisions/followups.md (${cause instanceof Error ? cause.message : String(cause)}); the round was not recorded, retry`,
-            true,
-          );
-        }
-        // The file is part of the work tree, so writing it changed the diff. The round covers the
-        // reviewed code plus its own follow-up note; otherwise `done` would be stale on arrival.
-        const after = await snapshotDiff(deps.exec, ctx.cwd, params.diffRange?.trim() || "HEAD");
-        if (!after.ok)
-          return reply(`cannot read the diff after filing follow-ups: ${after.error}`, true);
-        reviewed = after.value;
-      }
+      const reviewed = snap.value;
       const review = addRound(
         { ...before, required },
         {
@@ -298,6 +276,7 @@ export function createReviewRecordTool(
           `Round ${review.rounds.length} recorded: ${counts("blocking")} blocking, ${counts("should-fix")} should-fix, ${counts("nit")} nit, ${counts("false-positive")} false-positive.`,
           reviewLabel(review),
           ...notes,
+          ...nitLines(findings),
           `next: ${nextAction(review, reviewed.digest)}`,
           ...(range === "HEAD" ? [] : [GATE_RANGE_NOTE]),
         ].join("\n"),

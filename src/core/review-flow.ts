@@ -143,16 +143,17 @@ export function adoptSeverity(
 const where = (f: Finding): string =>
   f.path === undefined ? "" : ` \`${f.path}${f.line === undefined ? "" : `:${f.line}`}\``;
 
-/** The nits of a round, as a section for docs/decisions/followups.md. */
-export function renderFollowups(
-  slice: SliceRef,
-  round: number,
-  findings: readonly Finding[],
-): string | undefined {
+/**
+ * Nits are never stored. Each is reported back so the coordinator fixes it now or drops it
+ * with a stated reason; a finding nobody will act on is not worth recording.
+ */
+export function nitLines(findings: readonly Finding[]): string[] {
   const nits = findings.filter((f) => f.severity === "nit");
-  if (nits.length === 0) return undefined;
-  const lines = nits.map((f) => `- ${f.lens}${where(f)} — ${f.summary}`);
-  return `\n## From ${slice} review round ${round}\n\n${lines.join("\n")}\n`;
+  if (nits.length === 0) return [];
+  return [
+    "Nits are not stored anywhere: fix each now, or drop it and say why in your reply.",
+    ...nits.map((f) => `- nit ${f.lens}${where(f)} — ${f.summary}`),
+  ];
 }
 
 /** The task text for a fresh reviewer: slice, lenses, how to see the diff, and the packet to return. */

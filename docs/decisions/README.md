@@ -2,7 +2,7 @@
 
 `YYYY-MM.md` files record departures from defaults and approvals for
 non-negotiables. ADRs for architecture-shaping decisions live in `docs/adr/`.
-Nits from reviews go to `followups.md`.
+Review nits are fixed in the round or dropped with a reason; nothing keeps a backlog of them.
 
 Entry format:
 

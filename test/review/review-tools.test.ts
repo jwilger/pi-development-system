@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -119,7 +119,7 @@ test("start without a slice or active slice is an error; so is an empty diff", a
   assert.match(text(r), /slice/);
 });
 
-test("record counts clean rounds, writes nits to followups and reports the next action", async () => {
+test("record counts clean rounds, reports nits back and gives the next action", async () => {
   const t = setup(offline);
   await t.start();
   const r = await t.record({
@@ -129,9 +129,8 @@ test("record counts clean rounds, writes nits to followups and reports the next 
   assert.match(text(r), /review: 1\/3 clean/);
   assert.match(text(r), /next: review/);
   assert.equal(t.state.get().reviews?.[0]?.rounds.length, 1);
-  const followups = readFileSync(join(t.cwd, "docs/decisions/followups.md"), "utf8");
-  assert.match(followups, /From s1 review round 1/);
-  assert.match(followups, /rename/);
+  assert.match(text(r), /nit types `a\.ts:2` — rename/);
+  assert.equal(existsSync(join(t.cwd, "docs/decisions/followups.md")), false);
 });
 
 test("a should-fix finding resets the streak and asks for fixes", async () => {

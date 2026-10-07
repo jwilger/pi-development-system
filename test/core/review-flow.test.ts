@@ -4,7 +4,7 @@ import { addRound, type Finding, startReview } from "../../src/core/review.ts";
 import {
   adoptSeverity,
   combinePackets,
-  renderFollowups,
+  nitLines,
   reviewerTask,
   reviewGap,
   reviewLabel,
@@ -131,12 +131,12 @@ test("splitDiffByFile keeps git-quoted paths as their own section", () => {
   assert.match(Object.values(splitDiffByFile(diff))[0] ?? "", /\+1/);
 });
 
-test("renderFollowups lists only nits, or nothing", () => {
-  assert.equal(renderFollowups(s1, 1, [finding("blocking")]), undefined);
-  const text = renderFollowups(s1, 2, [finding("nit"), finding("should-fix", "types-2")]) ?? "";
-  assert.match(text, /From s1 review round 2/);
-  assert.match(text, /a\.ts:3/);
-  assert.doesNotMatch(text, /types-2/);
+test("nitLines reports only nits, or nothing", () => {
+  assert.deepEqual(nitLines([finding("blocking")]), []);
+  const lines = nitLines([finding("nit"), finding("should-fix", "types-2")]);
+  assert.match(lines.join("\n"), /fix each now, or drop it and say why/);
+  assert.match(lines.join("\n"), /a\.ts:3/);
+  assert.doesNotMatch(lines.join("\n"), /types-2/);
 });
 
 test("reviewerTask carries the slice, lenses, diff range and packet format", () => {

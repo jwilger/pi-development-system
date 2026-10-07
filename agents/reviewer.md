@@ -53,4 +53,4 @@ Use exactly this packet; the coordinator parses it.
 no-blocking | blocking
 ```
 
-Severity: **blocking** = demonstrable defect or broken non-negotiable; **should-fix** = real defect or missing test with a realistic trigger; **nit** = style, naming, report-only. Zero findings is a valid result. End with **Not verified**: checks you could not run.
+Severity: **blocking** = demonstrable defect or broken non-negotiable; **should-fix** = real defect or missing test with a realistic trigger; **nit** = style or naming; do not report these unless asked, because nothing stores them. Zero findings is a valid result. End with **Not verified**: checks you could not run.

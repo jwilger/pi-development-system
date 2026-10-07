@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -33,7 +33,7 @@ const offline: Jev = {
 };
 const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd });
 
-test("filing a round's nits does not leave the review stale on arrival", async () => {
+test("a nit is reported back, never stored, and leaves the review satisfied", async () => {
   const dir = mkdtempSync(join(tmpdir(), "devsys-followups-"));
   git(dir, "init", "-q", "-b", "main");
   git(dir, "config", "user.email", "t@example.com");
@@ -71,6 +71,9 @@ test("filing a round's nits does not leave the review stale on arrival", async (
     assert.notEqual(r.isError, true, last);
   }
   assert.match(last, /next: done/);
+  assert.match(last, /Nits are not stored anywhere/);
+  assert.match(last, /nit types `a\.txt:2` — rename/);
+  assert.equal(existsSync(join(dir, "docs")), false);
   const now = await snapshotDiff(exec, dir, "HEAD");
   assert.ok(now.ok);
   assert.equal(reviewGap(state.get(), slice, now.value), undefined);
