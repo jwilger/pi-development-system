@@ -17,8 +17,8 @@ test("readiness fixture reaches 0.8 with a real Jev", async () => {
       interfaces: c.state.interfaces ?? "",
       firstFailingTest: c.state.firstFailingTest ?? "",
       steps: (c.state.steps ?? "").split("|").filter(Boolean),
-      run: "npm test",
-      expected: "passes with 0 failures",
+      run: c.state.run ?? "npm test",
+      expected: c.state.expected ?? "1 test passes, 0 fail",
       outOfScope: "nothing else",
     });
     const got = r.ok ? r.value.readiness : "error";

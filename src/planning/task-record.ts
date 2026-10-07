@@ -28,12 +28,13 @@ type Section = (typeof SECTIONS)[number];
 
 const HEADER = /^## (\S+) [—-] (.+)$/;
 const SECTION_LINE = /^\*\*([^:*]+)(?::\*\*|\*\*:)\s*(.*)$/;
-const STEP = /^\s*(?:\d+[.)]|[-*])\s+(.*)$/;
+/** Top-level list items only; indented sub-items belong to the step above them. */
+const STEP = /^(?:\d+[.)]|[-*])\s+(.*)$/;
 const STEPS_MIN = 3;
 const STEPS_MAX = 7;
 /** Words that stand in for a command or an observable result. */
 const PLACEHOLDER =
-  /^(?:(?:todo|tbd|tbc)\b.*|n\/?a|none|-|…|\.\.\.|works?|it works|passes|ok)\.?$/i;
+  /^(?:(?:tbd|tbc)\b.*|todo\s*(?::.*)?|n\/?a|none|-|…|\.\.\.|works?|it works|passes|ok)\.?$/i;
 
 const isSection = (name: string): name is Section => SECTIONS.some((s) => s === name);
 

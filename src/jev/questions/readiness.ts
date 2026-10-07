@@ -27,6 +27,9 @@ export const READINESS_QUESTIONS = {
   steps: vague(
     "`task.steps` should be small steps a reviewer could reject independently. Are any steps large, combined ('implement and wire everything'), or out of order with the test-first step?",
   ),
+  check: vague(
+    "`task.run` should be an actual command a person can type, and `task.expected` an observable result such as a count, output or exit status. Is `run` prose or a placeholder rather than a command (for example 'run the tests'), or is `expected` a restatement of success (for example 'tests pass', 'should work') rather than something observed?",
+  ),
   tooBig: {
     type: "bool",
     instructions:
@@ -60,6 +63,8 @@ export async function judgeTaskReadiness(
         interfaces: clip(record.interfaces, 1500),
         firstFailingTest: clip(record.firstFailingTest, 600),
         steps: record.steps.slice(0, 10).map((s) => clip(s, 300)),
+        run: clip(record.run, 300),
+        expected: clip(record.expected, 300),
       },
     },
     READINESS_QUESTIONS,

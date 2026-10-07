@@ -1,5 +1,6 @@
 import type { Exec } from "../core/exec.ts";
 import { ok } from "../core/result.ts";
+import { unwritable } from "./item-format.ts";
 import {
   type ItemFilter,
   type NewWorkItem,
@@ -94,27 +95,55 @@ const bindGh =
     return trackerError(`gh ${args.slice(0, 2).join(" ")} failed: ${why}`);
   };
 
-const view = async (gh: Gh, id: string): Promise<TrackerResult<WorkItem>> => {
+const viewRaw = async (gh: Gh, id: string): Promise<TrackerResult<GhIssue>> => {
   if (!ISSUE_NUMBER.test(id)) return notNumber(id);
   const out = await gh(["issue", "view", id, "--json", FIELDS]);
   if (!out.ok) return out;
   const parsed = parseIssue(out.value);
-  return parsed === undefined
-    ? trackerError(`gh issue view ${id}: unexpected output`)
-    : ok(toItem(parsed));
+  return parsed === undefined ? trackerError(`gh issue view ${id}: unexpected output`) : ok(parsed);
+};
+
+const view = async (gh: Gh, id: string): Promise<TrackerResult<WorkItem>> => {
+  const raw = await viewRaw(gh, id);
+  return raw.ok ? ok(toItem(raw.value)) : raw;
+};
+
+const LIST_LIMIT = 500;
+
+/** The `gh issue list` arguments that select exactly the wanted status where gh can, so the limit bites last. */
+const listArgs = (status: WorkStatus | undefined): string[] => {
+  const state = status === undefined ? "all" : STATE_ARG[status];
+  const marker = status === "in-progress" ? ["--label", IN_PROGRESS] : [];
+  return [
+    "issue",
+    "list",
+    "--state",
+    state,
+    ...marker,
+    "--limit",
+    String(LIST_LIMIT),
+    "--json",
+    FIELDS,
+  ];
 };
 
 const listIssues = async (gh: Gh, filter: ItemFilter): Promise<TrackerResult<WorkItem[]>> => {
-  const state = filter.status === undefined ? "all" : STATE_ARG[filter.status];
-  const out = await gh(["issue", "list", "--state", state, "--limit", "200", "--json", FIELDS]);
+  const out = await gh(listArgs(filter.status));
   if (!out.ok) return out;
   const parsed = parseIssues(out.value);
   if (parsed === undefined) return trackerError("gh issue list: unexpected output");
+  if (parsed.length >= LIST_LIMIT) {
+    return trackerError(
+      `gh issue list returned ${LIST_LIMIT} issues, so the list may be cut short; ask for one status (open, in-progress or done) to narrow it`,
+    );
+  }
   const items = parsed.map(toItem);
   return ok(filter.status === undefined ? items : items.filter((i) => i.status === filter.status));
 };
 
 const createIssue = async (gh: Gh, input: NewWorkItem): Promise<TrackerResult<WorkItem>> => {
+  const problem = unwritable({ title: input.title, labels: input.labels ?? [] });
+  if (problem !== undefined) return trackerError(problem);
   const labels = (input.labels ?? []).flatMap((l) => ["--label", l]);
   const out = await gh([
     "issue",
@@ -132,10 +161,9 @@ const createIssue = async (gh: Gh, input: NewWorkItem): Promise<TrackerResult<Wo
 };
 
 /** Label changes that make the issue's labels exactly `wanted` (plus the in-progress marker when asked for). */
-const labelFlags = (current: WorkItem, patch: WorkItemPatch): string[] => {
+const labelFlags = (current: WorkItem, hadMarker: boolean, patch: WorkItemPatch): string[] => {
   const wanted = patch.labels ?? current.labels;
   const marked = (patch.status ?? current.status) === "in-progress";
-  const hadMarker = current.status === "in-progress";
   const add = [
     ...wanted.filter((l) => !current.labels.includes(l)),
     ...(marked && !hadMarker ? [IN_PROGRESS] : []),
@@ -150,10 +178,12 @@ const labelFlags = (current: WorkItem, patch: WorkItemPatch): string[] => {
   ];
 };
 
-const editFlags = (current: WorkItem, patch: WorkItemPatch): string[] => [
+const editFlags = (current: WorkItem, hadMarker: boolean, patch: WorkItemPatch): string[] => [
   ...(patch.title === undefined ? [] : ["--title", patch.title]),
   ...(patch.body === undefined ? [] : ["--body", patch.body]),
-  ...(patch.labels === undefined && patch.status === undefined ? [] : labelFlags(current, patch)),
+  ...(patch.labels === undefined && patch.status === undefined
+    ? []
+    : labelFlags(current, hadMarker, patch)),
 ];
 
 /** Closing or reopening only when the issue is not already in the wanted state. */
@@ -173,19 +203,23 @@ const updateIssue = async (
   id: string,
   patch: WorkItemPatch,
 ): Promise<TrackerResult<WorkItem>> => {
-  const current = await view(gh, id);
-  if (!current.ok) return current;
+  const problem = unwritable({ title: patch.title ?? "x", labels: patch.labels ?? [] });
+  if (problem !== undefined) return trackerError(problem);
+  const raw = await viewRaw(gh, id);
+  if (!raw.ok) return raw;
+  const current = toItem(raw.value);
+  const hadMarker = (raw.value.labels ?? []).some((l) => l.name === IN_PROGRESS);
   if (patch.status === "in-progress") {
     // No --force: that would recolour the team's existing label. "Already exists" is success.
     const made = await gh(["label", "create", IN_PROGRESS]);
     if (!(made.ok || /already exists/i.test(made.error.message))) return made;
   }
-  const flags = editFlags(current.value, patch);
+  const flags = editFlags(current, hadMarker, patch);
   if (flags.length > 0) {
     const edited = await gh(["issue", "edit", id, ...flags]);
     if (!edited.ok) return edited;
   }
-  const command = stateCommand(current.value, patch.status);
+  const command = stateCommand(current, patch.status);
   if (command !== undefined) {
     const changed = await gh(["issue", command, id]);
     if (!changed.ok) return changed;

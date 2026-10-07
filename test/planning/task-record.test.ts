@@ -142,3 +142,31 @@ test("a record saved with CRLF line endings parses like one with LF", () => {
   assert.equal(r.id, "T1");
   assert.equal(r.run, "npm test -- test/auth/login.test.ts");
 });
+
+test("a command or result that merely starts with the word todo is concrete", () => {
+  const r = parseTaskRecord(
+    GOOD.replace(/\*\*Run:\*\*.*\n/, "**Run:** `todo-cli list --all`\n").replace(
+      /\*\*Expected:\*\*.*\n/,
+      "**Expected:** todo list shows 3 items.\n",
+    ),
+  );
+  assert.ok(!isParseError(r));
+});
+
+test("indented sub-bullets belong to their step and do not count as steps", () => {
+  const one = parseTaskRecord(
+    GOOD.replace(
+      /\*\*Steps:\*\*[\s\S]*?\*\*Run:\*\*/,
+      "**Steps:**\n1. Do everything.\n   - part a\n   - part b\n**Run:**",
+    ),
+  );
+  assert.ok(isParseError(one));
+  assert.match(one.message, /3.7 steps/);
+  const nested = GOOD.replace(
+    "3. Run the suite.",
+    "3. Run the suite.\n   - first\n   - second\n   - third",
+  );
+  const r = parseTaskRecord(nested);
+  assert.ok(!isParseError(r));
+  assert.equal(r.steps.length, 3);
+});

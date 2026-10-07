@@ -54,7 +54,8 @@ const commentsOf = (section: string): string[] =>
     .slice(1)
     .map((c) => unquote(c.replace(/\n+$/, "")));
 
-export const parseItem = (id: string, text: string): TrackerResult<WorkItem> => {
+export const parseItem = (id: string, raw: string): TrackerResult<WorkItem> => {
+  const text = raw.replace(/\r\n?/g, "\n");
   const marker = text.lastIndexOf(COMMENTS);
   const main = marker < 0 ? text : text.slice(0, marker);
   const comments = marker < 0 ? [] : commentsOf(text.slice(marker + COMMENTS.length));

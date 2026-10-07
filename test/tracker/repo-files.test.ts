@@ -132,3 +132,12 @@ test("an unreadable item file stops a write before anything is written", async (
   assert.equal((await tracker.create({ title: "Thing" })).ok, false);
   assert.equal(existsSync(join(root, "work", "items", "thing.md")), false);
 });
+
+test("item files saved with CRLF line endings still read and write", async () => {
+  const { root, tracker } = setup();
+  const made = value(await tracker.create({ title: "Win", body: "line one\nline two" }));
+  const file = join(root, "work", "items", `${made.id}.md`);
+  writeFileSync(file, readFileSync(file, "utf8").replace(/\n/g, "\r\n"));
+  assert.equal(value(await tracker.get(made.id)).body, "line one\nline two");
+  assert.equal((await tracker.create({ title: "Other" })).ok, true);
+});

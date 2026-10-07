@@ -31,6 +31,14 @@ const jevWith = (a: Record<string, ClassifierAnswer> | undefined, seen?: unknown
   model: () => "fake/jev",
 });
 
+test("the command and expected result reach Jev and an unconcrete check is named", async () => {
+  const seen: unknown[] = [];
+  const r = await judgeTaskReadiness(jevWith(answers({ check: 0.9 }), seen), record);
+  assert.deepEqual(r.ok && r.value, { readiness: "needs-detail", missing: ["check"] });
+  assert.match(JSON.stringify(seen), /"run":"npm test"/);
+  assert.match(JSON.stringify(seen), /"expected":"1 test passes"/);
+});
+
 test("nothing vague and not too big is ready with nothing missing", async () => {
   const r = await judgeTaskReadiness(jevWith(answers()), record);
   assert.deepEqual(r, { ok: true, value: { readiness: "ready", missing: [] } });

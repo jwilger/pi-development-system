@@ -198,3 +198,35 @@ test("leaving in-progress removes the marker", async () => {
   await createGithubTracker({ exec, cwd: "/r" }).update("7", { status: "open" });
   assert.ok(lines(calls).some((j) => j.includes("--remove-label in-progress")));
 });
+
+test("a closed issue that still carries the marker loses it when reopened", async () => {
+  const { exec, calls } = fakeExec(() => ({
+    stdout: JSON.stringify(issue({ state: "CLOSED", labels: [{ name: "in-progress" }] })),
+  }));
+  await createGithubTracker({ exec, cwd: "/r" }).update("7", { status: "open" });
+  const seen = lines(calls);
+  assert.ok(seen.some((j) => j.includes("--remove-label in-progress")));
+  assert.ok(seen.some((j) => j.startsWith("issue reopen 7")));
+});
+
+test("listing in-progress asks gh for the label so the limit cannot hide items", async () => {
+  const { exec, calls } = fakeExec(() => ({ stdout: "[]" }));
+  await createGithubTracker({ exec, cwd: "/r" }).list({ status: "in-progress" });
+  assert.match(lines(calls)[0] ?? "", /--state open --label in-progress/);
+});
+
+test("a list that reached the limit is an error, not a silently short list", async () => {
+  const many = Array.from({ length: 500 }, (_, n) => issue({ number: n + 1 }));
+  const { exec } = fakeExec(() => ({ stdout: JSON.stringify(many) }));
+  const r = await createGithubTracker({ exec, cwd: "/r" }).list({});
+  assert.equal(r.ok, false);
+  if (!r.ok) assert.match(r.error.message, /cut short/);
+});
+
+test("labels gh would split on commas, and one-line titles, are validated before gh runs", async () => {
+  const { exec, calls } = fakeExec(() => ({ stdout: JSON.stringify(issue()) }));
+  const t = createGithubTracker({ exec, cwd: "/r" });
+  assert.equal((await t.create({ title: "ok", labels: ["needs,triage"] })).ok, false);
+  assert.equal((await t.update("7", { labels: ["a,b"] })).ok, false);
+  assert.equal(calls.length, 0);
+});
