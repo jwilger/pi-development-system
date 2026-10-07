@@ -1,0 +1,75 @@
+{
+  "questionHash": "f3713d8d8a27185c28f0d7d64b698369f5a3c8a2054e2bdadce020a11d48456cfa23953f6218c411f7af5c9f1e2c18dd5dc0f9142f1ee1d7",
+  "cases": [
+    {
+      "state": {
+        "request": "Login fails with a 500 when the email has a trailing space; trim it",
+        "repoSummary": "typescript web app with auth module"
+      },
+      "expected": "fix"
+    },
+    {
+      "state": {
+        "request": "Fix the off-by-one in pagination that drops the last item",
+        "repoSummary": "typescript api"
+      },
+      "expected": "fix"
+    },
+    {
+      "state": {
+        "request": "Change the CSV export to include a header row",
+        "repoSummary": "reporting module in a typescript service"
+      },
+      "expected": "change"
+    },
+    {
+      "state": {
+        "request": "Make the retry delay configurable instead of hard-coded",
+        "repoSummary": "typescript cli with a config file"
+      },
+      "expected": "change"
+    },
+    {
+      "state": {
+        "request": "Let users share a saved report by link, with expiry and revoke, including a new share page and notifications",
+        "repoSummary": "typescript saas with reports, auth and email"
+      },
+      "expected": "capability"
+    },
+    {
+      "state": {
+        "request": "Add team workspaces: invitations, roles, billing per seat, and a switcher in the UI",
+        "repoSummary": "single-user typescript saas"
+      },
+      "expected": "capability"
+    },
+    {
+      "state": {
+        "request": "We want to build a marketplace connecting independent tutors with students; nothing exists yet",
+        "repoSummary": "empty repository"
+      },
+      "expected": "product"
+    },
+    {
+      "state": {
+        "request": "Rethink our onboarding product for small clinics; we do not yet know who the buyer is",
+        "repoSummary": "existing scheduling app for large hospitals"
+      },
+      "expected": "product"
+    },
+    {
+      "state": {
+        "request": "Rename the internal helper parseDate to parseIsoDate across the module",
+        "repoSummary": "typescript library"
+      },
+      "expected": "fix"
+    },
+    {
+      "state": {
+        "request": "Add OAuth login with Google next to the existing password login",
+        "repoSummary": "typescript web app with session auth"
+      },
+      "expected": "change"
+    }
+  ]
+}
