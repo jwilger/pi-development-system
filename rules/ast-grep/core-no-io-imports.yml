@@ -1,0 +1,16 @@
+id: core-no-io-imports
+language: TypeScript
+severity: error
+message: >-
+  src/core is the functional core (non-negotiable FCIS) and must not
+  import I/O modules.
+note: >-
+  Pass the data or an injected function in from the shell (src/state,
+  src/gates, extensions), or move this code out of src/core.
+files:
+  - src/core/**/*.ts
+rule:
+  kind: import_statement
+  has:
+    field: source
+    regex: '^["'']node:(fs|fs/promises|child_process|net|http|https|os)["'']$'

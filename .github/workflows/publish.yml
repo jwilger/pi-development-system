@@ -60,6 +60,7 @@ jobs:
       - run: nix develop -c npx tsc --noEmit
       - run: nix develop -c biome check .
       - run: nix develop -c npx knip
+      - run: nix develop -c ast-grep scan
       - run: nix develop -c markdownlint-cli2
       - run: nix develop -c sh -c 'nixfmt --check *.nix'
       - run: nix develop -c actionlint

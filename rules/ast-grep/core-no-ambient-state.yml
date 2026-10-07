@@ -1,0 +1,14 @@
+id: core-no-ambient-state
+language: TypeScript
+severity: error
+message: >-
+  src/core must not read the clock, environment or randomness directly;
+  inject them so the core stays deterministic.
+files:
+  - src/core/**/*.ts
+rule:
+  any:
+    - pattern: Date.now()
+    - pattern: new Date()
+    - pattern: process.env
+    - pattern: Math.random()

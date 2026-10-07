@@ -1,0 +1,14 @@
+id: no-throw-literal
+language: TypeScript
+severity: error
+message: >-
+  Throw an Error, never a string literal: a string loses the stack and
+  breaks instanceof Error handling.
+files:
+  - src/**/*.ts
+  - extensions/**/*.ts
+  - scripts/**/*.ts
+rule:
+  any:
+    - pattern: throw "$$$"
+    - pattern: throw `$$$`

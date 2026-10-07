@@ -26,6 +26,7 @@
             jq
             lefthook
             biome
+            ast-grep
             actionlint
             markdownlint-cli2
             nixfmt

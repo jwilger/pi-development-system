@@ -16,6 +16,8 @@ pre-commit:
       run: biome check .
     knip:
       run: npx knip
+    ast-grep:
+      run: ast-grep scan
     markdown:
       glob: "*.md"
       run: markdownlint-cli2 {staged_files}
