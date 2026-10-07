@@ -200,7 +200,9 @@ export function createDriverFactory(
       ? resolved.get(`${ctx.sessionManager.getSessionId()}:${parentPath}`)
       : undefined;
     const mode = getModelSelection();
-    const preferences = mode === "use-current" ? undefined : getModelPreferences(type);
+    // devsys: an explicit per-spawn model pin bypasses preference/scope policy (also on resume).
+    const pinned = type.spawnOverrides?.model !== undefined;
+    const preferences = mode === "use-current" || pinned ? undefined : getModelPreferences(type);
     let provider = parent?.provider ?? ctx.model?.provider;
     let id = parent?.id ?? ctx.model?.id;
     if (mode === "use-current") {

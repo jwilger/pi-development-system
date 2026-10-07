@@ -58,3 +58,74 @@ test("a malformed pin is refused before any thread exists", async () => {
   );
   assert.equal(manager.list().length, 0);
 });
+
+import { createDriverFactory } from "../../src/subagents/orch/runtime.ts";
+
+const sonnet = {
+  provider: "anthropic",
+  id: "claude-sonnet-5-5",
+  api: "anthropic",
+  reasoning: true,
+};
+
+function factory(mode: "pick-first-scoped" | "use-current" = "pick-first-scoped") {
+  const models = [sonnet];
+  const ctx = {
+    model: sonnet,
+    thinkingLevel: "medium",
+    scopedModels: [],
+    sessionManager: { getSessionId: () => "s" },
+    modelRegistry: {
+      getAvailable: () => models,
+      find: (p: string, i: string) => models.find((m) => m.provider === p && m.id === i),
+    },
+  };
+  // Partial ExtensionContext: settings resolution reads only these members.
+  const rootContext = (): Parameters<typeof createDriverFactory>[0] extends () => infer C
+    ? C
+    : never => ctx as never;
+  return createDriverFactory(rootContext, () => mode);
+}
+
+test("a pinned model wins even when the type's preference list matches nothing available", () => {
+  const type: AgentType = {
+    name: "reviewer",
+    description: "r",
+    systemPrompt: "r",
+    models: ["ollama/nothing-here"],
+    spawnOverrides: { model: "anthropic/claude-sonnet-5-5", thinkingLevel: "low" },
+  };
+  const settings = factory().resolveAgentSettings(type, "/root");
+  assert.equal(settings.model, "anthropic/claude-sonnet-5-5");
+  assert.equal(settings.thinkingLevel, "low");
+});
+
+test("an unpinned type with an unmatched preference list is still refused", () => {
+  const type: AgentType = {
+    name: "reviewer",
+    description: "r",
+    systemPrompt: "r",
+    models: ["ollama/nothing-here"],
+  };
+  assert.throws(() => factory().resolveAgentSettings(type, "/root"));
+});
+
+test("the thread view reports the pins it was spawned with", async () => {
+  const { manager } = harness();
+  const view = await manager.spawn("/root", {
+    path: "/root/pinned-view",
+    type: "coder",
+    task: "do it",
+    model: "anthropic/claude-sonnet-5-5",
+  });
+  assert.deepEqual(manager.get("/root/pinned-view").pinned, {
+    model: "anthropic/claude-sonnet-5-5",
+  });
+  assert.equal(view.pinned?.model, "anthropic/claude-sonnet-5-5");
+});
+
+test("an unpinned thread has no pinned field", async () => {
+  const { manager } = harness();
+  await manager.spawn("/root", { path: "/root/plain", type: "coder", task: "do it" });
+  assert.equal(manager.get("/root/plain").pinned, undefined);
+});

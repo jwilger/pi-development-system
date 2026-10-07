@@ -166,3 +166,10 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 - `DIRECT_RUNNERS` includes `tap`, which matches `brew tap`.
 - `npm test` in a repo with no test script (exit 1, "Missing script") is recorded as RED.
 - Production items placed after an inline test module count as test edits (`insideTestModule`).
+
+## From I5 review round 1 (nits)
+
+- `src/state/config.ts` `[routing]` keys are not validated (only values): a typo like `"complex/hgh"` silently falls to the implementer fallback.
+- `src/jev/questions/route.ts` `clip` redacts the first `2*max` chars then cuts to `max`; a secret straddling the `2*max` boundary could leave a partial prefix.
+- Agents claiming "read-only" (reviewer, lenses, advisor) still have `bash`; `test/agents/agents.test.ts` only checks `edit`/`write` are absent.
+- `docs/subagents/custom-agents.md` links to a `settings.md` that was not vendored (verbatim upstream).

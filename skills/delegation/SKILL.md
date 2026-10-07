@@ -28,7 +28,7 @@ implementer and reviewer work. It returns a slot, a thinking level and, when one
 resolves on this machine, a model. Pass them through:
 
 ```text
-agent_spawn({path: "/root/add-flag", type: "implementer", task: "...",
+agent_spawn({path: "/impl-add-flag", type: "implementer", task: "...",
              model: "<from route>", thinkingLevel: "<from route>"})
 ```
 
@@ -48,8 +48,10 @@ you deliver after review.
 
 ## The reviewer is always fresh
 
-A reviewer that watched the work being written shares its blind spots. Spawn it
-with `/root/<name>` paths that do not inherit your reasoning, give it the diff
+A reviewer that watched the work being written shares its blind spots. A path
+under `/root/...` inherits your whole conversation, so spawn reviewers and
+implementers at a top-level independent path (one segment, for example
+`/review-1` or `/impl-add-flag`): independent roots start with no history. Give it the diff
 range and the packet format (`agents/reviewer.md`), and never tell it what you
 concluded. Fix every blocking and should-fix finding, then ask for a new round.
 

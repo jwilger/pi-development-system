@@ -68,6 +68,8 @@ export interface ThreadView {
   inputTokens?: number;
   /** Cumulative output tokens. Live views include the in-progress message. */
   outputTokens?: number;
+  /** devsys: per-spawn model/thinkingLevel pin requested through agent_spawn, when any. */
+  pinned?: SpawnOverrides;
 }
 export type DriverEvent =
   | { kind: "activity" | "error"; text: string }

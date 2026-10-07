@@ -730,6 +730,8 @@ export class ThreadManager {
       ...record.view,
       sessionFile: record.driver ? record.driver.sessionFile : record.view.sessionFile,
     });
+    // devsys: show per-spawn pins so agent_status reports what the thread was told to run on.
+    if (record.definition?.spawnOverrides) view.pinned = { ...record.definition.spawnOverrides };
     if (record.liveInputTokens) view.inputTokens = (view.inputTokens ?? 0) + record.liveInputTokens;
     if (record.liveOutputTokens)
       view.outputTokens = (view.outputTokens ?? 0) + record.liveOutputTokens;
