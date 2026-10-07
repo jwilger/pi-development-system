@@ -149,6 +149,8 @@ test("reviewerTask carries the slice, lenses, diff range and packet format", () 
     "git ls-files --others --exclude-standard",
     "### Verdict",
     "Do not modify",
+    "blocking or should-fix, otherwise `no-blocking`",
+    "`- none`",
   ]) {
     assert.ok(task.includes(part), part);
   }

@@ -229,3 +229,7 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 ## From I6 review round 13
 
 - docs the skill says a re-roll on an unchanged diff after findings is refused, but a departure recorded in between changes the whole-diff digest and the re-roll is accepted; the sanctioned path for a disputed finding is itself a departure, so this is accepted.
+
+## From I6 review round 14
+
+- false-block `git commit <path> -m …` commits only the named paths, but the staged-then-edited check still looks at every staged file; it fails closed and re-staging or a departure clears it. Telling a pathspec from an option value needs option parsing.

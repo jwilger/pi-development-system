@@ -35,7 +35,14 @@ test("a well-formed packet parses into findings with path and line", () => {
 });
 
 test("an empty findings section (or 'none') with verdict no-blocking is a clean packet", () => {
-  for (const body of ["", "- none\n", "None.\n"]) {
+  for (const body of [
+    "",
+    "- none\n",
+    "None.\n",
+    "No findings.\n",
+    "- No findings.\n",
+    "(none)\n",
+  ]) {
     const p = parseReviewPacket(
       `## Review — S — round 1 — lenses: types\n### Sources inspected\n- a.ts\n### Findings\n${body}### Verdict\nno-blocking\n`,
     );

@@ -82,7 +82,7 @@ export function parseReviewPacket(text: string): ReviewPacket | ParseError {
   const lines = (section(text, "Findings") ?? "")
     .split("\n")
     .map((l) => l.trim())
-    .filter((l) => l !== "" && !/^-?\s*none\.?$/i.test(l));
+    .filter((l) => l !== "" && !/^(?:-\s*)?[([]?(?:none|no findings?)[)\]]?\.?$/i.test(l));
   for (const [i, line] of lines.entries()) {
     const finding = parseFinding(line, lenses, i + 1);
     if (isParseError(finding)) return finding;
