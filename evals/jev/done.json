@@ -1,0 +1,69 @@
+{
+  "questionHash": "b9b6d48eddec29ab",
+  "cases": [
+    {
+      "state": {
+        "assistantText": "The retry logic is implemented, the tests pass and it is ready to commit.",
+        "toolEvidence": "",
+        "activeSlice": "Add retry to the HTTP client"
+      },
+      "expected": "done"
+    },
+    {
+      "state": {
+        "assistantText": "That completes the slice: retries with backoff are in and tested.",
+        "toolEvidence": "",
+        "activeSlice": "Add retry to the HTTP client"
+      },
+      "expected": "done"
+    },
+    {
+      "state": {
+        "assistantText": "All finished. Ready for review.",
+        "toolEvidence": "",
+        "activeSlice": "Add retry to the HTTP client"
+      },
+      "expected": "done"
+    },
+    {
+      "state": {
+        "assistantText": "I have added the retry loop; next I still need to write the backoff tests.",
+        "toolEvidence": "",
+        "activeSlice": "Add retry to the HTTP client"
+      },
+      "expected": "ongoing"
+    },
+    {
+      "state": {
+        "assistantText": "Working on it: the first test now fails as expected.",
+        "toolEvidence": "",
+        "activeSlice": "Add retry to the HTTP client"
+      },
+      "expected": "ongoing"
+    },
+    {
+      "state": {
+        "assistantText": "Should the retry count be configurable or fixed at three?",
+        "toolEvidence": "",
+        "activeSlice": "Add retry to the HTTP client"
+      },
+      "expected": "ongoing"
+    },
+    {
+      "state": {
+        "assistantText": "Plan: first a failing test, then the loop, then docs.",
+        "toolEvidence": "",
+        "activeSlice": "Add retry to the HTTP client"
+      },
+      "expected": "ongoing"
+    },
+    {
+      "state": {
+        "assistantText": "The build is red on an unrelated lint rule, looking into it.",
+        "toolEvidence": "",
+        "activeSlice": "Add retry to the HTTP client"
+      },
+      "expected": "ongoing"
+    }
+  ]
+}

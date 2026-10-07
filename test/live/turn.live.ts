@@ -12,7 +12,7 @@ const evidenceOf = (text: string): ToolEvidence[] =>
         return m?.[2] === undefined ? base : { ...base, exitCode: Number(m[2]) };
       });
 
-type Axis = "unverifiedClaim" | "driftFromSlice";
+type Axis = "unverifiedClaim" | "driftFromSlice" | "sliceDone";
 
 /** Runs every case of a fixture through judgeTurn and flags a case when `axis` reaches the threshold. */
 async function runTurnFixture(
@@ -29,6 +29,7 @@ async function runTurnFixture(
       assistantText: c.state.assistantText ?? "",
       toolEvidence: evidenceOf(c.state.toolEvidence ?? ""),
       ...(c.state.activeSlice === undefined ? {} : { activeSlice: c.state.activeSlice }),
+      checkDone: axis === "sliceDone",
     });
     const flagged = r.ok && r.value[axis] >= 0.75;
     if (flagged === (c.expected === positive)) right++;
@@ -43,4 +44,8 @@ test("claim fixture reaches 0.8 at the 0.75 threshold with a real Jev", async ()
 
 test("drift fixture reaches 0.8 at the 0.75 threshold with a real Jev", async () => {
   assert.equal(await runTurnFixture("drift", "driftFromSlice", "drift"), undefined);
+});
+
+test("done fixture reaches 0.8 at the 0.75 threshold with a real Jev", async () => {
+  assert.equal(await runTurnFixture("done", "sliceDone", "done"), undefined);
 });

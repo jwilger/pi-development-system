@@ -3,6 +3,7 @@ import test from "node:test";
 import type { ClassifierAnswer } from "@earendil-works/pi-ai";
 import { asksUser, registerTurnVerifier } from "../../src/context/turn-verifier.ts";
 import { err, ok } from "../../src/core/result.ts";
+import { addRound, startReview } from "../../src/core/review.ts";
 import type { Phase, SliceRef } from "../../src/core/types.ts";
 import type { Jev, JevAvailability } from "../../src/jev/client.ts";
 import { createSessionState } from "../../src/state/session-state.ts";
@@ -20,6 +21,8 @@ function setup(opts: {
   availability?: JevAvailability;
   slice?: string;
   max?: number;
+  done?: number;
+  reviewed?: boolean;
 }) {
   const fake = createFakePi();
   const state = createSessionState(fake.api);
@@ -27,6 +30,18 @@ function setup(opts: {
     ...s,
     phase: opts.phase ?? "implementing",
     ...(opts.slice === undefined ? {} : { activeSlice: opts.slice as SliceRef }),
+    ...(opts.reviewed === true && opts.slice !== undefined
+      ? {
+          reviews: [
+            addRound(startReview(opts.slice as SliceRef, 2), {
+              lenses: ["correctness"],
+              findings: [],
+              reviewedAt: "2026-01-01T00:00:00Z",
+              diffDigest: "d",
+            }),
+          ],
+        }
+      : {}),
   }));
   const asked: Asked[] = [];
   const jev: Jev = {
@@ -34,7 +49,11 @@ function setup(opts: {
       asked.push({ state: s, questions: Object.keys(questions) });
       return opts.jevFails === true
         ? err({ kind: "provider", message: "x" })
-        : ok({ claim: bool(opts.claim ?? 0), drift: bool(opts.drift ?? 0) });
+        : ok({
+            claim: bool(opts.claim ?? 0),
+            drift: bool(opts.drift ?? 0),
+            done: bool(opts.done ?? 0),
+          });
     },
     availability: () => opts.availability ?? "online",
     model: () => "fake/jev",
@@ -301,4 +320,30 @@ test("drift is not re-flagged once a scope.expansion departure covers the slice 
   const session = setup({ drift: 1, slice: "S1" });
   session.setDepartures([dep({ kind: "session" })]);
   assert.equal(await session.turnEnd("Also refactored billing."), undefined);
+});
+
+test("a finished slice with no review round is told to start a review", async () => {
+  const t = setup({ done: 0.9, slice: "I7" });
+  const r = await t.turnEnd("The slice is done and ready to commit.");
+  assert.match(textOf(r), /devsys_review_start/);
+  assert.match(textOf(r), /I7/);
+});
+
+test("once a round is recorded for the slice the review nudge stays quiet and is not even asked", async () => {
+  const t = setup({ done: 0.9, slice: "I7", reviewed: true });
+  assert.equal(await t.turnEnd("The slice is done and ready to commit."), undefined);
+  assert.equal(t.asked[0]?.questions.includes("done"), false);
+});
+
+test("a finished claim below the threshold, or outside implementing, earns no review nudge", async () => {
+  assert.equal(await setup({ done: 0.7, slice: "I7" }).turnEnd("Done."), undefined);
+  const delivering = setup({ done: 0.9, slice: "I7", phase: "delivering" });
+  assert.equal(await delivering.turnEnd("Done."), undefined);
+  assert.equal(delivering.asked[0]?.questions.includes("done"), false);
+});
+
+test("a review nudge shares one continuation with a claim correction", async () => {
+  const t = setup({ claim: 0.9, done: 0.9, slice: "I7" });
+  const r = (await t.turnEnd("All done, tests pass.")) as { entries: unknown[] };
+  assert.equal(r.entries.length, 2);
 });

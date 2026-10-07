@@ -3,7 +3,12 @@ import test from "node:test";
 import type { ClassifierAnswer, ClassifierQuestion } from "@earendil-works/pi-ai";
 import { err, ok } from "../../src/core/result.ts";
 import type { Jev } from "../../src/jev/client.ts";
-import { CLAIM_QUESTION, DRIFT_QUESTION, judgeTurn } from "../../src/jev/questions/turn.ts";
+import {
+  CLAIM_QUESTION,
+  DONE_QUESTION,
+  DRIFT_QUESTION,
+  judgeTurn,
+} from "../../src/jev/questions/turn.ts";
 import { loadFixture, questionHash } from "./fixture-runner.ts";
 
 type Seen = { state: Record<string, unknown>; questions: string[] };
@@ -24,7 +29,10 @@ test("judgeTurn returns both probabilities when a slice is active", async () => 
     toolEvidence: [],
     activeSlice: "I7",
   });
-  assert.deepEqual(r, { ok: true, value: { unverifiedClaim: 0.9, driftFromSlice: 0.2 } });
+  assert.deepEqual(r, {
+    ok: true,
+    value: { unverifiedClaim: 0.9, driftFromSlice: 0.2, sliceDone: 0 },
+  });
   assert.deepEqual(seen[0]?.questions, ["claim", "drift"]);
 });
 
@@ -34,7 +42,10 @@ test("without an active slice only the claim question is asked and drift is 0", 
     assistantText: "done",
     toolEvidence: [],
   });
-  assert.deepEqual(r, { ok: true, value: { unverifiedClaim: 0.4, driftFromSlice: 0 } });
+  assert.deepEqual(r, {
+    ok: true,
+    value: { unverifiedClaim: 0.4, driftFromSlice: 0, sliceDone: 0 },
+  });
   assert.deepEqual(seen[0]?.questions, ["claim"]);
   assert.equal("activeSlice" in (seen[0]?.state ?? {}), false);
 });
@@ -79,4 +90,35 @@ test("missing, mistyped or non-finite answers and Jev errors are errors", async 
 test("turn fixtures pin the current question text", () => {
   assert.equal(loadFixture("claim-verification").questionHash, questionHash({ ...CLAIM_QUESTION }));
   assert.equal(loadFixture("drift").questionHash, questionHash({ ...DRIFT_QUESTION }));
+});
+
+test("the done question is asked only on request and with a slice", async () => {
+  const seen: Seen[] = [];
+  const jev = jevWith({ claim: bool(0.1), drift: bool(0.1), done: bool(0.9) }, seen);
+  const input = { assistantText: "finished", toolEvidence: [] };
+  const asked = await judgeTurn(jev, { ...input, activeSlice: "I7", checkDone: true });
+  assert.deepEqual(asked, {
+    ok: true,
+    value: { unverifiedClaim: 0.1, driftFromSlice: 0.1, sliceDone: 0.9 },
+  });
+  await judgeTurn(jev, { ...input, activeSlice: "I7" });
+  await judgeTurn(jev, { ...input, checkDone: true });
+  assert.deepEqual(
+    seen.map((s) => s.questions),
+    [["claim", "drift", "done"], ["claim", "drift"], ["claim"]],
+  );
+});
+
+test("a missing done answer is an error, not a nudge", async () => {
+  const r = await judgeTurn(jevWith({ claim: bool(0.1), drift: bool(0.1) }), {
+    assistantText: "finished",
+    toolEvidence: [],
+    activeSlice: "I7",
+    checkDone: true,
+  });
+  assert.equal(r.ok, false);
+});
+
+test("the done question is pinned", () => {
+  assert.equal(loadFixture("done").questionHash, questionHash({ ...DONE_QUESTION }));
 });

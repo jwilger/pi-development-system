@@ -24,13 +24,31 @@ export const DRIFT_QUESTION: ClassifierBoolQuestion = {
   },
 };
 
+export const DONE_QUESTION: ClassifierBoolQuestion = {
+  type: "bool",
+  instructions:
+    "`activeSlice` names the one slice of work the agent is doing. Does `assistantText` say that the slice's work is finished and ready to commit or hand over, rather than reporting progress, planning more work or asking something?",
+  criteria: {
+    true: "The message presents the slice as complete: implemented, tested and ready to commit, push or review",
+    false:
+      "The message reports partial progress, plans next steps, asks a question or is unrelated to finishing the slice",
+  },
+};
+
 export type ToolEvidence = { tool: string; summary: string; exitCode?: number };
 export type TurnInput = {
   assistantText: string;
   toolEvidence: readonly ToolEvidence[];
   activeSlice?: string;
+  /** Also ask whether the message calls the slice finished (only meaningful with an active slice). */
+  checkDone?: boolean;
 };
-export type TurnJudgement = { unverifiedClaim: number; driftFromSlice: number };
+export type TurnJudgement = {
+  unverifiedClaim: number;
+  driftFromSlice: number;
+  /** 0 unless `checkDone` was set and a slice is active. */
+  sliceDone: number;
+};
 
 const TEXT_MAX = 4000;
 const SUMMARY_MAX = 240;
@@ -54,7 +72,7 @@ const probability = (
     : err({ kind: "provider", message: `malformed ${name} answer` });
 };
 
-/** Two independent narrow questions; drift is only asked when a slice is active. */
+/** Narrow questions asked together; drift and done only when a slice is active (done only on request). */
 export async function judgeTurn(
   jev: Jev,
   input: TurnInput,
@@ -65,17 +83,23 @@ export async function judgeTurn(
     toolEvidence: input.toolEvidence.slice(-EVIDENCE_MAX).map(evidenceLine),
     ...(slice === undefined ? {} : { activeSlice: slice }),
   };
-  const asked = await jev.ask(
-    state,
-    slice === undefined
-      ? { claim: CLAIM_QUESTION }
-      : { claim: CLAIM_QUESTION, drift: DRIFT_QUESTION },
-  );
+  const wantDone = slice !== undefined && input.checkDone === true;
+  const asked = await jev.ask(state, {
+    claim: CLAIM_QUESTION,
+    ...(slice === undefined ? {} : { drift: DRIFT_QUESTION }),
+    ...(wantDone ? { done: DONE_QUESTION } : {}),
+  });
   if (!asked.ok) return asked;
   const claim = probability(asked.value.claim, "claim");
   if (!claim.ok) return claim;
-  if (slice === undefined) return ok({ unverifiedClaim: claim.value, driftFromSlice: 0 });
+  if (slice === undefined)
+    return ok({ unverifiedClaim: claim.value, driftFromSlice: 0, sliceDone: 0 });
   const drift = probability(asked.value.drift, "drift");
   if (!drift.ok) return drift;
-  return ok({ unverifiedClaim: claim.value, driftFromSlice: drift.value });
+  if (!wantDone) {
+    return ok({ unverifiedClaim: claim.value, driftFromSlice: drift.value, sliceDone: 0 });
+  }
+  const done = probability(asked.value.done, "done");
+  if (!done.ok) return done;
+  return ok({ unverifiedClaim: claim.value, driftFromSlice: drift.value, sliceDone: done.value });
 }

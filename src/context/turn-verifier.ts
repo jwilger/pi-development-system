@@ -5,6 +5,7 @@ import type {
   ToolResultEvent,
 } from "@earendil-works/pi-coding-agent";
 import { redactSecrets } from "../core/redact.ts";
+import { reviewOf } from "../core/review-flow.ts";
 import { exitCodeOf, summarizeOutput } from "../core/test-runner.ts";
 import type { DevsysState, Phase } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
@@ -58,6 +59,9 @@ export function asksUser(text: string): boolean {
   return QUESTION_END.test(lead) || (LIST_ITEM.test(last) && CHOICE_LEAD_IN.test(lead));
 }
 
+const hasReviewRound = (state: DevsysState, slice: DevsysState["activeSlice"] & string): boolean =>
+  (reviewOf(state, slice)?.rounds.length ?? 0) > 0;
+
 /** True when a scope.expansion departure already covers the slice: the remedy the note asks for exists. */
 const expansionRecorded = (state: DevsysState, slice: string): boolean =>
   state.openDepartures.some(
@@ -71,6 +75,9 @@ const claimMessage = (): string =>
 
 const driftMessage = (slice: string): string =>
   `Development system: your last message describes work beyond the active slice "${slice}". Either return to the slice, or call devsys_record_departure (gate scope.expansion) to record why the scope is growing.`;
+
+const reviewMessage = (slice: string): string =>
+  `Development system: your last message calls the slice "${slice}" finished, but no review round has been recorded for it. Call devsys_review_start for a fresh-context review before committing.`;
 
 const TARGET_MAX = 120;
 
@@ -107,7 +114,7 @@ function evidenceOf(event: ToolResultEvent): ToolEvidence {
 
 /** The corrective notes a judged turn earns: an unverified claim, and drift not yet covered by a departure. */
 function correctionsFor(
-  judged: { unverifiedClaim: number; driftFromSlice: number },
+  judged: { unverifiedClaim: number; driftFromSlice: number; sliceDone: number },
   state: DevsysState,
 ) {
   const slice = state.activeSlice;
@@ -118,6 +125,11 @@ function correctionsFor(
   return [
     ...(judged.unverifiedClaim >= VERIFIER_THRESHOLD ? [note(claimMessage())] : []),
     ...(drifted && slice !== undefined ? [note(driftMessage(slice))] : []),
+    ...(slice !== undefined &&
+    judged.sliceDone >= VERIFIER_THRESHOLD &&
+    !hasReviewRound(state, slice)
+      ? [note(reviewMessage(slice))]
+      : []),
   ];
 }
 
@@ -163,6 +175,10 @@ export function registerTurnVerifier(deps: TurnVerifierDeps): void {
       assistantText: parts.text,
       toolEvidence: evidence,
       ...(state.activeSlice === undefined ? {} : { activeSlice: state.activeSlice }),
+      checkDone:
+        state.phase === "implementing" &&
+        state.activeSlice !== undefined &&
+        !hasReviewRound(state, state.activeSlice),
     });
     if (!judged.ok) return undefined;
     const entries = correctionsFor(judged.value, state);
