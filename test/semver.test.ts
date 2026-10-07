@@ -72,3 +72,10 @@ test("decideBump reports zero confidence for missing or NaN answers", async () =
   assert.equal(bad.confidence, 0);
   assert.equal(decideBump({ breaking: 0.5, feature: 0, observable: 0 }).confidence, 0.5);
 });
+
+test("decideBump: breaking at 0.40 is under the 0.5 threshold and passes at exactly the 0.6 floor", async () => {
+  const { decideBump } = await import("../scripts/lib/semver.ts");
+  const r = decideBump({ breaking: 0.4, feature: 0.9, observable: 0.9 });
+  assert.equal(r.bump, "minor");
+  assert.ok(Math.abs(r.confidence - 0.6) < 1e-9);
+});

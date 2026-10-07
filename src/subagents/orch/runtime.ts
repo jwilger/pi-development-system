@@ -165,6 +165,8 @@ export function createDriverFactory(
       .map((model) => ({ model }));
   const availableScopedModels = (scopedModels: readonly ScopedModel[]) => {
     const available = new Set(availableModelCandidates().map(({ model }) => modelIdentity(model)));
+    // devsys: an empty scope means no /scoped-models restriction in pi, not "matches nothing".
+    if (scopedModels.length === 0) return [...availableModelCandidates()];
     return scopedModels.filter(({ model }) => available.has(modelIdentity(model)));
   };
   const selectTypeModelPreference = (
@@ -232,9 +234,12 @@ export function createDriverFactory(
         : undefined;
     const thinkingLevel =
       savedThinking ?? type.thinkingLevel ?? parent?.thinking ?? ctx.thinkingLevel ?? "off";
-    // devsys: a per-spawn pin from agent_spawn wins; restored sessions already persist their choice.
-    if (restored === undefined)
-      return applySpawnOverrides({ provider, id, thinkingLevel }, type.spawnOverrides);
+    // devsys: a per-spawn pin from agent_spawn wins. On resume the thinking level is the saved one,
+    // but the pinned model still applies: the restored session may only hold inherited history.
+    const pins = type.spawnOverrides;
+    if (restored === undefined) return applySpawnOverrides({ provider, id, thinkingLevel }, pins);
+    if (pins?.model !== undefined)
+      return applySpawnOverrides({ provider, id, thinkingLevel }, { model: pins.model });
     return { provider, id, thinkingLevel };
   };
   const resolveAgentSettings = (type: AgentType, parentPath: string): ResolvedAgentSettings => {

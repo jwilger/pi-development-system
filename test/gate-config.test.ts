@@ -26,7 +26,7 @@ test("budgetDiff gives every file a share so a huge file cannot hide the others"
   const out = budgetDiff(big + small, 4000);
   assert.ok(out.includes("+new line"));
   assert.ok(out.includes("[file truncated]"));
-  assert.ok(out.length < 4000 + 100);
+  assert.ok(out.length <= 4000);
 });
 
 test("budgetDiff never exceeds max, even with hundreds of files", () => {
@@ -34,7 +34,7 @@ test("budgetDiff never exceeds max, even with hundreds of files", () => {
     { length: 300 },
     (_, i) => `diff --git a/f${i} b/f${i}\n${"y\n".repeat(900)}`,
   );
-  assert.ok(budgetDiff(many.join(""), 60_000).length <= 60_000 + 20);
+  assert.ok(budgetDiff(many.join(""), 60_000).length <= 60_000);
 });
 
 test("budgetDiff leaves a diff within budget untouched", () => {

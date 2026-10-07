@@ -36,5 +36,6 @@ export function budgetDiff(diff: string, max: number, floor = 300): string {
   const joined = files
     .map((f) => (f.length <= share ? f : `${f.slice(0, share)}\n…[file truncated]\n`))
     .join("");
-  return truncate(joined, max);
+  const marker = "\n…[truncated]";
+  return joined.length <= max ? joined : joined.slice(0, max - marker.length) + marker;
 }

@@ -38,3 +38,4 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+6. Empty scope (I5 review): `orch/runtime.ts` `availableScopedModels` treats an empty `/scoped-models` as no restriction (pi's meaning) instead of "matches nothing", because every devsys agent declares `models:` and would otherwise be unspawnable by default. Pinned models are also re-applied on resume (`resolveInitialSettings`), since a restored session may hold only inherited history.

@@ -94,7 +94,16 @@ test("modelSource: use-current ignores preferences, pins and restores", () => {
 
 test("modelSource: an unpinned resumed thread without preferences keeps its restored model", () => {
   assert.equal(
-    modelSource({ mode: "pick-first", pinned: false, hasPreferences: false, hasRestored: true }),
+    modelSource({
+      mode: "pick-first-available",
+      pinned: false,
+      hasPreferences: false,
+      hasRestored: true,
+    }),
     "restored",
   );
+});
+
+test("a family pattern is not a pin", () => {
+  assert.ok(isParseError(parseSpawnOverrides({ model: "anthropic/claude-sonnet-*" })));
 });

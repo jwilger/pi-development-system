@@ -16,7 +16,7 @@ export type Settings = {
   readonly thinkingLevel: ThinkingLevel;
 };
 
-const MODEL_REF = /^[^\s/]+\/\S+$/;
+const MODEL_REF = /^[^\s/*]+\/[^\s*]+$/;
 
 const isLevel = (value: unknown): value is ThinkingLevel =>
   THINKING_LEVELS.some((level) => level === value);
@@ -66,7 +66,7 @@ export type ModelSource = "current" | "preferences" | "restored" | "inherited";
  * thread keeps the model it was already running instead of falling back to the preferences.
  */
 export function modelSource(input: {
-  mode: "use-current" | "pick-first-scoped" | "pick-first";
+  mode: "use-current" | "pick-first-scoped" | "pick-first-available";
   pinned: boolean;
   hasPreferences: boolean;
   hasRestored: boolean;

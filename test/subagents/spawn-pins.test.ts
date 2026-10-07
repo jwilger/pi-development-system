@@ -129,3 +129,38 @@ test("an unpinned thread has no pinned field", async () => {
   await manager.spawn("/root", { path: "/root/plain", type: "coder", task: "do it" });
   assert.equal(manager.get("/root/plain").pinned, undefined);
 });
+
+test("a pinned model is kept on resume even in use-current mode", () => {
+  const type: AgentType = {
+    name: "reviewer",
+    description: "r",
+    systemPrompt: "r",
+    spawnOverrides: { model: "anthropic/claude-sonnet-5-5" },
+  };
+  const other = { provider: "openai", id: "other" };
+  const ctx = {
+    model: other,
+    thinkingLevel: "medium",
+    scopedModels: [],
+    sessionManager: { getSessionId: () => "s" },
+    modelRegistry: {
+      getAvailable: () => [sonnet, other],
+      find: (p: string, i: string) => [sonnet, other].find((m) => m.provider === p && m.id === i),
+    },
+  };
+  const f = createDriverFactory(
+    () => ctx as never,
+    () => "use-current",
+  );
+  assert.equal(f.resolveAgentSettings(type, "/root").model, "anthropic/claude-sonnet-5-5");
+});
+
+test("an empty /scoped-models scope does not hide every model", () => {
+  const type: AgentType = {
+    name: "reviewer",
+    description: "r",
+    systemPrompt: "r",
+    models: ["anthropic/claude-sonnet-*"],
+  };
+  assert.equal(factory().resolveAgentSettings(type, "/root").model, "anthropic/claude-sonnet-5-5");
+});
