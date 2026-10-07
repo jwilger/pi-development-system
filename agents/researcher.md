@@ -8,6 +8,16 @@ modelSuggestions:
   - muse-spark-1.3
   - sonnet-5.5
 thinkingLevel: high
+models:
+  - openai-codex/gpt-*-luna
+  - openai/gpt-*-luna
+  - anthropic/claude-haiku-*
+  - openai-codex/gpt-*-terra
+  - openai/gpt-*-terra
+  - openai-codex/gpt-*-sol
+  - openai/gpt-*-sol
+  - anthropic/claude-sonnet-*
+  - anthropic/claude-opus-*
 color: accent
 tools:
   allow:

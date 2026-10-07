@@ -1,4 +1,6 @@
 // @ts-nocheck: vendored upstream pi-subagent-manager 0.14.0 compiled under looser options; see src/subagents/VENDORED.md
+import { resolveCandidate } from "../../core/models.ts";
+
 const MODEL_IDENTITY = /^[^\s/]+\/[^\s]+$/;
 
 function validateModelPreference(value: unknown, label: string): string {
@@ -60,8 +62,13 @@ export function selectPreferredModel(
   const preferences = getModelPreferences(type);
   if (preferences === undefined) return undefined;
   const available = eligibleModels.map(({ model }) => modelIdentity(model));
+  // devsys: preferences may be families ("openai-codex/gpt-*-sol"); the newest available match wins.
   for (const preference of preferences) {
-    if (available.includes(preference)) return preference;
+    const hit = resolveCandidate(
+      preference,
+      eligibleModels.map(({ model }) => model),
+    );
+    if (hit !== undefined) return hit;
   }
   const preferenceList = `[${preferences.join(", ")}]`;
   const availableList = available.length === 0 ? "(none)" : `[${available.join(", ")}]`;

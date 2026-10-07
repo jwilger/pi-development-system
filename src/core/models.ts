@@ -148,6 +148,24 @@ export function resolveSlot(
   return resolveFrom(matrix, slot, available, []);
 }
 
+/** Every candidate of a slot in order with `@slot` references expanded and duplicates dropped; cycles are skipped. */
+export function flattenSlot(matrix: ModelMatrix, slot: Slot): string[] {
+  const seen = new Set<string>();
+  const walk = (current: Slot, trail: readonly Slot[]): void => {
+    if (trail.includes(current)) return;
+    for (const candidate of matrix[current]) {
+      if (!candidate.startsWith("@")) {
+        seen.add(candidate);
+        continue;
+      }
+      const target = candidate.slice(1);
+      if (isSlot(target)) walk(target, [...trail, current]);
+    }
+  };
+  walk(slot, []);
+  return [...seen];
+}
+
 /** Shipped defaults: model families only (no dated ids), so they roll forward as providers ship. */
 export function defaultMatrix(): ModelMatrix {
   return {
