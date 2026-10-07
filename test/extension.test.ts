@@ -56,6 +56,8 @@ test("loading registers the departure and approval tools and guards force pushes
   developmentSystem(fake.api);
   assert.ok(fake.tools.has("devsys_record_departure"));
   assert.ok(fake.tools.has("devsys_request_approval"));
+  assert.ok(fake.tools.has("devsys_review_start"));
+  assert.ok(fake.tools.has("devsys_review_record"));
   const result = (await fake.emit({
     type: "tool_call",
     toolName: "bash",

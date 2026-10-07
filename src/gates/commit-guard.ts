@@ -13,9 +13,11 @@ import {
   parseConventionalCommit,
 } from "../core/commit-message.ts";
 import type { Exec } from "../core/exec.ts";
+import { reviewGap } from "../core/review-flow.ts";
 import { type GateId, isParseError, parseGateId } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
 import { judgeCommit, MIX_THRESHOLD, RATIONALE_FLOOR } from "../jev/questions/commit.ts";
+import { snapshotDiff } from "../review/digest.ts";
 import type { SessionState } from "../state/session-state.ts";
 import { departureUse } from "./departure-use.ts";
 
@@ -36,6 +38,7 @@ const gateId = (id: string): GateId => {
 
 const RATIONALE = gateId("commit.rationale");
 const MIXED = gateId("commit.mixed-change");
+const REVIEW = gateId("review.unsatisfied");
 
 const readMessageFile = (cwd: string, path: string): string | undefined => {
   try {
@@ -115,11 +118,29 @@ async function jevNeeds(
   return needs;
 }
 
+/** While work is in flight, committing needs the slice review satisfied on the diff as it is now. */
+async function reviewNeeds(deps: CommitGuardDeps, ctx: ExtensionContext): Promise<Need[]> {
+  const { phase, activeSlice } = deps.state.get();
+  if ((phase !== "implementing" && phase !== "reviewing") || activeSlice === undefined) return [];
+  const snap = await snapshotDiff(deps.exec, ctx.cwd, "HEAD");
+  // An unreadable diff cannot be compared; the gate asks for a departure rather than guessing.
+  const gap = reviewGap(deps.state.get(), activeSlice, snap.ok ? snap.value.digest : "unknown");
+  return gap === undefined ? [] : [{ gate: REVIEW, why: gap }];
+}
+
+const reviewReason = (need: Need): string =>
+  `${need.gate}: ${need.why}. Each slice is reviewed by a fresh-context reviewer before it is committed. ` +
+  "Run devsys_review_start, spawn the reviewer it describes, record the packet with devsys_review_record " +
+  "and repeat until the review is satisfied. If skipping review is deliberate call devsys_record_departure " +
+  `with gate "${need.gate}", what you are doing instead, why, and the cost if wrong; then retry.`;
+
 const blockReason = (need: Need): string =>
-  `${need.gate}: ${need.why}. Commit messages carry their rationale and structural and behavioural ` +
-  "changes go in separate commits. Fix the commit (split it, or write the why in the body), or if " +
-  `departing is deliberate call devsys_record_departure with gate "${need.gate}", what you are doing ` +
-  "instead, why, and the cost if wrong; then retry.";
+  need.gate === REVIEW
+    ? reviewReason(need)
+    : `${need.gate}: ${need.why}. Commit messages carry their rationale and structural and behavioural ` +
+      "changes go in separate commits. Fix the commit (split it, or write the why in the body), or if " +
+      `departing is deliberate call devsys_record_departure with gate "${need.gate}", what you are doing ` +
+      "instead, why, and the cost if wrong; then retry.";
 
 const forbiddenReason = (found: readonly string[]): string =>
   `commit.forbidden-trailer: this commit carries an AI attribution (${found.join("; ")}). ` +
@@ -162,7 +183,7 @@ export function registerCommitGuard(deps: CommitGuardDeps): void {
     if (forbidden.length > 0) return { block: true, reason: forbiddenReason(forbidden) };
 
     const known = messages.flatMap((m) => (m === undefined ? [] : [m]));
-    const all: Need[] = [];
+    const all: Need[] = await reviewNeeds(deps, ctx);
     // A -F file that cannot be read now (written by this same command, or stdin) cannot be checked.
     if (extractions.some((e, i) => e.kind === "file" && messages[i] === undefined)) {
       all.push({

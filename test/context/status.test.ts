@@ -50,3 +50,18 @@ test("the status line shows the last observed CI state; unknown stays quiet", ()
     /- ci: green \(abcdef1\)/,
   );
 });
+
+test("status shows the active slice's review as N/R clean", async () => {
+  const { addRound, startReview } = await import("../../src/core/review.ts");
+  const { upsertReview } = await import("../../src/core/review-flow.ts");
+  const review = addRound(startReview("s1" as never, 3), {
+    lenses: ["types"],
+    findings: [],
+    reviewedAt: "t",
+    diffDigest: "d",
+  });
+  const state = upsertReview({ ...initialState(), activeSlice: "s1" as never }, review);
+  assert.match(renderStatus(state), /review: 1\/3 clean/);
+  assert.match(renderStatusLine(state), /review 1\/3/);
+  assert.doesNotMatch(renderStatus(initialState()), /review:/);
+});
