@@ -83,6 +83,8 @@ export function registerTurnVerifier(deps: TurnVerifierDeps): void {
   });
 
   deps.pi.on("turn_end", async (event, ctx) => {
+    // An aborted or errored turn is dropped by pi; judging it would delay the abort and spend a correction.
+    if (event.outcome !== "completed") return undefined;
     const state = deps.state.get();
     if (!VERIFIED_PHASES.has(state.phase)) return undefined;
     const parts = assistantParts(event.message);

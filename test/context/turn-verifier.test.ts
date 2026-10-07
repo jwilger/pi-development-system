@@ -49,9 +49,13 @@ function setup(opts: {
       isError,
       details: undefined,
     } as never);
-  const turnEnd = (text: string, extra: { toolCall?: boolean; turnIndex?: number } = {}) =>
+  const turnEnd = (
+    text: string,
+    extra: { toolCall?: boolean; turnIndex?: number; outcome?: string } = {},
+  ) =>
     fake.emit({
       type: "turn_end",
+      outcome: extra.outcome ?? "completed",
       turnIndex: extra.turnIndex ?? 0,
       message: {
         role: "assistant",
@@ -157,10 +161,21 @@ test("the turn right after a correction is not corrected again", async () => {
 
 test("at most maxPerSession corrections per session; the count resets on a new session", async () => {
   const t = setup({ claim: 1, max: 2 });
-  for (let i = 0; i < 6; i += 2) await t.turnEnd("pass", { turnIndex: i });
+  for (let i = 0; i < 4; i++) {
+    await t.agentStart(); // clears the no-twice-in-a-row rule so only the cap can refuse
+    await t.turnEnd("pass", { turnIndex: i });
+  }
   assert.equal(t.asked.length, 2);
   await t.fake.emit({ type: "session_start", reason: "new" } as never);
   assert.ok(await t.turnEnd("pass", { turnIndex: 0 }));
+});
+
+test("an aborted or errored turn is never judged and spends no correction", async () => {
+  const t = setup({ claim: 1, max: 1 });
+  assert.equal(await t.turnEnd("All tests pass.", { outcome: "aborted" }), undefined);
+  assert.equal(await t.turnEnd("All tests pass.", { outcome: "error" }), undefined);
+  assert.equal(t.asked.length, 0);
+  assert.ok(await t.turnEnd("All tests pass."));
 });
 
 test("assistant messages without text and non-assistant messages are ignored", async () => {

@@ -168,6 +168,7 @@ test("the turn verifier is wired to turn_end and stays silent with Jev unavailab
   state.update((s) => ({ ...s, phase: "implementing" }));
   const result = await fake.emit({
     type: "turn_end",
+    outcome: "completed",
     turnIndex: 0,
     message: { role: "assistant", content: [{ type: "text", text: "All tests pass." }] },
     toolResults: [],

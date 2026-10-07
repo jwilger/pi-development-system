@@ -38,19 +38,21 @@ const matches = (candidates: readonly string[], model: string): boolean => {
   );
 };
 
+const direct = (matrix: ModelMatrix, tier: Tier): string[] =>
+  // `fast` falls back to `@strong`; expanding it would make every strong model fast.
+  matrix[tier].filter((c) => !c.startsWith("@"));
+
 /**
- * The lowest tier whose candidates include `provider/id`: a model that appears as a fallback in a
- * higher tier (sol in frontier) still belongs to the tier it is natively listed in. Undefined when
- * the model is in none of them.
+ * The tier a model natively belongs to: the lowest tier that lists it (sol is a fallback in
+ * frontier but lives in strong). Undefined when it is in none of them.
  */
 export function tierOf(matrix: ModelMatrix, model: string): Tier | undefined {
-  // Direct candidates only: `fast` falls back to `@strong`, which must not make strong models fast.
-  return [...TIERS].reverse().find((tier) =>
-    matches(
-      matrix[tier].filter((c) => !c.startsWith("@")),
-      model,
-    ),
-  );
+  return [...TIERS].reverse().find((tier) => matches(direct(matrix, tier), model));
+}
+
+/** The best tier that lists the model at all: what a slot resolving to it is asking for. */
+function bestTierOf(matrix: ModelMatrix, model: string): Tier | undefined {
+  return TIERS.find((tier) => matches(direct(matrix, tier), model));
 }
 
 export type AdviceInput = {
@@ -74,7 +76,7 @@ export function adviseModel(input: AdviceInput): string | undefined {
   // Anything the slot itself lists is acceptable for the phase, whatever tier it natively sits in.
   if (matches(flattenSlot(input.matrix, slot), input.model)) return undefined;
   const have = tierOf(input.matrix, input.model);
-  const need = tierOf(input.matrix, wanted.value.model);
+  const need = bestTierOf(input.matrix, wanted.value.model);
   if (have === undefined || need === undefined) return undefined;
   if (TIERS.indexOf(have) <= TIERS.indexOf(need)) return undefined;
   return `${input.phase} on ${input.model} (${have} tier) — the matrix prefers ${wanted.value.model} (${need} tier) for the ${slot} slot. Consider asking an advisor subagent for the hard decisions, or continue and record a departure (gate models.phase-mismatch). The system never switches your model for you.`;

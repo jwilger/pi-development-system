@@ -79,3 +79,30 @@ test("unknown models, unresolvable slots and no-slot phases are silent", () => {
     undefined,
   );
 });
+
+test("on an Anthropic-only machine planning on sonnet or haiku is flagged against opus", () => {
+  const anthropic = available.filter((m) => m.provider === "anthropic");
+  const sonnet = adviseModel({
+    matrix,
+    available: anthropic,
+    phase: "planning",
+    model: "anthropic/claude-sonnet-5-5",
+  });
+  assert.match(sonnet ?? "", /prefers anthropic\/claude-opus-5-5 \(frontier tier\)/);
+  const haiku = adviseModel({
+    matrix,
+    available: anthropic,
+    phase: "planning",
+    model: "anthropic/claude-haiku-5",
+  });
+  assert.match(haiku ?? "", /haiku-5 \(fast tier\)/);
+  assert.equal(
+    adviseModel({
+      matrix,
+      available: anthropic,
+      phase: "planning",
+      model: "anthropic/claude-opus-5-5",
+    }),
+    undefined,
+  );
+});
