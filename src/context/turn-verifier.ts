@@ -1,5 +1,9 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+  ToolResultEvent,
+} from "@earendil-works/pi-coding-agent";
 import { redactSecrets } from "../core/redact.ts";
 import { exitCodeOf, summarizeOutput } from "../core/test-runner.ts";
 import type { DevsysState, Phase } from "../core/types.ts";
@@ -77,6 +81,46 @@ const note = (content: string) => ({
   display: true,
 });
 
+/** What a finished tool call proves, for Jev: the target, the output tail and (for bash) the real exit code. */
+function evidenceOf(event: ToolResultEvent): ToolEvidence {
+  const text = event.content.flatMap((c) => (c.type === "text" ? [c.text] : [])).join("\n");
+  const summary = summarizeOutput(text);
+  const command = typeof event.input.command === "string" ? event.input.command : undefined;
+  // exitCodeOf sees through `npm test | tail`, which would otherwise show a failing run as exit 0.
+  const exitCode = exitCodeOf({
+    isError: event.isError,
+    text,
+    structured: event.structuredContent,
+    ...(command === undefined ? {} : { command }),
+  });
+  // Name what ran or which file: a check that passes silently (`tsc --noEmit`) prints nothing.
+  const target = redactSecrets(
+    command ?? (typeof event.input.path === "string" ? event.input.path : ""),
+  )
+    .replace(/\s+/g, " ")
+    .slice(0, TARGET_MAX);
+  const described = target === "" ? summary : `${target} → ${summary}`;
+  return event.toolName === "bash"
+    ? { tool: "bash", summary: described, exitCode }
+    : { tool: event.toolName, summary: described };
+}
+
+/** The corrective notes a judged turn earns: an unverified claim, and drift not yet covered by a departure. */
+function correctionsFor(
+  judged: { unverifiedClaim: number; driftFromSlice: number },
+  state: DevsysState,
+) {
+  const slice = state.activeSlice;
+  const drifted =
+    judged.driftFromSlice >= VERIFIER_THRESHOLD &&
+    slice !== undefined &&
+    !expansionRecorded(state, slice);
+  return [
+    ...(judged.unverifiedClaim >= VERIFIER_THRESHOLD ? [note(claimMessage())] : []),
+    ...(drifted && slice !== undefined ? [note(driftMessage(slice))] : []),
+  ];
+}
+
 /**
  * At turn end, asks Jev whether the final message claims results no tool call supports, or wanders
  * from the active slice, and forces ONE corrective continuation. Bounded: never on a turn that
@@ -98,28 +142,7 @@ export function registerTurnVerifier(deps: TurnVerifierDeps): void {
     justCorrected = false;
   });
   deps.pi.on("tool_result", (event) => {
-    const text = event.content.flatMap((c) => (c.type === "text" ? [c.text] : [])).join("\n");
-    const summary = summarizeOutput(text);
-    const command = typeof event.input.command === "string" ? event.input.command : undefined;
-    // exitCodeOf sees through `npm test | tail`, which would otherwise show a failing run as exit 0.
-    const exitCode = exitCodeOf({
-      isError: event.isError,
-      text,
-      structured: event.structuredContent,
-      ...(command === undefined ? {} : { command }),
-    });
-    // Name what ran or which file: a check that passes silently (`tsc --noEmit`) prints nothing.
-    const target = redactSecrets(
-      command ?? (typeof event.input.path === "string" ? event.input.path : ""),
-    )
-      .replace(/\s+/g, " ")
-      .slice(0, TARGET_MAX);
-    const described = target === "" ? summary : `${target} → ${summary}`;
-    const item: ToolEvidence =
-      event.toolName === "bash"
-        ? { tool: "bash", summary: described, exitCode }
-        : { tool: event.toolName, summary: described };
-    evidence = [...evidence, item].slice(-MAX_EVIDENCE);
+    evidence = [...evidence, evidenceOf(event)].slice(-MAX_EVIDENCE);
   });
 
   deps.pi.on("turn_end", async (event, ctx) => {
@@ -142,14 +165,7 @@ export function registerTurnVerifier(deps: TurnVerifierDeps): void {
       ...(state.activeSlice === undefined ? {} : { activeSlice: state.activeSlice }),
     });
     if (!judged.ok) return undefined;
-    const entries = [
-      ...(judged.value.unverifiedClaim >= VERIFIER_THRESHOLD ? [note(claimMessage())] : []),
-      ...(judged.value.driftFromSlice >= VERIFIER_THRESHOLD &&
-      state.activeSlice !== undefined &&
-      !expansionRecorded(state, state.activeSlice)
-        ? [note(driftMessage(state.activeSlice))]
-        : []),
-    ];
+    const entries = correctionsFor(judged.value, state);
     if (entries.length === 0) return undefined;
     corrected += 1;
     justCorrected = true;

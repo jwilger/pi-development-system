@@ -118,6 +118,92 @@ function spawnPayload(input: {
   };
 }
 
+type Reply = ReturnType<typeof reply>;
+type Config = Extract<Awaited<ReturnType<typeof loadConfig>>, { ok: true }>["value"];
+type Snapshot = Extract<Awaited<ReturnType<typeof snapshotDiff>>, { ok: true }>["value"];
+type Prepared = { slice: SliceRef; config: Config; range: string; snap: Snapshot };
+
+const requiredRounds = (config: Config): number =>
+  Math.max(config.review.requiredCleanRounds, config.review.minRounds);
+
+const rangeOf = (given: string | undefined): string => given?.trim() || "HEAD";
+
+/** The slice, config and diff snapshot both tools need, or the error reply that explains why not. */
+async function prepare(
+  deps: ReviewToolDeps,
+  ctx: ExtensionContext,
+  given: { slice?: string | undefined; diffRange?: string | undefined },
+  failure: (range: string, error: string) => string,
+): Promise<{ ok: true; value: Prepared } | { ok: false; reply: Reply }> {
+  const slice = sliceOf(given.slice, deps.state);
+  if (slice === undefined) return { ok: false, reply: reply(NO_SLICE, true) };
+  const config = await loadConfig(ctx.cwd);
+  if (!config.ok)
+    return { ok: false, reply: reply(`${CONFIG_FILE}: ${config.error.message}`, true) };
+  const range = rangeOf(given.diffRange);
+  const snap = await snapshotDiff(deps.exec, ctx.cwd, range);
+  if (!snap.ok) return { ok: false, reply: reply(failure(range, snap.error), true) };
+  return { ok: true, value: { slice, config: config.value, range, snap: snap.value } };
+}
+
+const rangeNote = (range: string): string => (range === "HEAD" ? "" : ` ${GATE_RANGE_NOTE}`);
+
+/** The reply for a round that must not start: already satisfied, or findings still open. */
+function startRefusal(review: ReviewState, p: Prepared): Reply | undefined {
+  const action = nextAction(review, p.snap.digest);
+  if (action === "done") {
+    return reply(
+      `${reviewLabel(review)}. Review of ${p.slice} is already satisfied on this diff; nothing to run.${rangeNote(p.range)}`,
+    );
+  }
+  if (action === "fix-findings") {
+    return reply(
+      `${reviewLabel(review)}. Round ${review.rounds.length} of ${p.slice} has blocking or should-fix findings and the diff has not changed since: fix them first, then start again. ` +
+        "Re-running the review on unchanged code does not clear a finding. If a finding is wrong, record a `review.unsatisfied` departure with the evidence (devsys_record_departure).",
+      true,
+    );
+  }
+  return undefined;
+}
+
+async function startRound(
+  deps: ReviewToolDeps,
+  ctx: ExtensionContext,
+  p: Prepared,
+): Promise<Reply> {
+  const judged = await judgeLenses(deps.jev(ctx), {
+    diffStat: p.snap.stat,
+    diffSample: p.snap.sample,
+    profiles: deps.state.get().profiles ?? [],
+  });
+  const { lenses, basis } = chooseLenses(judged);
+  const required = requiredRounds(p.config);
+  const existing = reviewOf(deps.state.get(), p.slice) ?? startReview(p.slice, required);
+  const review: ReviewState = { ...existing, required };
+  deps.state.update((s) => upsertReview(s, review));
+  const refusal = startRefusal(review, p);
+  if (refusal !== undefined) return refusal;
+
+  const round = review.rounds.length + 1;
+  const spawn = spawnPayload({
+    slice: p.slice,
+    round,
+    lenses,
+    range: p.range,
+    model: resolveSlot(p.config.models, "reviewer", availableModels(ctx.modelRegistry)),
+    now: deps.now?.() ?? new Date(),
+  });
+  const rangeArg = p.range === "HEAD" ? "" : ` and diffRange "${p.range}"`;
+  return reply(
+    [
+      `${reviewLabel(review)}; round ${round}; diff ${p.snap.digest}. ${basis}`,
+      `lenses: ${lenses.join(", ")}`,
+      `Spawn the reviewer with agent_spawn using exactly this payload, then pass its packet to devsys_review_record with slice "${p.slice}", diffDigest "${p.snap.digest}"${rangeArg}:`,
+      JSON.stringify(spawn),
+    ].join("\n"),
+  );
+}
+
 /** `devsys_review_start`: Jev picks lenses for the diff; the reply carries the agent_spawn payload for a fresh reviewer. */
 export function createReviewStartTool(
   deps: ReviewToolDeps,
@@ -137,62 +223,16 @@ export function createReviewStartTool(
       _onUpdate,
       ctx: ExtensionContext,
     ) {
-      const slice = sliceOf(params.slice, deps.state);
-      if (slice === undefined) return reply(NO_SLICE, true);
-      const config = await loadConfig(ctx.cwd);
-      if (!config.ok) return reply(`${CONFIG_FILE}: ${config.error.message}`, true);
-      const range = params.diffRange?.trim() || "HEAD";
-      const snap = await snapshotDiff(deps.exec, ctx.cwd, range);
-      if (!snap.ok) return reply(`cannot read the diff for ${range}: ${snap.error}`, true);
-      if (snap.value.stat.trim() === "")
-        return reply(`the diff for ${range} is empty; nothing to review`, true);
-
-      const judged = await judgeLenses(deps.jev(ctx), {
-        diffStat: snap.value.stat,
-        diffSample: snap.value.sample,
-        profiles: deps.state.get().profiles ?? [],
-      });
-      const { lenses, basis } = chooseLenses(judged);
-
-      const required = Math.max(
-        config.value.review.requiredCleanRounds,
-        config.value.review.minRounds,
+      const prepared = await prepare(
+        deps,
+        ctx,
+        params,
+        (range, error) => `cannot read the diff for ${range}: ${error}`,
       );
-      const existing = reviewOf(deps.state.get(), slice) ?? startReview(slice, required);
-      const review: ReviewState = { ...existing, required };
-      deps.state.update((s) => upsertReview(s, review));
-      const action = nextAction(review, snap.value.digest);
-      if (action === "done") {
-        return reply(
-          `${reviewLabel(review)}. Review of ${slice} is already satisfied on this diff; nothing to run.${range === "HEAD" ? "" : ` ${GATE_RANGE_NOTE}`}`,
-        );
-      }
-
-      if (action === "fix-findings") {
-        return reply(
-          `${reviewLabel(review)}. Round ${review.rounds.length} of ${slice} has blocking or should-fix findings and the diff has not changed since: fix them first, then start again. ` +
-            "Re-running the review on unchanged code does not clear a finding. If a finding is wrong, record a `review.unsatisfied` departure with the evidence (devsys_record_departure).",
-          true,
-        );
-      }
-
-      const round = review.rounds.length + 1;
-      const spawn = spawnPayload({
-        slice,
-        round,
-        lenses,
-        range,
-        model: resolveSlot(config.value.models, "reviewer", availableModels(ctx.modelRegistry)),
-        now: deps.now?.() ?? new Date(),
-      });
-      return reply(
-        [
-          `${reviewLabel(review)}; round ${round}; diff ${snap.value.digest}. ${basis}`,
-          `lenses: ${lenses.join(", ")}`,
-          `Spawn the reviewer with agent_spawn using exactly this payload, then pass its packet to devsys_review_record with slice "${slice}", diffDigest "${snap.value.digest}"${range === "HEAD" ? "" : ` and diffRange "${range}"`}:`,
-          JSON.stringify(spawn),
-        ].join("\n"),
-      );
+      if (!prepared.ok) return prepared.reply;
+      if (prepared.value.snap.stat.trim() === "")
+        return reply(`the diff for ${prepared.value.range} is empty; nothing to review`, true);
+      return startRound(deps, ctx, prepared.value);
     },
   };
 }
@@ -233,7 +273,82 @@ async function adjusted(
   return { findings: out, notes };
 }
 
-/** `devsys_review_record`: parse packets, let Jev adjust severities, record the round, file the nits. */
+/** Parses every packet, or the reply naming the first malformed one. */
+function parsePackets(
+  raw: readonly string[],
+): { ok: true; value: ReviewPacket[] } | { ok: false; reply: Reply } {
+  if (raw.length === 0)
+    return {
+      ok: false,
+      reply: reply("no packets: pass the reviewer's packet markdown in `packets`", true),
+    };
+  const packets: ReviewPacket[] = [];
+  for (const [i, text] of raw.entries()) {
+    const parsed = parseReviewPacket(text);
+    if (isParseError(parsed))
+      return { ok: false, reply: reply(`packet ${i + 1} is malformed: ${parsed.message}`, true) };
+    packets.push(parsed);
+  }
+  return { ok: true, value: packets };
+}
+
+/** The refusal for a packet written for another slice or round, if there is one. */
+function wrongPacket(packets: readonly ReviewPacket[], slice: SliceRef, expected: number) {
+  const wrong = packets.findIndex((p) => p.round !== expected || p.slice !== slice);
+  if (wrong === -1) return undefined;
+  return reply(
+    `packet ${wrong + 1} is for slice "${packets[wrong]?.slice}" round ${packets[wrong]?.round}; this is round ${expected} of slice "${slice}". A packet is recorded once, in the round it was written for; ask the reviewer for a packet with the right header.`,
+    true,
+  );
+}
+
+const countOf = (findings: readonly Finding[], sev: Finding["severity"]): number =>
+  findings.filter((f) => f.severity === sev).length;
+
+function recordSummary(
+  review: ReviewState,
+  findings: readonly Finding[],
+  notes: readonly string[],
+  p: Prepared,
+): string {
+  return [
+    `Round ${review.rounds.length} recorded: ${countOf(findings, "blocking")} blocking, ${countOf(findings, "should-fix")} should-fix, ${countOf(findings, "nit")} nit, ${countOf(findings, "false-positive")} false-positive.`,
+    reviewLabel(review),
+    ...notes,
+    ...nitLines(findings),
+    `next: ${nextAction(review, p.snap.digest)}`,
+    ...(p.range === "HEAD" ? [] : [GATE_RANGE_NOTE]),
+  ].join("\n");
+}
+
+async function recordRound(
+  deps: ReviewToolDeps,
+  ctx: ExtensionContext,
+  p: Prepared,
+  packets: readonly ReviewPacket[],
+): Promise<Reply> {
+  const required = requiredRounds(p.config);
+  const before = reviewOf(deps.state.get(), p.slice) ?? startReview(p.slice, required);
+  const refusal = wrongPacket(packets, p.slice, before.rounds.length + 1);
+  if (refusal !== undefined) return refusal;
+
+  const merged = combinePackets(packets);
+  const { findings, notes } = await adjusted(deps, ctx, merged.findings, p.snap.sample);
+  const review = addRound(
+    { ...before, required },
+    {
+      lenses: merged.lenses,
+      findings,
+      reviewedAt: (deps.now?.() ?? new Date()).toISOString(),
+      diffDigest: p.snap.digest,
+      files: p.snap.files,
+    },
+  );
+  deps.state.update((s) => upsertReview(s, review));
+  return reply(recordSummary(review, findings, notes, p));
+}
+
+/** `devsys_review_record`: parse packets, let Jev adjust severities, record the round. */
 export function createReviewRecordTool(
   deps: ReviewToolDeps,
 ): ToolDefinition<typeof RecordParameters> {
@@ -252,69 +367,23 @@ export function createReviewRecordTool(
       _onUpdate,
       ctx: ExtensionContext,
     ) {
-      const slice = sliceOf(params.slice, deps.state);
-      if (slice === undefined) return reply(NO_SLICE, true);
-      if (params.packets.length === 0)
-        return reply("no packets: pass the reviewer's packet markdown in `packets`", true);
-      const packets: ReviewPacket[] = [];
-      for (const [i, raw] of params.packets.entries()) {
-        const parsed = parseReviewPacket(raw);
-        if (isParseError(parsed))
-          return reply(`packet ${i + 1} is malformed: ${parsed.message}`, true);
-        packets.push(parsed);
-      }
-      const config = await loadConfig(ctx.cwd);
-      if (!config.ok) return reply(`${CONFIG_FILE}: ${config.error.message}`, true);
-      const range = params.diffRange?.trim() || "HEAD";
-      const snap = await snapshotDiff(deps.exec, ctx.cwd, range);
-      if (!snap.ok) return reply(`cannot read the diff: ${snap.error}`, true);
-
-      if (params.diffDigest !== snap.value.digest) {
+      if (sliceOf(params.slice, deps.state) === undefined) return reply(NO_SLICE, true);
+      const packets = parsePackets(params.packets);
+      if (!packets.ok) return packets.reply;
+      const prepared = await prepare(
+        deps,
+        ctx,
+        params,
+        (_range, error) => `cannot read the diff: ${error}`,
+      );
+      if (!prepared.ok) return prepared.reply;
+      if (params.diffDigest !== prepared.value.snap.digest) {
         return reply(
-          `the diff changed since the review started (reviewed ${params.diffDigest}, now ${snap.value.digest}); the reviewer did not see the current code. Run devsys_review_start again.`,
+          `the diff changed since the review started (reviewed ${params.diffDigest}, now ${prepared.value.snap.digest}); the reviewer did not see the current code. Run devsys_review_start again.`,
           true,
         );
       }
-      const required = Math.max(
-        config.value.review.requiredCleanRounds,
-        config.value.review.minRounds,
-      );
-      const before = reviewOf(deps.state.get(), slice) ?? startReview(slice, required);
-      const expected = before.rounds.length + 1;
-      const wrong = packets.findIndex((p) => p.round !== expected || p.slice !== slice);
-      if (wrong !== -1) {
-        return reply(
-          `packet ${wrong + 1} is for slice "${packets[wrong]?.slice}" round ${packets[wrong]?.round}; this is round ${expected} of slice "${slice}". A packet is recorded once, in the round it was written for; ask the reviewer for a packet with the right header.`,
-          true,
-        );
-      }
-
-      const merged = combinePackets(packets);
-      const { findings, notes } = await adjusted(deps, ctx, merged.findings, snap.value.sample);
-      const reviewed = snap.value;
-      const review = addRound(
-        { ...before, required },
-        {
-          lenses: merged.lenses,
-          findings,
-          reviewedAt: (deps.now?.() ?? new Date()).toISOString(),
-          diffDigest: reviewed.digest,
-          files: reviewed.files,
-        },
-      );
-      deps.state.update((s) => upsertReview(s, review));
-      const counts = (sev: Finding["severity"]) =>
-        findings.filter((f) => f.severity === sev).length;
-      return reply(
-        [
-          `Round ${review.rounds.length} recorded: ${counts("blocking")} blocking, ${counts("should-fix")} should-fix, ${counts("nit")} nit, ${counts("false-positive")} false-positive.`,
-          reviewLabel(review),
-          ...notes,
-          ...nitLines(findings),
-          `next: ${nextAction(review, reviewed.digest)}`,
-          ...(range === "HEAD" ? [] : [GATE_RANGE_NOTE]),
-        ].join("\n"),
-      );
+      return recordRound(deps, ctx, prepared.value, packets.value);
     },
   };
 }

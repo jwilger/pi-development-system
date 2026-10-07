@@ -24,7 +24,8 @@ const worst = (a: GitIntent, b: GitIntent): GitIntent =>
   SEVERITY.indexOf(a) <= SEVERITY.indexOf(b) ? a : b;
 
 /** Splits a command string on newlines that are outside quotes; backslash-newline is a continuation. */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: a shell lexer is one flat branch per character class; splitting it would scatter a single state machine across helpers
+// biome-ignore-start lint/complexity/noExcessiveCognitiveComplexity: a shell lexer is one flat branch per character class; splitting it would scatter a single state machine across helpers
+// pi-lens-ignore: high-complexity -- a shell lexer is one flat branch per character class; splitting it would scatter one state machine across helpers
 export function splitLines(command: string): string[] {
   const lines: string[] = [];
   let current = "";
@@ -56,6 +57,7 @@ export function splitLines(command: string): string[] {
   lines.push(current);
   return lines;
 }
+// biome-ignore-end lint/complexity/noExcessiveCognitiveComplexity: end of the shell lexer above
 
 const isRedirect = (op: string): boolean => /^[<>]/.test(op) && !op.endsWith("(");
 
@@ -216,6 +218,7 @@ function splitGlobals(rest: string[]): {
   return { globals, sub: rest[j], args: rest.slice(j + 1) };
 }
 
+// pi-lens-ignore: high-fan-out -- the classifier dispatches one git word to many small predicates; it is a table, not coordination
 function classifySegment(tokens: string[]): GitIntent {
   const { index: i, hookSkip } = skipPrefix(tokens);
   if (i < 0) return "ordinary";
@@ -251,6 +254,7 @@ function classifySegment(tokens: string[]): GitIntent {
  * The parts of a line bash may still execute or treat as syntax: single-quoted text and
  * backslash-escaped characters are dropped; double-quoted text is kept unless `dropDouble`.
  */
+// pi-lens-ignore: high-complexity -- a shell lexer is one flat branch per character class; splitting it would scatter one state machine across helpers
 export function live(line: string, dropDouble: boolean): string {
   let out = "";
   let quote: "'" | '"' | undefined;
@@ -292,6 +296,7 @@ export function substitutions(text: string): string[] {
 const HEREDOC = /^<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1/;
 
 /** The delimiter of a heredoc started by an unquoted `<<` on this line, if any. */
+// pi-lens-ignore: high-complexity -- a shell lexer is one flat branch per character class; splitting it would scatter one state machine across helpers
 export function heredocDelimiter(line: string): string | undefined {
   let quote: "'" | '"' | undefined;
   for (let i = 0; i < line.length; i++) {

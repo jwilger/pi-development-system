@@ -33,6 +33,7 @@ export type FakePiOptions = {
  * A minimal in-memory stand-in for pi's ExtensionAPI/ExtensionContext. It is
  * a test double only: every cast lives in this file, behind the boundary.
  */
+// pi-lens-ignore: high-fan-out -- the fake implements the whole ExtensionAPI surface in one place, by design
 export function createFakePi(init: FakePiOptions = {}) {
   const handlers = new Map<string, Handler[]>();
   const tools = new Map<string, ToolDefinition>();

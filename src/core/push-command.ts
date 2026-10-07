@@ -34,18 +34,23 @@ type ParsedArgs = {
 
 const VALUE_PREFIX = "--repo=";
 
+function applyFlag(parsed: ParsedArgs, a: string): void {
+  if (a.startsWith(VALUE_PREFIX)) parsed.repo = a.slice(VALUE_PREFIX.length);
+  else if (a === "--all" || a === "--mirror") parsed.all = true;
+  else if (a === "--tags") parsed.tags = true;
+  else if (!a.startsWith("-")) parsed.positional.push(a);
+}
+
 function positionalArgs(args: readonly string[]): ParsedArgs {
   const parsed: ParsedArgs = { positional: [], all: false, tags: false, repo: undefined };
   let valueFor: "repo" | "skip" | undefined;
   for (const a of args) {
-    if (valueFor === "repo") parsed.repo = a;
-    if (valueFor !== undefined) valueFor = undefined;
-    else if (a === "--repo") valueFor = "repo";
-    else if (a.startsWith(VALUE_PREFIX)) parsed.repo = a.slice(VALUE_PREFIX.length);
+    if (valueFor !== undefined) {
+      if (valueFor === "repo") parsed.repo = a;
+      valueFor = undefined;
+    } else if (a === "--repo") valueFor = "repo";
     else if (VALUE_OPTIONS.has(a)) valueFor = "skip";
-    else if (a === "--all" || a === "--mirror") parsed.all = true;
-    else if (a === "--tags") parsed.tags = true;
-    else if (!a.startsWith("-")) parsed.positional.push(a);
+    else applyFlag(parsed, a);
   }
   return parsed;
 }

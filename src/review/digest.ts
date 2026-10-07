@@ -37,6 +37,45 @@ const PLAIN_DIFF = [
   "--ignore-submodules=dirty",
 ];
 
+type GitReads = { diff: string; stat: string; listed: string[] };
+
+const NO_OUTPUT = { code: 0, stdout: "", stderr: "" };
+
+/** The three git reads a snapshot is made of, or the error that stopped them. */
+async function readGit(exec: Exec, cwd: string, range: string): Promise<Result<GitReads, string>> {
+  // Plain, parseable output whatever the user's git config says: an external diff driver or
+  // forced colour removes the `diff --git` headers the per-file digests are cut from.
+  const [diff, stat, others] = await Promise.all([
+    exec("git", [...PLAIN_DIFF, "--full-index", "--no-renames", range], { cwd, timeout: 15_000 }),
+    exec("git", [...PLAIN_DIFF, "--stat", range], { cwd, timeout: 15_000 }),
+    // Any range that ends in the work tree (HEAD, HEAD~1, a branch) leaves untracked files out of git diff.
+    range.includes("..")
+      ? Promise.resolve(NO_OUTPUT)
+      : exec(
+          "git",
+          ["-c", "core.quotePath=false", "ls-files", "-z", "--others", "--exclude-standard"],
+          { cwd, timeout: 15_000 },
+        ),
+  ]);
+  if (diff.code !== 0) return err(diff.stderr.trim() || `git diff ${range} failed`);
+  if (others.code !== 0) return err(others.stderr.trim() || "git ls-files --others failed");
+  return ok({
+    diff: diff.stdout,
+    stat: stat.stdout,
+    listed: others.stdout.split("\0").filter((p) => p !== ""),
+  });
+}
+
+/** Per-file digests of the tracked diff; an unparseable non-empty diff is an error, never an empty digest. */
+function trackedDigests(diff: string): Result<Record<string, string>, string> {
+  const files: Record<string, string> = {};
+  for (const [path, text] of Object.entries(splitDiffByFile(diff))) files[path] = fileDigest(text);
+  if (diff.trim() !== "" && Object.keys(files).length === 0) {
+    return err("could not read the diff: no per-file sections were found");
+  }
+  return ok(files);
+}
+
 /**
  * The change in `range` (default `HEAD`: everything not yet committed) with its digest. `git diff`
  * leaves out untracked files, so for a range that includes the work tree they are listed and
@@ -48,41 +87,21 @@ export async function snapshotDiff(
   range: string,
 ): Promise<Result<DiffSnapshot, string>> {
   try {
-    // Plain, parseable output whatever the user's git config says: an external diff driver or
-    // forced colour removes the `diff --git` headers the per-file digests are cut from.
-    const [diff, stat, others] = await Promise.all([
-      exec("git", [...PLAIN_DIFF, "--full-index", "--no-renames", range], { cwd, timeout: 15_000 }),
-      exec("git", [...PLAIN_DIFF, "--stat", range], { cwd, timeout: 15_000 }),
-      // Any range that ends in the work tree (HEAD, HEAD~1, a branch) leaves untracked files out of git diff.
-      !range.includes("..")
-        ? exec(
-            "git",
-            ["-c", "core.quotePath=false", "ls-files", "-z", "--others", "--exclude-standard"],
-            { cwd, timeout: 15_000 },
-          )
-        : Promise.resolve({ code: 0, stdout: "", stderr: "" }),
-    ]);
-    if (diff.code !== 0) return err(diff.stderr.trim() || `git diff ${range} failed`);
-    if (others.code !== 0) return err(others.stderr.trim() || "git ls-files --others failed");
-    const listed = others.stdout.split("\0").filter((p) => p !== "");
+    const git = await readGit(exec, cwd, range);
+    if (!git.ok) return git;
     // A nested repository is listed as `dir/` and has no blob to hash.
-    const nested = listed.filter((p) => p.endsWith("/"));
-    const untracked = listed.filter((p) => !p.endsWith("/"));
+    const nested = git.value.listed.filter((p) => p.endsWith("/"));
+    const untracked = git.value.listed.filter((p) => !p.endsWith("/"));
     if (untracked.length > MAX_UNTRACKED) {
       return err(
         `${untracked.length} untracked files (more than ${MAX_UNTRACKED}); stage (git add) or ignore some so they can be reviewed`,
       );
     }
-    const files: Record<string, string> = {};
-    for (const [path, text] of Object.entries(splitDiffByFile(diff.stdout))) {
-      files[path] = fileDigest(text);
-    }
-    if (diff.stdout.trim() !== "" && Object.keys(files).length === 0) {
-      return err("could not read the diff: no per-file sections were found");
-    }
+    const tracked = trackedDigests(git.value.diff);
+    if (!tracked.ok) return tracked;
     const hashed = await hashUntracked(exec, cwd, untracked);
     if (!hashed.ok) return hashed;
-    Object.assign(files, hashed.value);
+    const files = { ...tracked.value, ...hashed.value };
     const names = Object.keys(files).sort((a, b) => a.localeCompare(b));
     const untrackedStat = [
       ...untracked.map((p) => ` ${p} (untracked)`),
@@ -91,8 +110,8 @@ export async function snapshotDiff(
     return ok({
       digest: digestOf(names.map((p) => `${p}\0${files[p]}`).join("\n")),
       files,
-      stat: [stat.stdout.trimEnd(), untrackedStat].filter((p) => p !== "").join("\n"),
-      sample: diff.stdout.slice(0, 16_000),
+      stat: [git.value.stat.trimEnd(), untrackedStat].filter((p) => p !== "").join("\n"),
+      sample: git.value.diff.slice(0, 16_000),
     });
   } catch (cause) {
     return err(cause instanceof Error ? cause.message : String(cause));

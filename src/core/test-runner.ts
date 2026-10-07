@@ -9,17 +9,20 @@ const SUMMARY_MAX = 300;
 
 /** Words after wrappers (`time`, `timeout 60`, `env`), assignments and `+toolchain` selectors. */
 function commandWords(words: readonly string[]): string[] {
-  let i = 0;
-  while (i < words.length) {
-    const word = words[i] ?? "";
-    const wrapper = WRAPPERS.has(basename(word)) || basename(word) === "timeout";
-    if (isAssignment(word)) i += 1;
-    else if (wrapper) {
-      i += 1;
-      while (i < words.length && /^(?:-|\d+[smhd]?$)/.test(words[i] ?? "")) i += 1;
-    } else break;
+  const flagOrDuration = (w: string | undefined): boolean => /^(?:-|\d+[smhd]?$)/.test(w ?? "");
+  let next = 0;
+  for (const [index, word] of words.entries()) {
+    if (index < next) continue;
+    if (isAssignment(word)) {
+      next = index + 1;
+    } else if (WRAPPERS.has(basename(word)) || basename(word) === "timeout") {
+      next = index + 1;
+      while (flagOrDuration(words[next])) next += 1;
+    } else {
+      return words.slice(index);
+    }
   }
-  return words.slice(i);
+  return [];
 }
 
 function isRunner(words: readonly string[]): boolean {

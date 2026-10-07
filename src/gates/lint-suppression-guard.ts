@@ -10,9 +10,8 @@ import { findUnreasonedSuppressions, MIN_RATIONALE } from "../core/lint-suppress
 import { classifyPath } from "../core/path-class.ts";
 import { normalizeRepoPath } from "../core/test-paths.ts";
 import { applyEdits, normalizeText } from "../core/test-weakening.ts";
-import { type GateId, isParseError, parseGateId } from "../core/types.ts";
 import type { SessionState } from "../state/session-state.ts";
-import { departureUse } from "./departure-use.ts";
+import { openGate } from "./departure-use.ts";
 
 export type LintSuppressionGuardDeps = { pi: ExtensionAPI; state: SessionState };
 
@@ -54,20 +53,16 @@ function resultingText(
  * (at least {@link MIN_RATIONALE} characters) or a recorded departure.
  */
 export function registerLintSuppressionGuard(deps: LintSuppressionGuardDeps): void {
-  const parsed = parseGateId(GATE_ID);
-  if (isParseError(parsed)) return;
-  const gate: GateId = parsed;
-  const departure = departureUse(deps.state, gate);
+  const opened = openGate(deps.state, GATE_ID);
+  if (opened === undefined) return;
+  const { departure } = opened;
 
   deps.pi.on("tool_call", (event, ctx) => {
     const change = resultingText(event, ctx.cwd);
     if (change === undefined) return undefined;
     const found = findUnreasonedSuppressions(change.before, change.after);
     if (found.length === 0) return undefined;
-    if (departure.hasOpen()) {
-      departure.consume();
-      return undefined;
-    }
+    if (departure.covers()) return undefined;
     const list = found.map((s) => `${s.marker} (line ${s.line})`).join(", ");
     return {
       block: true,

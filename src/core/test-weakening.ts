@@ -125,7 +125,8 @@ type Segment = { words: string[]; truncates: string[] };
 type Token = { kind: "word"; value: string } | { kind: "op"; op: string };
 
 /** Turns unquoted newlines into `;` (and joins backslash continuations) so shell-quote sees every command. */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: a shell lexer is one flat branch per character class; splitting it would scatter a single state machine across helpers
+// biome-ignore-start lint/complexity/noExcessiveCognitiveComplexity: a shell lexer is one flat branch per character class; splitting it would scatter a single state machine across helpers
+// pi-lens-ignore: high-complexity -- a shell lexer is one flat branch per character class; splitting it would scatter one state machine across helpers
 function splitLines(command: string): string {
   let out = "";
   let quote: "'" | '"' | undefined;
@@ -155,6 +156,7 @@ function splitLines(command: string): string {
   }
   return out;
 }
+// biome-ignore-end lint/complexity/noExcessiveCognitiveComplexity: end of the shell lexer above
 
 /** Boundary decode of shell-quote's output into domain tokens; globs count as words. */
 function tokenize(command: string): Token[] {

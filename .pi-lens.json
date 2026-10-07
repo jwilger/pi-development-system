@@ -1,4 +1,5 @@
 {
+  "ignore": ["src/subagents/**"],
   "rules": {
     "high-complexity": { "threshold": 25 }
   }

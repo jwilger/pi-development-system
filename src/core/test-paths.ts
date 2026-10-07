@@ -18,22 +18,20 @@ const PATTERNS: readonly RegExp[] = [
   /_tests\.rs$/,
 ];
 
+/** Whether `rest` matches some suffix of `path`; a `*` may not cross a `/` when `withinSegment`. */
+function matchesSuffix(rest: string, path: string, withinSegment: boolean): boolean {
+  for (let i = 0; i <= path.length; i++) {
+    if (matchGlob(rest, path.slice(i))) return true;
+    if (withinSegment && (path[i] === "/" || i === path.length)) return false;
+  }
+  return false;
+}
+
 /** Glob match without building a RegExp: `**` spans directories, `*` stays within a segment. */
 function matchGlob(glob: string, path: string): boolean {
   if (glob === "") return path === "";
-  if (glob.startsWith("**")) {
-    const rest = glob.slice(2);
-    for (let i = 0; i <= path.length; i++) if (matchGlob(rest, path.slice(i))) return true;
-    return false;
-  }
-  if (glob.startsWith("*")) {
-    const rest = glob.slice(1);
-    for (let i = 0; i <= path.length; i++) {
-      if (matchGlob(rest, path.slice(i))) return true;
-      if (path[i] === "/" || i === path.length) return false;
-    }
-    return false;
-  }
+  if (glob.startsWith("**")) return matchesSuffix(glob.slice(2), path, false);
+  if (glob.startsWith("*")) return matchesSuffix(glob.slice(1), path, true);
   return path !== "" && path[0] === glob[0] && matchGlob(glob.slice(1), path.slice(1));
 }
 

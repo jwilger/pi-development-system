@@ -1,3 +1,4 @@
+// pi-lens-ignore: high-import-coupling -- composition root: it imports every module it wires, by design
 import { readFileSync } from "node:fs";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { cadenceLine, DEFAULT_PUSH_MINUTES } from "../src/context/cadence.ts";
@@ -34,6 +35,7 @@ const nonNegotiables = readFileSync(
 );
 
 /** Composition root: wires modules, holds no logic. */
+// pi-lens-ignore: high-fan-out -- composition root: wiring every module is its whole job
 export function createDevelopmentSystem(pi: ExtensionAPI) {
   const state = createSessionState(pi);
   const approvals = createApprovalStore(pi);

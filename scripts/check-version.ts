@@ -77,6 +77,39 @@ function resolveRange(): Range {
   return { tip: `origin/${MAIN_BRANCH}`, headRef: null, overrides: env ? [env] : [] };
 }
 
+/** The bump Jev (or an override) says the published changes need; exits through `fail` when Jev cannot say. */
+async function requiredBump(
+  base: Manifest,
+  published: string[],
+  diffArgs: string[],
+  overrides: string[],
+): Promise<Bump> {
+  if (published.length === 0) return "none";
+  if (overrides.length > 0) {
+    warn(`⚠ Jev-Override (${overrides.join("; ")}): requiring at least a patch bump`);
+    return "patch";
+  }
+  try {
+    const j = await judgeBump({
+      packageName: base.name,
+      baseVersion: base.version,
+      changedFiles: published,
+      diff: git("diff", ...diffArgs, "--", ...published),
+    });
+    const evidence = `breaking ${j.evidence.breaking.toFixed(2)}, feature ${j.evidence.feature.toFixed(2)}, observable ${j.evidence.observable.toFixed(2)}`;
+    if (!(j.confidence >= MIN_BUMP_CONFIDENCE)) {
+      return fail(
+        `Jev is not confident about the required bump (${j.bump}, confidence ${j.confidence.toFixed(2)} < ${MIN_BUMP_CONFIDENCE}; ${evidence}). ` +
+          "Split the change, or override with JEV_OVERRIDE / a Jev-Override: trailer.",
+      );
+    }
+    out(`Jev: ${j.bump} bump required (confidence ${j.confidence.toFixed(2)}; ${evidence})`);
+    return j.bump;
+  } catch (error) {
+    return fail(`Could not ask Jev for the semver bump: ${String(error)}`);
+  }
+}
+
 async function main(): Promise<void> {
   const { tip, headRef, overrides } = resolveRange();
 
@@ -85,9 +118,8 @@ async function main(): Promise<void> {
   const state = buildStateAt(tip);
   const baseRef = state.kind === "broken" ? (lastRelease(tip) ?? tip) : tip;
 
-  const headSpec = headRef ? `${headRef}:package.json` : ":package.json";
   const base = manifestAt(`${baseRef}:package.json`);
-  const head = manifestAt(headSpec);
+  const head = manifestAt(headRef ? `${headRef}:package.json` : ":package.json");
   const baseVersion = parseVersion(base.version);
   const headVersion = parseVersion(head.version);
 
@@ -96,36 +128,7 @@ async function main(): Promise<void> {
     .split("\n")
     .filter(Boolean);
   const published = changed.filter((f) => PUBLISHED_PATHS.some((p) => f === p || f.startsWith(p)));
-
-  let required: Bump = "none";
-  if (published.length > 0) {
-    if (overrides.length > 0) {
-      warn(`⚠ Jev-Override (${overrides.join("; ")}): requiring at least a patch bump`);
-      required = "patch";
-    } else {
-      const diff = git("diff", ...diffArgs, "--", ...published);
-      try {
-        const j = await judgeBump({
-          packageName: base.name,
-          baseVersion: base.version,
-          changedFiles: published,
-          diff,
-        });
-        if (!(j.confidence >= MIN_BUMP_CONFIDENCE)) {
-          fail(
-            `Jev is not confident about the required bump (${j.bump}, confidence ${j.confidence.toFixed(2)} < ${MIN_BUMP_CONFIDENCE}; breaking ${j.evidence.breaking.toFixed(2)}, feature ${j.evidence.feature.toFixed(2)}, observable ${j.evidence.observable.toFixed(2)}). ` +
-              "Split the change, or override with JEV_OVERRIDE / a Jev-Override: trailer.",
-          );
-        }
-        required = j.bump;
-        out(
-          `Jev: ${j.bump} bump required (confidence ${j.confidence.toFixed(2)}; breaking ${j.evidence.breaking.toFixed(2)}, feature ${j.evidence.feature.toFixed(2)}, observable ${j.evidence.observable.toFixed(2)})`,
-        );
-      } catch (error) {
-        fail(`Could not ask Jev for the semver bump: ${String(error)}`);
-      }
-    }
-  }
+  const required = await requiredBump(base, published, diffArgs, overrides);
 
   if (!satisfiesBump(baseVersion, headVersion, required)) {
     fail(

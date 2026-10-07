@@ -4,9 +4,8 @@ import { resolve } from "node:path";
 import { type ExtensionAPI, isToolCallEventType } from "@earendil-works/pi-coding-agent";
 import { classifyPath } from "../core/path-class.ts";
 import { normalizeRepoPath } from "../core/test-paths.ts";
-import { type GateId, isParseError, parseGateId } from "../core/types.ts";
 import type { SessionState } from "../state/session-state.ts";
-import { departureUse } from "./departure-use.ts";
+import { openGate } from "./departure-use.ts";
 
 export type RedFirstGuardDeps = { pi: ExtensionAPI; state: SessionState };
 
@@ -63,10 +62,9 @@ const JUDGED_EXEMPTIONS =
  * judged exemptions go through one recorded departure, which covers its whole slice.
  */
 export function registerRedFirstGuard(deps: RedFirstGuardDeps): void {
-  const parsed = parseGateId(GATE_ID);
-  if (isParseError(parsed)) return;
-  const gate: GateId = parsed;
-  const departure = departureUse(deps.state, gate);
+  const opened = openGate(deps.state, GATE_ID);
+  if (opened === undefined) return;
+  const { departure } = opened;
 
   deps.pi.on("tool_call", (event, ctx) => {
     if (!(isToolCallEventType("edit", event) || isToolCallEventType("write", event)))
@@ -77,10 +75,7 @@ export function registerRedFirstGuard(deps: RedFirstGuardDeps): void {
     const path = normalizeRepoPath(ctx.cwd, event.input.path, homedir());
     if (classifyPath(path) !== "source") return undefined;
     if (touchesInlineTest(event.input, () => existing(ctx.cwd, path))) return undefined;
-    if (departure.hasOpen()) {
-      departure.consume();
-      return undefined;
-    }
+    if (departure.covers()) return undefined;
     const seen =
       lastTestRun === undefined
         ? "no test run has been observed in this session"
