@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { exitCodeOf, isTestRunnerCommand, summarizeOutput } from "../../src/core/test-runner.ts";
+import { fakeEnvToken, fakePrivateKey, fakeSecretValue } from "../harness/fake-secrets.ts";
 
 const yes = [
   "cargo test",
@@ -62,10 +63,10 @@ test("an error without a code counts as a failure and success as 0", () => {
 });
 
 test("summary is the last meaningful lines, bounded and redacted", () => {
-  const out = `${"noise\n".repeat(50)}test result: FAILED. 1 passed; 2 failed\nTOKEN=abcdef123456789\n`;
+  const out = `${"noise\n".repeat(50)}test result: FAILED. 1 passed; 2 failed\n${fakeEnvToken("TOKEN", fakeSecretValue())}\n`;
   const s = summarizeOutput(out);
   assert.match(s, /2 failed/);
-  assert.doesNotMatch(s, /abcdef123456789/);
+  assert.doesNotMatch(s, new RegExp(fakeSecretValue()));
   assert.ok(s.length <= 300);
 });
 
@@ -126,14 +127,13 @@ test("a newline-separated command masks the runner's status like a semicolon", (
 });
 
 test("a multi-line private key is redacted even when only its tail would be kept", () => {
-  const out = [
-    "-----BEGIN OPENSSH PRIVATE KEY-----",
+  const out = fakePrivateKey(
+    "OPENSSH",
     "AAAAC3NzaC1lZDI1NTE5AAAAIPHSECRETSECRETSECRET",
     "bGluZTJsaW5lMmxpbmUybGluZTJsaW5lMg==",
     "bGluZTNsaW5lM2xpbmUzbGluZTNsaW5lMw==",
     "bGluZTRsaW5lNGxpbmU0bGluZTRsaW5lNA==",
-    "-----END OPENSSH PRIVATE KEY-----",
-  ].join("\n");
+  );
   const s = summarizeOutput(out);
   assert.doesNotMatch(s, /SECRETSECRET|bGluZ/);
 });

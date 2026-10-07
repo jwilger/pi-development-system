@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { redactSecrets } from "../../src/core/redact.ts";
+import { fakeEnvToken, fakeGitlabToken, fakeSecretValue } from "../harness/fake-secrets.ts";
 
 test("redacts URL userinfo credentials", () => {
   assert.equal(
@@ -30,7 +31,7 @@ test("leaves ordinary commands untouched", () => {
 
 test("redacts secret-looking env assignments and bearer tokens", () => {
   assert.equal(
-    redactSecrets("GH_TOKEN=abcd1234efgh git push -f"),
+    redactSecrets(`${fakeEnvToken("GH_TOKEN", fakeSecretValue())} git push -f`),
     "GH_TOKEN=[redacted] git push -f",
   );
   assert.equal(redactSecrets("TYPESAFE_API_KEY=ts_abcdef x"), "TYPESAFE_API_KEY=[redacted] x");
@@ -62,7 +63,7 @@ test("redacts unquoted and spaced secrets and well-known token shapes", () => {
     ["+  password: hunter2", "hunter2"],
     ["+aws_access_key_id = AKIAIOSFODNN7EXAMPLE", "AKIAIOSFODNN7EXAMPLE"],
     ["token xoxb-1234567890-abcdefghij", "xoxb-1234567890-abcdefghij"],
-    ["glpat-abcdefghij0123456789", "glpat-abcdefghij0123456789"],
+    [fakeGitlabToken(), fakeGitlabToken()],
     [`npm_${"a1".repeat(18)}`, "npm_a1"],
     ["jwt eyJhbGciOi.eyJzdWIiOiIx.SflKxwRJSM", "eyJhbGciOi"],
     ['secret_token := "abcdefgh"', "abcdefgh"],

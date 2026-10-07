@@ -7,6 +7,7 @@ import type { Phase, SliceRef } from "../../src/core/types.ts";
 import type { Jev, JevAvailability } from "../../src/jev/client.ts";
 import { createSessionState } from "../../src/state/session-state.ts";
 import { createFakePi } from "../harness/fake-pi.ts";
+import { fakeBearerHeader } from "../harness/fake-secrets.ts";
 
 type Asked = { state: Record<string, unknown>; questions: string[] };
 const bool = (probability: number): ClassifierAnswer => ({ type: "bool", probability });
@@ -271,7 +272,7 @@ test("a secret in the command never reaches Jev as evidence", async () => {
     "bash",
     "ok",
     false,
-    "curl -H 'Authorization: Bearer abcdef1234567890abcdef' x",
+    `curl -H '${fakeBearerHeader("abcdef1234567890abcdef")}' x`,
   );
   await t.turnEnd("Done.");
   assert.doesNotMatch(JSON.stringify(t.asked[0]?.state.toolEvidence), /abcdef1234567890abcdef/);

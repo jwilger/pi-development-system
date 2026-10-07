@@ -11,6 +11,7 @@ import { registerTestGuard } from "../../src/gates/test-guard.ts";
 import type { Jev } from "../../src/jev/client.ts";
 import { createSessionState } from "../../src/state/session-state.ts";
 import { createFakePi } from "../harness/fake-pi.ts";
+import { fakeEnvToken, fakeGithubToken } from "../harness/fake-secrets.ts";
 
 const now = () => new Date("2026-10-06T17:12:00Z");
 const TEST_FILE = "test/a.test.ts";
@@ -182,7 +183,7 @@ test("Jev never receives secrets from the changed test file", async () => {
   const { call } = setup(spy);
   await call("write", {
     path: TEST_FILE,
-    content: "const TOKEN=ghp_abcdefghijklmnopqrstuv1234;\n",
+    content: `const ${fakeEnvToken("TOKEN", fakeGithubToken())};\n`,
   });
   assert.ok(seen.length > 0);
   assert.doesNotMatch(seen.join(""), /ghp_abcdefghijklmnop/);
