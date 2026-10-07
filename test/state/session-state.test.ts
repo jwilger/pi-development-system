@@ -110,3 +110,44 @@ test("profiles and lastTestRun round-trip; bad ones are rejected", async () => {
   assert.equal(bad({ lastTestRun: { at: "t", exitCode: "1", summary: "s" } }), true);
   assert.equal(bad({ lastTestRun: "red" }), true);
 });
+
+test("reviews round-trip; malformed ones are rejected", () => {
+  const review = {
+    slice: "s1",
+    required: 3,
+    rounds: [
+      {
+        n: 1,
+        lenses: ["types"],
+        reviewedAt: "2026-10-06T17:12:00Z",
+        diffDigest: "abcd",
+        findings: [
+          { id: "types-1", severity: "nit", lens: "types", summary: "x", path: "a.ts", line: 3 },
+        ],
+      },
+    ],
+  };
+  const ok = parseDevsysState({ ...initialState(), reviews: [review] });
+  assert.deepEqual("reviews" in ok ? ok.reviews : undefined, [review]);
+  const bad = (extra: Record<string, unknown>) =>
+    isParseError(parseDevsysState({ ...initialState(), ...extra }));
+  assert.equal(bad({ reviews: "x" }), true);
+  assert.equal(bad({ reviews: [{ ...review, required: 0 }] }), true);
+  assert.equal(
+    bad({
+      reviews: [
+        {
+          ...review,
+          rounds: [
+            {
+              ...review.rounds[0],
+              findings: [{ id: "a", severity: "huge", lens: "t", summary: "s" }],
+            },
+          ],
+        },
+      ],
+    }),
+    true,
+  );
+  assert.equal(bad({ reviews: [{ ...review, rounds: [{ n: 1 }] }] }), true);
+});

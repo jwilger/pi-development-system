@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { parseDeparture } from "../core/departure.ts";
+import { parseReviewState, type ReviewState } from "../core/review.ts";
 import {
   CI_STATUSES,
   type CiState,
@@ -65,11 +66,32 @@ function parseTestRun(input: unknown): TestRun | ParseError {
   return { at, exitCode, summary };
 }
 
+function parseReviews(input: unknown): ReviewState[] | ParseError {
+  if (!Array.isArray(input)) return parseError("reviews must be an array");
+  const out: ReviewState[] = [];
+  for (const raw of input) {
+    const review = parseReviewState(raw);
+    if (isParseError(review)) return review;
+    out.push(review);
+  }
+  return out;
+}
+
 /** Boundary parse for persisted state: the only place state is cast from `unknown`. */
 export function parseDevsysState(input: unknown): DevsysState | ParseError {
   if (!isRecord(input)) return parseError("devsys state must be an object");
-  const { phase, sizing, activeSlice, openDepartures, jev, lastPushAt, ci, profiles, lastTestRun } =
-    input;
+  const {
+    phase,
+    sizing,
+    activeSlice,
+    openDepartures,
+    jev,
+    lastPushAt,
+    ci,
+    profiles,
+    lastTestRun,
+    reviews,
+  } = input;
   if (!PHASES.includes(phase as Phase)) return parseError(`unknown phase: ${String(phase)}`);
   if (!JEV.includes(jev as JevStatus)) return parseError(`unknown jev status: ${String(jev)}`);
   if (!Array.isArray(openDepartures)) return parseError("openDepartures must be an array");
@@ -94,6 +116,8 @@ export function parseDevsysState(input: unknown): DevsysState | ParseError {
   if (isParseError(parsedProfiles)) return parsedProfiles;
   const parsedRun = lastTestRun === undefined ? undefined : parseTestRun(lastTestRun);
   if (isParseError(parsedRun)) return parsedRun;
+  const parsedReviews = reviews === undefined ? undefined : parseReviews(reviews);
+  if (isParseError(parsedReviews)) return parsedReviews;
   return {
     phase: phase as Phase,
     jev: jev as JevStatus,
@@ -104,6 +128,7 @@ export function parseDevsysState(input: unknown): DevsysState | ParseError {
     ...(parsedCi !== undefined ? { ci: parsedCi } : {}),
     ...(parsedProfiles !== undefined ? { profiles: parsedProfiles } : {}),
     ...(parsedRun !== undefined ? { lastTestRun: parsedRun } : {}),
+    ...(parsedReviews !== undefined ? { reviews: parsedReviews } : {}),
   };
 }
 

@@ -1,3 +1,5 @@
+import type { ReviewState } from "./review.ts";
+
 /** Pure domain types for the development system. No I/O lives here. */
 
 export type ParseError = { readonly kind: "parse-error"; readonly message: string };
@@ -82,6 +84,8 @@ export type DevsysState = {
   readonly ci?: CiState;
   readonly profiles?: ReadonlyArray<Profile>;
   readonly lastTestRun?: TestRun;
+  /** One review record per slice (see src/core/review.ts). */
+  readonly reviews?: ReadonlyArray<ReviewState>;
 };
 
 export const initialState = (): DevsysState => ({
