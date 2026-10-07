@@ -257,8 +257,7 @@ export class ThreadManager {
         : level > maxLevels
     )
       throw new Error("Agent depth limit reached");
-    if (this.records.size >= (this.options.maxThreads ?? DEFAULT_MANAGER_SETTINGS.maxThreads))
-      throw new Error("Total thread limit reached");
+    this.archiveFinished(this.options.maxThreads ?? DEFAULT_MANAGER_SETTINGS.maxThreads);
     this.assertCapacity();
     const type = structuredClone(this.options.getType(args.type));
     if (overrides !== undefined) type.spawnOverrides = { ...overrides };
@@ -759,6 +758,24 @@ export class ThreadManager {
       if (record.stopRequested || record.view.state === "stopped") {
         throw new Error(`Cannot continue under stopped ancestor ${ancestor}; resume it first`);
       }
+    }
+  }
+  /**
+   * devsys: a finished thread must never block new work, or long autonomous runs stall
+   * on their own history. Make room for one more thread by dropping the oldest finished
+   * thread that has no retained descendant; live and paused threads are never dropped.
+   * Throws only when every retained thread is still live, paused or a parent of one.
+   */
+  private archiveFinished(limit: number): void {
+    while (this.records.size >= limit) {
+      const paths = [...this.records.keys()];
+      const victim = paths.find((path) => {
+        const state = this.records.get(path)?.view.state;
+        const finished = state === "completed" || state === "failed" || state === "stopped";
+        return finished && !paths.some((other) => isDescendant(other, path));
+      });
+      if (victim === undefined) throw new Error("Total thread limit reached");
+      this.records.delete(victim);
     }
   }
   private assertCapacity(): void {

@@ -5,7 +5,7 @@ import type { AgentDriver, AgentType, DriverOptions } from "../../src/subagents/
 
 const coder: AgentType = { name: "coder", description: "codes", systemPrompt: "code" };
 
-function harness() {
+function harness(limits: { maxThreads?: number } = {}) {
   const seen: DriverOptions[] = [];
   const driver: AgentDriver = {
     prompt: async () => undefined,
@@ -24,6 +24,7 @@ function harness() {
     rootSnapshot: () => [],
     getType: () => coder,
     toolsFor: () => [],
+    ...limits,
   });
   return { manager, seen };
 }
@@ -186,4 +187,70 @@ test("an empty /scoped-models scope does not hide every model", () => {
     models: ["anthropic/claude-sonnet-*"],
   };
   assert.equal(factory().resolveAgentSettings(type, "/root").model, "anthropic/claude-sonnet-5-5");
+});
+
+test("finished threads are archived to make room instead of blocking new spawns", async () => {
+  const { manager } = harness({ maxThreads: 3 });
+  for (let i = 0; i < 10; i++)
+    await manager.spawn("/root", { path: `/root/t${i}`, type: "coder", task: "go" });
+  const paths = manager.list().map((t) => t.path);
+  assert.equal(paths.length, 3);
+  assert.deepEqual(paths, ["/root/t7", "/root/t8", "/root/t9"]);
+});
+
+test("a finished parent is kept while a retained child exists", async () => {
+  const { manager } = harness({ maxThreads: 2 });
+  const view = (path: string, parent: string | null) => ({
+    path,
+    parent,
+    owner: parent ?? "/root",
+    type: "coder",
+    state: "completed" as const,
+    task: "go",
+    status: "Done",
+    createdAt: 1,
+    updatedAt: 1,
+    elapsedMs: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+  });
+  manager.restore([
+    { view: view("/root/parent", "/root"), definition: coder },
+    { view: view("/root/parent/kid", "/root/parent"), definition: coder },
+  ]);
+  await manager.spawn("/root", { path: "/root/next", type: "coder", task: "go" });
+  assert.deepEqual(
+    manager.list().map((t) => t.path),
+    ["/root/parent", "/root/next"],
+  );
+});
+
+test("live threads still count: the limit refuses when nothing is finished", async () => {
+  let release: (value: undefined) => void = () => undefined;
+  const held = new Promise<undefined>((resolve) => {
+    release = resolve;
+  });
+  const driver: AgentDriver = {
+    prompt: () => held,
+    steer: async () => undefined,
+    snapshot: () => [],
+    output: () => "",
+    abort: async () => undefined,
+    dispose: () => undefined,
+    sendUpdate: () => undefined,
+  };
+  const manager = new ThreadManager({
+    createDriver: async () => driver,
+    rootSnapshot: () => [],
+    getType: () => coder,
+    toolsFor: () => [],
+    maxThreads: 2,
+  });
+  await manager.spawn("/root", { path: "/root/a", type: "coder", task: "go", wait: false });
+  await manager.spawn("/root", { path: "/root/b", type: "coder", task: "go", wait: false });
+  await assert.rejects(
+    manager.spawn("/root", { path: "/root/c", type: "coder", task: "go", wait: false }),
+    /Total thread limit reached/,
+  );
+  release(undefined);
 });

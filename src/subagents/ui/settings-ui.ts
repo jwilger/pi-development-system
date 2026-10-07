@@ -34,7 +34,7 @@ const FIELDS = [
   {
     id: "maxThreads",
     label: "Retained threads",
-    help: "How many agent sessions can be kept for follow-up work, including completed and paused agents.\nAt the limit, new agents cannot start.\nPositive safe integer.",
+    help: "How many agent sessions can be kept for follow-up work, including completed and paused agents.\nAt the limit the oldest finished agent is dropped to make room; new agents are refused only when every kept agent is still active, paused or has a kept child.\nPositive safe integer.",
   },
 ] as const;
 
