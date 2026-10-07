@@ -79,7 +79,8 @@ function renderScope(scope: DepartureScope): string {
 export function renderDepartureMarkdown(d: Departure): string {
   const revisit = d.revisitWhen !== undefined ? ` · **Revisit when:** ${d.revisitWhen}` : "";
   return [
-    `### ${d.recordedAt} · ${d.gate} · ${d.tier} · ${d.approver}`,
+    `## ${d.recordedAt} · ${d.gate} · ${d.tier} · ${d.approver}`,
+    "",
     `- **Default:** ${d.default}`,
     `- **Chosen:** ${d.chosen}`,
     `- **Why:** ${d.why}`,

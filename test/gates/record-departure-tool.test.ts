@@ -33,8 +33,8 @@ test("a soft gate departure writes one decision-log entry and one devsys-departu
   const result = await run(soft);
   assert.notEqual(result.isError, true);
   const log = readFileSync(join(fake.ctx.cwd, "docs", "decisions", "2026-10.md"), "utf8");
-  assert.equal(log.match(/^### /gm)?.length, 1);
-  assert.match(log, /### 2026-10-06T17:12:00Z · tdd\.red-first · soft · agent/);
+  assert.equal(log.match(/^## 2/gm)?.length, 1);
+  assert.match(log, /## 2026-10-06T17:12:00Z · tdd\.red-first · soft · agent/);
   assert.equal(fake.entries.filter((e) => e.customType === "devsys-departure").length, 1);
   assert.equal(state.get().openDepartures.length, 1);
   assert.match(JSON.stringify(result.content), /tdd\.red-first/);

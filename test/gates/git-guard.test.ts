@@ -36,7 +36,7 @@ test("with an approving user the command is allowed and the approval is logged",
   fake.ui.confirmResponses.push(true);
   assert.equal(await bash("git push --force"), undefined);
   const log = readFileSync(logPath, "utf8");
-  assert.match(log, /### 2026-10-06T17:12:00Z · git\.force-push · hard · user/);
+  assert.match(log, /## 2026-10-06T17:12:00Z · git\.force-push · hard · user/);
   assert.match(log, /\*\*Scope:\*\* once \(call-1\)/);
   assert.equal(fake.ui.calls.filter((c) => c.kind === "confirm").length, 1);
 });
