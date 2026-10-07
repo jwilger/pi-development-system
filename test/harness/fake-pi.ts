@@ -39,6 +39,7 @@ export function createFakePi(init: FakePiOptions = {}) {
   const commands = new Map<string, Omit<RegisteredCommand, "name" | "sourceInfo">>();
   const entries: FakeEntry[] = [];
   const sentMessages: unknown[] = [];
+  const sendOptions: unknown[] = [];
   const ui: FakeUi = {
     hasUI: init.hasUI ?? true,
     confirmResponses: [],
@@ -124,8 +125,9 @@ export function createFakePi(init: FakePiOptions = {}) {
     appendEntry: (customType: string, data: unknown) => {
       entries.push({ customType, data });
     },
-    sendMessage: (message: unknown) => {
+    sendMessage: (message: unknown, options?: unknown) => {
       sentMessages.push(message);
+      sendOptions.push(options);
     },
     sendUserMessage: (message: unknown) => {
       sentMessages.push(message);
@@ -145,7 +147,7 @@ export function createFakePi(init: FakePiOptions = {}) {
     return result;
   }
 
-  return { api, ctx, emit, tools, commands, entries, sentMessages, ui, handlers };
+  return { api, ctx, emit, tools, commands, entries, sentMessages, sendOptions, ui, handlers };
 }
 
 export type FakePi = ReturnType<typeof createFakePi>;

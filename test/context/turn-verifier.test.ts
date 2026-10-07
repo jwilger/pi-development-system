@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { ClassifierAnswer } from "@earendil-works/pi-ai";
-import { registerTurnVerifier } from "../../src/context/turn-verifier.ts";
+import { asksUser, registerTurnVerifier } from "../../src/context/turn-verifier.ts";
 import { err, ok } from "../../src/core/result.ts";
 import type { Phase, SliceRef } from "../../src/core/types.ts";
 import type { Jev, JevAvailability } from "../../src/jev/client.ts";
@@ -181,6 +181,14 @@ test("a question whose options are themselves questions, or end on a colon lead-
   );
   assert.equal(await t.turnEnd("All tests pass. Which next:\n- push\n- open a PR"), undefined);
   assert.equal(t.asked.length, 0);
+});
+
+test("a status summary ending in a colon-led list is still judged, not mistaken for a question", async () => {
+  const t = setup({ claim: 1 });
+  const r = await t.turnEnd("Done. Summary:\n- Fixed the parser\n- All 42 tests pass\n- Committed");
+  assert.ok(r);
+  assert.equal(asksUser("Changes:\n\n1. Fixed parser\n2. All tests pass"), false);
+  assert.equal(asksUser("I ran it:\n- a\n- b"), false);
 });
 
 test("a tool-calling turn after a correction does not use up the no-repeat rule", async () => {

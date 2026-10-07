@@ -39,7 +39,10 @@ export function registerModelAdvice(deps: ModelAdviceDeps): void {
     });
     if (advice === undefined) return;
     told.add(key);
-    deps.pi.sendMessage({ customType: ADVICE_ENTRY_TYPE, content: advice, display: true });
+    deps.pi.sendMessage(
+      { customType: ADVICE_ENTRY_TYPE, content: advice, display: true },
+      { triggerTurn: false },
+    );
   };
 
   deps.pi.on("session_start", (_event, ctx) => {

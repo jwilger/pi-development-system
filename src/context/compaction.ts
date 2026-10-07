@@ -15,10 +15,15 @@ export function registerCompactionResync(deps: { pi: ExtensionAPI; state: Sessio
   deps.pi.on("session_compact", () => {
     const state = deps.state.get();
     if (state.phase === "idle" && state.openDepartures.length === 0) return;
-    deps.pi.sendMessage({
-      customType: RESYNC_ENTRY_TYPE,
-      content: `[devsys resync] Context was compacted. Current working state:\n\n${renderStateBlock(state)}`,
-      display: true,
-    });
+    // triggerTurn:false: while a run is active pi would otherwise steer the message, and the queued
+    // message would force an extra model turn after automatic compaction.
+    deps.pi.sendMessage(
+      {
+        customType: RESYNC_ENTRY_TYPE,
+        content: `[devsys resync] Context was compacted. Current working state:\n\n${renderStateBlock(state)}`,
+        display: true,
+      },
+      { triggerTurn: false },
+    );
   });
 }

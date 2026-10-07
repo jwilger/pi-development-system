@@ -77,6 +77,9 @@ test("after compaction one resync message carries the state block", async () => 
   assert.match(sent, /devsys resync/);
   assert.match(sent, /Development System State/);
   assert.match(sent, /phase: implementing/);
+  // Without triggerTurn:false pi steers the message during auto-compaction and the queued message
+  // forces an extra model turn nobody asked for.
+  assert.deepEqual(fake.sendOptions[0], { triggerTurn: false });
 });
 
 test("an idle session with no departures is not resynced", async () => {
