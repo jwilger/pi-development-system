@@ -163,6 +163,16 @@ test("tool results since the agent started are passed to Jev as evidence", async
   assert.match(evidence[0] ?? "", /^bash exit 1:/);
 });
 
+test("evidence from an earlier run never backs a claim in a later run", async () => {
+  const t = setup({ claim: 0 });
+  await t.agentStart();
+  await t.toolResult("bash", "ℹ pass 14", false, "npm test");
+  await t.turnEnd("Tests pass.");
+  await t.agentStart();
+  await t.turnEnd("All tests pass.");
+  assert.deepEqual(t.asked[1]?.state.toolEvidence, []);
+});
+
 test("the turn right after a correction is not corrected again", async () => {
   const t = setup({ claim: 1 });
   assert.ok(await t.turnEnd("All tests pass.", { turnIndex: 0 }));

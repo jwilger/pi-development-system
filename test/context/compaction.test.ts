@@ -25,6 +25,19 @@ test("the state block names phase, sizing, slice, last test run and last push", 
   assert.match(block, /last push: 2026-10-06T17:00:00\.000Z/);
 });
 
+test("the state block carries the review streak", async () => {
+  const { addRound, startReview } = await import("../../src/core/review.ts");
+  const { upsertReview } = await import("../../src/core/review-flow.ts");
+  const review = addRound(startReview("I7.3" as SliceRef, 3), {
+    lenses: ["types"],
+    findings: [],
+    reviewedAt: "t",
+    diffDigest: "d",
+  });
+  assert.match(renderStateBlock(upsertReview(busy, review)), /review: 1\/3 clean/);
+  assert.match(renderStateBlock(busy), /review: none/);
+});
+
 test("unset values render as 'none' and an empty state is still a valid block", () => {
   const block = renderStateBlock(initialState());
   assert.match(block, /slice: none/);
@@ -72,4 +85,25 @@ test("an idle session with no departures is not resynced", async () => {
   registerCompactionResync({ pi: fake.api, state });
   await fake.emit({ type: "session_compact", reason: "threshold", willRetry: false } as never);
   assert.equal(fake.sentMessages.length, 0);
+});
+
+test("an idle session that still has open departures is resynced", async () => {
+  const fake = createFakePi();
+  const state = createSessionState(fake.api);
+  const open = {
+    id: "d1",
+    gate: "scope.expansion",
+    tier: "soft",
+    default: "stay in scope",
+    chosen: "extra",
+    why: "w",
+    costIfWrong: "x",
+    scope: { kind: "session" },
+    recordedAt: "2026-10-06T17:00:00.000Z",
+    approver: "agent",
+  } as never;
+  state.update((st) => ({ ...st, openDepartures: [open] }));
+  registerCompactionResync({ pi: fake.api, state });
+  await fake.emit({ type: "session_compact", reason: "threshold", willRetry: false } as never);
+  assert.equal(fake.sentMessages.length, 1);
 });

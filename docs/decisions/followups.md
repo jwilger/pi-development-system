@@ -252,3 +252,10 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 
 - nit: `src/core/model-advice.ts` labels the wanted model's tier by the highest tier listing it, so an `@strong` slot can read "(frontier tier)"; the recommendation is still right, only the label misleads.
 - nit: `src/context/turn-verifier.ts` keeps the per-session correction count in memory, so `verifier.max_per_session` resets on reload/resume (per process attach).
+
+## From I7 review round 5
+
+- nit: `src/context/turn-verifier.ts` `asksUser` misses a question followed by a fenced code block or `---` rule.
+- nit: `src/context/cadence.ts` stays silent until the first push of a session (`lastPushAt` unset), as the plan's formula says; consider counting from session start.
+- nit: some fixture evidence lines in `evals/jev/{claim-verification,drift}.json` are still not in the `target → output` shape.
+- nit: model-advice "once per (phase, model)" has no test that the phase part of the key matters.
