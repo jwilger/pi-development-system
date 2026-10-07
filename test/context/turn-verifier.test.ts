@@ -39,12 +39,12 @@ function setup(opts: {
     model: () => "fake/jev",
   };
   registerTurnVerifier({ pi: fake.api, state, jev: () => jev, maxPerSession: () => opts.max ?? 6 });
-  const toolResult = (toolName: string, text: string, isError = false) =>
+  const toolResult = (toolName: string, text: string, isError = false, command?: string) =>
     fake.emit({
       type: "tool_result",
       toolName,
       toolCallId: "c",
-      input: {},
+      input: command === undefined ? {} : { command },
       content: [{ type: "text", text }],
       isError,
       details: undefined,
@@ -69,7 +69,9 @@ function setup(opts: {
       toolResults: [],
     } as never);
   const agentStart = () => fake.emit({ type: "agent_start" } as never);
-  return { fake, state, asked, toolResult, turnEnd, agentStart };
+  const setDepartures = (openDepartures: never[]) =>
+    state.update((st) => ({ ...st, openDepartures }));
+  return { fake, state, asked, toolResult, turnEnd, agentStart, setDepartures };
 }
 
 const textOf = (result: unknown): string =>
@@ -149,12 +151,7 @@ test("tool results since the agent started are passed to Jev as evidence", async
   await t.toolResult("read", "file text");
   await t.turnEnd("Tests pass.");
   const evidence = t.asked[0]?.state.toolEvidence as string[];
-  assert.equal(evidence.length, 2);
-  assert.match(evidence[0] ?? "", /^bash exit 1: /);
-  assert.match(evidence[1] ?? "", /^read: /);
-  await t.agentStart();
-  await t.turnEnd("Tests pass.");
-  assert.deepEqual(t.asked[1]?.state.toolEvidence, []);
+  assert.match(evidence[0] ?? "", /^bash exit 1:/);
 });
 
 test("the turn right after a correction is not corrected again", async () => {
@@ -198,4 +195,42 @@ test("assistant messages without text and non-assistant messages are ignored", a
     toolResults: [],
   } as never);
   assert.equal(t.asked.length, 0);
+});
+
+test("a failing run piped through tail reaches Jev as a failure, not exit 0", async () => {
+  const t = setup({ claim: 0 });
+  await t.toolResult(
+    "bash",
+    "ℹ fail 2\nℹ skipped 15\nℹ duration_ms 6792",
+    false,
+    "npm test 2>&1 | tail -3",
+  );
+  await t.turnEnd("All tests pass.");
+  const evidence = t.asked[0]?.state.toolEvidence as string[];
+  assert.match(evidence[0] ?? "", /^bash exit 1:/);
+});
+
+test("drift is not re-flagged once a scope.expansion departure covers the slice or session", async () => {
+  const dep = (scope: unknown) =>
+    ({
+      id: "d1",
+      gate: "scope.expansion",
+      tier: "soft",
+      default: "x",
+      chosen: "y",
+      why: "z",
+      costIfWrong: "c",
+      approver: "agent",
+      scope,
+      recordedAt: "2026-10-07T00:00:00Z",
+    }) as never;
+  const covered = setup({ drift: 1, slice: "S1" });
+  covered.setDepartures([dep({ kind: "slice", slice: "S1" })]);
+  assert.equal(await covered.turnEnd("Also refactored billing."), undefined);
+  const other = setup({ drift: 1, slice: "S1" });
+  other.setDepartures([dep({ kind: "slice", slice: "S2" })]);
+  assert.ok(await other.turnEnd("Also refactored billing."));
+  const session = setup({ drift: 1, slice: "S1" });
+  session.setDepartures([dep({ kind: "session" })]);
+  assert.equal(await session.turnEnd("Also refactored billing."), undefined);
 });

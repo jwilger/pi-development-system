@@ -1,8 +1,7 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { redactSecrets } from "../core/redact.ts";
-import { summarizeOutput } from "../core/test-runner.ts";
-import type { Phase } from "../core/types.ts";
+import { exitCodeOf, summarizeOutput } from "../core/test-runner.ts";
+import type { DevsysState, Phase } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
 import { judgeTurn, type ToolEvidence } from "../jev/questions/turn.ts";
 import type { SessionState } from "../state/session-state.ts";
@@ -44,6 +43,14 @@ export function asksUser(text: string): boolean {
   return last !== undefined && /\?(?:\s*\([^()]{0,40}\))?[\s)"'*_`]*$/.test(last);
 }
 
+/** True when a scope.expansion departure already covers the slice: the remedy the note asks for exists. */
+const expansionRecorded = (state: DevsysState, slice: string): boolean =>
+  state.openDepartures.some(
+    (d) =>
+      d.gate === "scope.expansion" &&
+      (d.scope.kind === "session" || (d.scope.kind === "slice" && d.scope.slice === slice)),
+  );
+
 const claimMessage = (): string =>
   "Development system: your last message claims something was run, passed or done, but no tool evidence in this run shows it. Run the verification now, or restate without the claim.";
 
@@ -79,10 +86,18 @@ export function registerTurnVerifier(deps: TurnVerifierDeps): void {
   });
   deps.pi.on("tool_result", (event) => {
     const text = event.content.flatMap((c) => (c.type === "text" ? [c.text] : [])).join("\n");
-    const summary = redactSecrets(summarizeOutput(text));
+    const summary = summarizeOutput(text);
+    const command = typeof event.input.command === "string" ? event.input.command : undefined;
+    // exitCodeOf sees through `npm test | tail`, which would otherwise show a failing run as exit 0.
+    const exitCode = exitCodeOf({
+      isError: event.isError,
+      text,
+      structured: event.structuredContent,
+      ...(command === undefined ? {} : { command }),
+    });
     const item: ToolEvidence =
       event.toolName === "bash"
-        ? { tool: "bash", summary, exitCode: event.isError ? 1 : 0 }
+        ? { tool: "bash", summary, exitCode }
         : { tool: event.toolName, summary };
     evidence = [...evidence, item].slice(-MAX_EVIDENCE);
   });
@@ -109,7 +124,9 @@ export function registerTurnVerifier(deps: TurnVerifierDeps): void {
     if (!judged.ok) return undefined;
     const entries = [
       ...(judged.value.unverifiedClaim >= VERIFIER_THRESHOLD ? [note(claimMessage())] : []),
-      ...(judged.value.driftFromSlice >= VERIFIER_THRESHOLD && state.activeSlice !== undefined
+      ...(judged.value.driftFromSlice >= VERIFIER_THRESHOLD &&
+      state.activeSlice !== undefined &&
+      !expansionRecorded(state, state.activeSlice)
         ? [note(driftMessage(state.activeSlice))]
         : []),
     ];
