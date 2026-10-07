@@ -19,6 +19,7 @@ import { registerRedFirstGuard } from "../src/gates/red-first-guard.ts";
 import { createRequestApprovalTool } from "../src/gates/request-approval-tool.ts";
 import { registerTestGuard } from "../src/gates/test-guard.ts";
 import { createJevHolder } from "../src/jev/holder.ts";
+import { createIntakeTool } from "../src/planning/intake-tool.ts";
 import { createReviewRecordTool, createReviewStartTool } from "../src/review/review-tools.ts";
 import { registerCiCommand } from "../src/state/ci-command.ts";
 import { loadConfig } from "../src/state/config.ts";
@@ -138,6 +139,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   pi.registerTool(createRequestApprovalTool({ pi, approvals }));
   pi.registerTool(createModelsTool());
   pi.registerTool(createRouteTaskTool({ jev: (ctx) => jevHolder.forContext(ctx) }));
+  pi.registerTool(createIntakeTool({ state, jev: (ctx) => jevHolder.forContext(ctx) }));
   const reviewDeps = {
     state,
     jev: (ctx: ExtensionContext) => jevHolder.forContext(ctx),

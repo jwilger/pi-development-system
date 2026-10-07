@@ -189,3 +189,9 @@ test("the context tail carries the cadence line when the last push is older than
   };
   assert.match(result.messages.at(-1)?.content ?? "", /9\d min since last push/);
 });
+
+test("loading registers the intake tool", () => {
+  const fake = createFakePi({ hasUI: false });
+  developmentSystem(fake.api);
+  assert.ok(fake.tools.has("devsys_intake"));
+});
