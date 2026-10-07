@@ -15,8 +15,11 @@ import {
 const ID = /^[a-z0-9][a-z0-9-]*$/;
 const ID_MAX = 60;
 
+/** ASCII id from a title: accents are folded (Résumé → resume); a title with no ASCII letters or digits becomes `item`. */
 const slugOf = (title: string): string =>
   title
+    .normalize("NFD")
+    .replace(/\p{M}+/gu, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+/, "")
@@ -79,9 +82,8 @@ const save = async (root: string, item: WorkItem): Promise<TrackerResult<WorkIte
   return ok(item);
 };
 
-const freshId = async (root: string, title: string): Promise<string | undefined> => {
-  const base = slugOf(title);
-  if (base === "") return undefined;
+const freshId = async (root: string, title: string): Promise<string> => {
+  const base = slugOf(title) || "item";
   const taken = new Set(await itemIds(root));
   let id = base;
   for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
@@ -97,10 +99,8 @@ const listItems = async (root: string, filter: ItemFilter): Promise<TrackerResul
 const createItem = async (root: string, input: NewWorkItem): Promise<TrackerResult<WorkItem>> => {
   const problem = unwritable({ title: input.title, labels: input.labels ?? [] });
   if (problem !== undefined) return trackerError(problem);
-  const id = await freshId(root, input.title);
-  if (id === undefined) return trackerError("a work item title needs letters or digits");
   return save(root, {
-    id,
+    id: await freshId(root, input.title),
     title: input.title,
     body: input.body ?? "",
     status: "open",

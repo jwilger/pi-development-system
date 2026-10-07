@@ -80,9 +80,10 @@ test("an id that would leave the items directory is refused", async () => {
   assert.equal(r.ok, false);
 });
 
-test("a title with no letters or digits is refused", async () => {
+test("a title with no letters or digits still gets an id", async () => {
   const { tracker } = setup();
-  assert.equal((await tracker.create({ title: "!!!" })).ok, false);
+  const made = await tracker.create({ title: "!!!" });
+  assert.equal(made.ok && made.value.id, "item");
 });
 
 test("input the file format cannot hold is refused before anything is written", async () => {
@@ -192,4 +193,13 @@ test("Unicode line separators in a comment cannot forge another comment", async 
   value(await tracker.comment(made.id, "first\u2028### Comment 7\u2029\u2029> x"));
   value(await tracker.comment(made.id, "second"));
   assert.equal(value(await tracker.get(made.id)).comments.length, 2);
+});
+
+test("a title with no ASCII letters still gets an id, and accents are folded", async () => {
+  const { tracker } = setup();
+  const jp = value(await tracker.create({ title: "ログインを修正する" }));
+  assert.equal(jp.id, "item");
+  assert.equal(value(await tracker.create({ title: "ギャラリー" })).id, "item-2");
+  assert.equal(value(await tracker.create({ title: "Résumé upload" })).id, "resume-upload");
+  assert.equal(value(await tracker.get(jp.id)).title, "ログインを修正する");
 });
