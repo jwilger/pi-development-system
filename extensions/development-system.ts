@@ -1,10 +1,14 @@
 import { readFileSync } from "node:fs";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { cadenceLine, DEFAULT_PUSH_MINUTES } from "../src/context/cadence.ts";
+import { registerCompactionResync } from "../src/context/compaction.ts";
 import { appendContextTail, renderContextTail } from "../src/context/context-tail.ts";
+import { registerModelAdvice } from "../src/context/model-advice.ts";
 import { renderStatus, renderStatusLine, STATUS_KEY } from "../src/context/status.ts";
 import { applyPromptSection } from "../src/context/system-prompt.ts";
 import { DEFAULT_VERIFIER_MAX, registerTurnVerifier } from "../src/context/turn-verifier.ts";
 import { type Exec, timeoutAsFailure } from "../src/core/exec.ts";
+import { defaultMatrix } from "../src/core/models.ts";
 import { detectProfiles } from "../src/core/profile.ts";
 import { createApprovalStore } from "../src/gates/approvals.ts";
 import { registerCommitGuard } from "../src/gates/commit-guard.ts";
@@ -38,6 +42,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   const jevHolder = createJevHolder();
   let jevModel: string | undefined;
   let lastCtx: ExtensionContext | undefined;
+  let pushMinutes = DEFAULT_PUSH_MINUTES;
 
   const refreshStatus = () => {
     lastCtx?.ui.setStatus(STATUS_KEY, renderStatusLine(state.get(), jevModel));
@@ -45,6 +50,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
 
   const refreshProfiles = async (ctx: ExtensionContext) => {
     const config = await loadConfig(ctx.cwd);
+    pushMinutes = config.ok ? config.value.cadence.pushMinutes : DEFAULT_PUSH_MINUTES;
     const override = config.ok ? config.value.profiles.override : [];
     const profiles = await detectProfiles(ctx.cwd, override);
     const current = state.get().profiles ?? [];
@@ -75,7 +81,13 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   });
 
   pi.on("context", (event) => {
-    const messages = appendContextTail(event.messages, renderContextTail(state.get()), Date.now());
+    const now = Date.now();
+    const cadence = cadenceLine(state.get(), now, pushMinutes);
+    const messages = appendContextTail(
+      event.messages,
+      renderContextTail(state.get(), cadence),
+      now,
+    );
     return messages === undefined ? undefined : { messages };
   });
 
@@ -102,6 +114,15 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   });
   registerTestGuard({ pi, state, approvals, jev: (ctx) => jevHolder.forContext(ctx) });
   registerTestEvidence({ pi, state });
+  registerCompactionResync({ pi, state });
+  registerModelAdvice({
+    pi,
+    state,
+    matrix: async (ctx) => {
+      const config = await loadConfig(ctx.cwd);
+      return config.ok ? config.value.models : defaultMatrix();
+    },
+  });
   registerTurnVerifier({
     pi,
     state,

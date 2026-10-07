@@ -80,7 +80,7 @@ export function compareModelVersions(a: string, b: string): number {
 }
 
 /** `*`-only glob over a model id (no regular expressions built from configuration). */
-function matchesPattern(pattern: string, id: string): boolean {
+export function matchesPattern(pattern: string, id: string): boolean {
   const parts = pattern.split("*");
   if (parts.length === 1) return pattern === id;
   const first = parts[0] ?? "";

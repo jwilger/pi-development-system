@@ -174,3 +174,22 @@ test("the turn verifier is wired to turn_end and stays silent with Jev unavailab
   } as never);
   assert.equal(result, undefined);
 });
+
+test("a compaction resyncs the working state through the extension", async () => {
+  const fake = createFakePi({ hasUI: false });
+  const { state } = createDevelopmentSystem(fake.api);
+  state.update((s) => ({ ...s, phase: "implementing" }));
+  await fake.emit({ type: "session_compact", reason: "manual", willRetry: false } as never);
+  assert.match(JSON.stringify(fake.sentMessages), /phase: implementing/);
+});
+
+test("the context tail carries the cadence line when the last push is older than cadence.push_minutes", async () => {
+  const fake = createFakePi({ hasUI: false });
+  const { state } = createDevelopmentSystem(fake.api);
+  const old = new Date(Date.now() - 90 * 60_000).toISOString();
+  state.update((s) => ({ ...s, phase: "implementing", lastPushAt: old }));
+  const result = (await fake.emit({ type: "context", messages: [] } as never)) as {
+    messages: Array<{ content: string }>;
+  };
+  assert.match(result.messages.at(-1)?.content ?? "", /9\d min since last push/);
+});
