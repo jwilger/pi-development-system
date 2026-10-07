@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -110,4 +110,25 @@ test("comments and bodies that look like our own headings survive a round trip",
     "has\n## Comments\nand\n### Comment\n\ninside",
     "last",
   ]);
+});
+
+test("a foreign file in work/items does not break writes or create duplicates on retry", async () => {
+  const { root, tracker } = setup();
+  mkdirSync(join(root, "work", "items"), { recursive: true });
+  writeFileSync(join(root, "work", "items", "README.md"), "not an item\n");
+  const first = value(await tracker.create({ title: "Thing" }));
+  assert.equal(first.id, "thing");
+  assert.deepEqual(
+    value(await tracker.list({})).map((i) => i.id),
+    ["thing"],
+  );
+  assert.match(readFileSync(join(root, "work", "backlog.md"), "utf8"), /thing — Thing/);
+});
+
+test("an unreadable item file stops a write before anything is written", async () => {
+  const { root, tracker } = setup();
+  mkdirSync(join(root, "work", "items"), { recursive: true });
+  writeFileSync(join(root, "work", "items", "broken.md"), "garbage\n");
+  assert.equal((await tracker.create({ title: "Thing" })).ok, false);
+  assert.equal(existsSync(join(root, "work", "items", "thing.md")), false);
 });

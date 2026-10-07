@@ -110,7 +110,7 @@ test("in-progress makes sure the label exists before editing, and never reopens 
   const { exec, calls } = fakeExec(() => ({ stdout: JSON.stringify(issue()) }));
   await createGithubTracker({ exec, cwd: "/r" }).update("7", { status: "in-progress" });
   const seen = lines(calls);
-  const made = seen.findIndex((j) => j.startsWith("label create in-progress --force"));
+  const made = seen.findIndex((j) => j.startsWith("label create in-progress"));
   const edit = seen.findIndex(
     (j) => j.startsWith("issue edit 7") && j.includes("--add-label in-progress"),
   );
@@ -166,4 +166,35 @@ test("a gh failure is an error carrying its message; unparseable output is an er
   if (!r.ok) assert.match(r.error.message, /not authenticated/);
   const junk = fakeExec(() => ({ stdout: "not json" }));
   assert.equal((await createGithubTracker({ exec: junk.exec, cwd: "/r" }).get("7")).ok, false);
+});
+
+test("the marker label is created without --force, and an existing label is fine", async () => {
+  const { exec, calls } = fakeExec((args) =>
+    args[0] === "label"
+      ? { code: 1, stderr: 'label with name "in-progress" already exists' }
+      : { stdout: JSON.stringify(issue()) },
+  );
+  const r = await createGithubTracker({ exec, cwd: "/r" }).update("7", { status: "in-progress" });
+  assert.equal(r.ok, true);
+  const made = lines(calls).find((j) => j.startsWith("label create")) ?? "";
+  assert.doesNotMatch(made, /--force/);
+  assert.ok(lines(calls).some((j) => j.includes("--add-label in-progress")));
+});
+
+test("closing an issue that never had the marker does not try to remove it", async () => {
+  const { exec, calls } = fakeExec(() => ({ stdout: JSON.stringify(issue()) }));
+  await createGithubTracker({ exec, cwd: "/r" }).update("7", { status: "done" });
+  assert.equal(
+    lines(calls).some((j) => j.includes("--remove-label")),
+    false,
+  );
+  assert.ok(lines(calls).some((j) => j.startsWith("issue close 7")));
+});
+
+test("leaving in-progress removes the marker", async () => {
+  const { exec, calls } = fakeExec(() => ({
+    stdout: JSON.stringify(issue({ labels: [{ name: "in-progress" }] })),
+  }));
+  await createGithubTracker({ exec, cwd: "/r" }).update("7", { status: "open" });
+  assert.ok(lines(calls).some((j) => j.includes("--remove-label in-progress")));
 });

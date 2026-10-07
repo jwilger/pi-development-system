@@ -32,7 +32,8 @@ const STEP = /^\s*(?:\d+[.)]|[-*])\s+(.*)$/;
 const STEPS_MIN = 3;
 const STEPS_MAX = 7;
 /** Words that stand in for a command or an observable result. */
-const PLACEHOLDER = /^(?:n\/?a|none|todo|tbc|-|…|\.\.\.|works?|it works|passes|ok)\.?$/i;
+const PLACEHOLDER =
+  /^(?:(?:todo|tbd|tbc)\b.*|n\/?a|none|-|…|\.\.\.|works?|it works|passes|ok)\.?$/i;
 
 const isSection = (name: string): name is Section => SECTIONS.some((s) => s === name);
 
@@ -85,7 +86,7 @@ const stepsOf = (text: string): string[] =>
 
 function concrete(name: "Run" | "Expected", text: string): string | undefined {
   const bare = stripTicks(text);
-  if (PLACEHOLDER.test(bare))
+  if (bare === "" || PLACEHOLDER.test(bare))
     return `${name} must be a concrete ${name === "Run" ? "command" : "observable result"}, not "${bare}"`;
   if (name === "Expected" && bare.split(/\s+/).length < 2) {
     return "Expected must say what is observed (at least two words, e.g. a count, output or exit status)";
@@ -142,7 +143,7 @@ function locate(markdown: string, id: string | undefined): Located | ParseError 
 
 /** Parses one task record (the only one in the file, or the one named by `id`), reporting every problem together. */
 export function parseTaskRecord(markdown: string, id?: string): TaskRecord | ParseError {
-  const found = locate(markdown, id);
+  const found = locate(markdown.replace(/\r\n?/g, "\n"), id);
   if (isParseError(found)) return found;
   const split = splitSections(found.lines);
   const problems = problemsOf(found.lines.join("\n"), split);

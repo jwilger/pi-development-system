@@ -46,7 +46,9 @@ const readItem = async (root: string, id: string): Promise<TrackerResult<WorkIte
 const itemIds = async (root: string): Promise<string[]> => {
   try {
     const files = await readdir(itemsDir(root));
-    return files.flatMap((f) => (f.endsWith(".md") ? [f.slice(0, -3)] : []));
+    return files.flatMap((f) =>
+      f.endsWith(".md") && ID.test(f.slice(0, -3)) ? [f.slice(0, -3)] : [],
+    );
   } catch (cause) {
     if (isMissing(cause)) return [];
     throw cause;
@@ -66,11 +68,14 @@ const readAll = async (root: string): Promise<TrackerResult<WorkItem[]>> => {
 const save = async (root: string, item: WorkItem): Promise<TrackerResult<WorkItem>> => {
   const problem = unwritable(item);
   if (problem !== undefined) return trackerError(problem);
+  const others = await readAll(root);
+  if (!others.ok) return others;
   await mkdir(itemsDir(root), { recursive: true });
   await writeFile(fileOf(root, item.id), renderItem(item));
-  const items = await readAll(root);
-  if (!items.ok) return items;
-  await writeFile(join(root, "work", "backlog.md"), renderBacklog(items.value));
+  const items = [...others.value.filter((i) => i.id !== item.id), item].toSorted((a, b) =>
+    byCodeUnit(a.id, b.id),
+  );
+  await writeFile(join(root, "work", "backlog.md"), renderBacklog(items));
   return ok(item);
 };
 

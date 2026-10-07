@@ -135,13 +135,14 @@ const createIssue = async (gh: Gh, input: NewWorkItem): Promise<TrackerResult<Wo
 const labelFlags = (current: WorkItem, patch: WorkItemPatch): string[] => {
   const wanted = patch.labels ?? current.labels;
   const marked = (patch.status ?? current.status) === "in-progress";
+  const hadMarker = current.status === "in-progress";
   const add = [
     ...wanted.filter((l) => !current.labels.includes(l)),
-    ...(marked ? [IN_PROGRESS] : []),
+    ...(marked && !hadMarker ? [IN_PROGRESS] : []),
   ];
   const remove = [
     ...current.labels.filter((l) => !wanted.includes(l)),
-    ...(marked ? [] : [IN_PROGRESS]),
+    ...(!marked && hadMarker ? [IN_PROGRESS] : []),
   ];
   return [
     ...add.flatMap((l) => ["--add-label", l]),
@@ -175,8 +176,9 @@ const updateIssue = async (
   const current = await view(gh, id);
   if (!current.ok) return current;
   if (patch.status === "in-progress") {
-    const made = await gh(["label", "create", IN_PROGRESS, "--force"]);
-    if (!made.ok) return made;
+    // No --force: that would recolour the team's existing label. "Already exists" is success.
+    const made = await gh(["label", "create", IN_PROGRESS]);
+    if (!(made.ok || /already exists/i.test(made.error.message))) return made;
   }
   const flags = editFlags(current.value, patch);
   if (flags.length > 0) {

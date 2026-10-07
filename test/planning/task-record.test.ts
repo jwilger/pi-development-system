@@ -108,7 +108,8 @@ test("several records without an id is an error naming them; an unknown id is an
 });
 
 test("a later record's sections never fill in the first record's gaps", () => {
-  const r = parseTaskRecord(`${without("Run")}\n${SECOND.replace("## T2", "## T2")}`, "T1");
+  const withRun = GOOD.replace("## T1 — Trim emails on login", "## T2 — Has a run");
+  const r = parseTaskRecord(`${without("Run")}\n${withRun}`, "T1");
   assert.ok(isParseError(r));
   assert.match(r.message, /missing section: Run/);
 });
@@ -125,4 +126,19 @@ test("the colon may sit outside the bold", () => {
   const r = parseTaskRecord(GOOD.replace("**Goal:**", "**Goal**:"));
   assert.ok(!isParseError(r));
   assert.match(r.goal, /trailing space/);
+});
+
+test("an empty or TODO command is not concrete", () => {
+  for (const run of ["``", "`TODO: decide`", "TBD later"]) {
+    const r = parseTaskRecord(GOOD.replace(/\*\*Run:\*\*.*\n/, `**Run:** ${run}\n`));
+    assert.ok(isParseError(r), run);
+    assert.match(r.message, /Run must be a concrete command/);
+  }
+});
+
+test("a record saved with CRLF line endings parses like one with LF", () => {
+  const r = parseTaskRecord(GOOD.replace(/\n/g, "\r\n"));
+  assert.ok(!isParseError(r));
+  assert.equal(r.id, "T1");
+  assert.equal(r.run, "npm test -- test/auth/login.test.ts");
 });
