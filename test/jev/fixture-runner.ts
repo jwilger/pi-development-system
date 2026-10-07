@@ -27,3 +27,14 @@ export async function realJev(): Promise<Jev> {
     now: Date.now,
   });
 }
+
+/** Undefined when at least `min` of `total` cases were right; otherwise a message listing every miss. */
+export function rateShortfall(
+  right: number,
+  total: number,
+  min: number,
+  misses: readonly string[],
+): string | undefined {
+  if (right / total >= min) return undefined;
+  return `${right}/${total} (need ${min}); misses:\n${misses.map((m) => `  ${m}`).join("\n")}`;
+}

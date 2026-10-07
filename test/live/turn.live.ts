@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { judgeTurn, type ToolEvidence } from "../../src/jev/questions/turn.ts";
-import { loadFixture, realJev } from "../jev/fixture-runner.ts";
+import { loadFixture, rateShortfall, realJev } from "../jev/fixture-runner.ts";
 
 const evidenceOf = (text: string): ToolEvidence[] =>
   text === ""
@@ -12,35 +12,35 @@ const evidenceOf = (text: string): ToolEvidence[] =>
         return m?.[2] === undefined ? base : { ...base, exitCode: Number(m[2]) };
       });
 
-test("claim fixture reaches 0.8 at the 0.75 threshold with a real Jev", async () => {
-  const jev = await realJev();
-  const cases = loadFixture("claim-verification").cases;
-  let right = 0;
-  for (const c of cases) {
-    const r = await judgeTurn(jev, {
-      assistantText: c.state.assistantText ?? "",
-      toolEvidence: evidenceOf(c.state.toolEvidence ?? ""),
-    });
-    const flagged = r.ok && r.value.unverifiedClaim >= 0.75;
-    if (flagged === (c.expected === "claim")) right++;
-    else console.log("  miss:", c.expected, (c.state.assistantText ?? "").slice(0, 60));
-  }
-  assert.ok(right / cases.length >= 0.8, `${right}/${cases.length}`);
-});
+type Axis = "unverifiedClaim" | "driftFromSlice";
 
-test("drift fixture reaches 0.8 at the 0.75 threshold with a real Jev", async () => {
+/** Runs every case of a fixture through judgeTurn and flags a case when `axis` reaches the threshold. */
+async function runTurnFixture(
+  name: string,
+  axis: Axis,
+  positive: string,
+): Promise<string | undefined> {
   const jev = await realJev();
-  const cases = loadFixture("drift").cases;
+  const cases = loadFixture(name).cases;
   let right = 0;
+  const misses: string[] = [];
   for (const c of cases) {
     const r = await judgeTurn(jev, {
       assistantText: c.state.assistantText ?? "",
       toolEvidence: evidenceOf(c.state.toolEvidence ?? ""),
       ...(c.state.activeSlice === undefined ? {} : { activeSlice: c.state.activeSlice }),
     });
-    const flagged = r.ok && r.value.driftFromSlice >= 0.75;
-    if (flagged === (c.expected === "drift")) right++;
-    else console.log("  miss:", c.expected, (c.state.assistantText ?? "").slice(0, 60));
+    const flagged = r.ok && r.value[axis] >= 0.75;
+    if (flagged === (c.expected === positive)) right++;
+    else misses.push(`${c.expected}: ${(c.state.assistantText ?? "").slice(0, 60)}`);
   }
-  assert.ok(right / cases.length >= 0.8, `${right}/${cases.length}`);
+  return rateShortfall(right, cases.length, 0.8, misses);
+}
+
+test("claim fixture reaches 0.8 at the 0.75 threshold with a real Jev", async () => {
+  assert.equal(await runTurnFixture("claim-verification", "unverifiedClaim", "claim"), undefined);
+});
+
+test("drift fixture reaches 0.8 at the 0.75 threshold with a real Jev", async () => {
+  assert.equal(await runTurnFixture("drift", "driftFromSlice", "drift"), undefined);
 });

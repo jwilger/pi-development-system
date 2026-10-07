@@ -13,7 +13,7 @@ import { MAIN_BRANCH, MIN_FIX_RELATED } from "./lib/config.ts";
 import { type CommitInfo, evaluateBrokenRange } from "./lib/gate.ts";
 import { fixRelatedProbability } from "./lib/jev.ts";
 import { commitsBetween, ZERO_SHA } from "./lib/range.ts";
-import { fail, git } from "./lib/sh.ts";
+import { fail, git, out, warn } from "./lib/sh.ts";
 
 const { values } = parseArgs({
   options: {
@@ -70,7 +70,7 @@ async function main(): Promise<void> {
     const label = commit.sha?.slice(0, 8) ?? "this commit";
     const reason = overrideReason(commit.message);
     if (reason) {
-      console.warn(`⚠ Jev-Override on ${label}: ${reason}`);
+      warn(`⚠ Jev-Override on ${label}: ${reason}`);
       continue;
     }
     const diff = commit.sha
@@ -95,7 +95,7 @@ async function main(): Promise<void> {
           `Narrow the change, or add a "Jev-Override: <reason>" trailer.`,
       );
     }
-    console.log(`✓ ${label}: related to the failing build (P = ${related.toFixed(2)})`);
+    out(`✓ ${label}: related to the failing build (P = ${related.toFixed(2)})`);
   }
 }
 

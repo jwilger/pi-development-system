@@ -47,7 +47,7 @@ const direct = (matrix: ModelMatrix, tier: Tier): string[] =>
  * frontier but lives in strong). Undefined when it is in none of them.
  */
 export function tierOf(matrix: ModelMatrix, model: string): Tier | undefined {
-  return [...TIERS].reverse().find((tier) => matches(direct(matrix, tier), model));
+  return TIERS.findLast((tier) => matches(direct(matrix, tier), model));
 }
 
 /** The best tier that lists the model at all: what a slot resolving to it is asking for. */

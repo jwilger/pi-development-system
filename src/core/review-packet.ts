@@ -10,11 +10,7 @@ export type ReviewPacket = {
   readonly verdict: "no-blocking" | "blocking";
 };
 
-const SEP = "[—–-]";
-const HEADER = new RegExp(
-  `^##\\s+Review\\s+${SEP}\\s+(.+?)\\s+${SEP}\\s+round\\s+(\\S+)\\s+${SEP}\\s+lenses:\\s*(.*)$`,
-  "m",
-);
+const HEADER = /^##\s+Review\s+[—–-]\s+(.+?)\s+[—–-]\s+round\s+(\S+)\s+[—–-]\s+lenses:\s*(.*)$/m;
 // Reviewers add text after the location (`fn`, a second location); the first backticked one is the finding's.
 const FINDING = /^-\s*\[([^\]]+)\]\s+(\S+)\s+(?:`([^`]+)`[^—–]*?\s+)?[—–-]\s+(.+)$/;
 // An indented line under a finding is its detail (trigger, fix), unless it is itself a finding.
@@ -24,8 +20,11 @@ const isDetail = (line: string): boolean =>
 // `until` ends a section; by default any heading does. Findings ends only at a known section so a stray
 // heading inside it (### Nits) makes its lines errors instead of silently cutting the findings off.
 const section = (text: string, name: string, until = /^###?\s/m): string | undefined => {
-  const match = new RegExp(`^###\\s+${name}\\s*$`, "im").exec(text);
-  if (match === null) return undefined;
+  const wanted = name.toLowerCase();
+  const match = [...text.matchAll(/^###\s+(.+?)\s*$/gim)].find(
+    (m) => m[1]?.toLowerCase() === wanted,
+  );
+  if (match === undefined) return undefined;
   const rest = text.slice(match.index + match[0].length);
   const next = until.exec(rest);
   return next === null ? rest : rest.slice(0, next.index);
@@ -94,8 +93,7 @@ export function parseReviewPacket(text: string): ReviewPacket | ParseError {
   }
   const lines = findingsText
     .split("\n")
-    .filter((l) => !isDetail(l))
-    .map((l) => l.trim())
+    .flatMap((l) => (isDetail(l) ? [] : [l.trim()]))
     .filter((l) => l !== "" && !/^(?:-\s*)?[([]?(?:none|no findings?)[)\]]?\.?$/i.test(l));
   for (const [i, line] of lines.entries()) {
     const finding = parseFinding(line, lenses, i + 1);

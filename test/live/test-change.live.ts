@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { judgeTestChange } from "../../src/jev/questions/test-change.ts";
-import { loadFixture, realJev } from "../jev/fixture-runner.ts";
+import { loadFixture, rateShortfall, realJev } from "../jev/fixture-runner.ts";
 
 type Judged = Awaited<ReturnType<typeof judgeTestChange>>;
 
@@ -14,6 +14,7 @@ test("test-change fixture reaches 0.9 with a real Jev", async () => {
   const jev = await realJev();
   const fixture = loadFixture("test-change");
   let passed = 0;
+  const misses: string[] = [];
   for (const c of fixture.cases) {
     const r = await judgeTestChange(jev, {
       path: c.state.path ?? "",
@@ -23,7 +24,7 @@ test("test-change fixture reaches 0.9 with a real Jev", async () => {
     });
     const got = verdict(r);
     if (got === c.expected) passed++;
-    else console.log("  miss:", c.state.path, "→", got, "expected", c.expected);
+    else misses.push(`${c.state.path} → ${got}, expected ${c.expected}`);
   }
-  assert.ok(passed / fixture.cases.length >= 0.9, `${passed}/${fixture.cases.length}`);
+  assert.equal(rateShortfall(passed, fixture.cases.length, 0.9, misses), undefined);
 });

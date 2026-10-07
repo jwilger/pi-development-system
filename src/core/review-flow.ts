@@ -144,8 +144,11 @@ export function adoptSeverity(
   };
 }
 
-const where = (f: Finding): string =>
-  f.path === undefined ? "" : ` \`${f.path}${f.line === undefined ? "" : `:${f.line}`}\``;
+const where = (f: Finding): string => {
+  if (f.path === undefined) return "";
+  const line = f.line === undefined ? "" : `:${f.line}`;
+  return ` \`${f.path}${line}\``;
+};
 
 /**
  * Nits are never stored. Each is reported back so the coordinator fixes it now or drops it

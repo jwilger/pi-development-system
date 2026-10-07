@@ -1,0 +1,5 @@
+{
+  "rules": {
+    "high-complexity": { "threshold": 25 }
+  }
+}

@@ -174,7 +174,7 @@ const stagedThenEdited = (
   // re-staged from the work tree, which was reviewed. Message text is one argument and never equals a path.
   const named = upto
     .filter((i) => (i.sub === "commit" || i.sub === "add") && !isDryRun(i) && inThisDir(i, cwd))
-    .flatMap((i) => i.args.filter((a) => !a.startsWith("-")).map(cleanPath));
+    .flatMap((i) => i.args.flatMap((a) => (a.startsWith("-") ? [] : [cleanPath(a)])));
   const covered = (name: string) => named.some((n) => name === n || name.startsWith(`${n}/`));
   return names.staged.filter(
     (name) => names.unstaged.includes(name) && !covered(name) && !DECISION_LOG.test(name),

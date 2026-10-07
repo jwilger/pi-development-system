@@ -16,7 +16,7 @@ import { MAIN_BRANCH, MIN_BUMP_CONFIDENCE, PUBLISHED_PATHS } from "./lib/config.
 import { judgeBump } from "./lib/jev.ts";
 import { commitsBetween, ZERO_SHA } from "./lib/range.ts";
 import { type Bump, formatVersion, parseVersion, satisfiesBump } from "./lib/semver.ts";
-import { fail, git } from "./lib/sh.ts";
+import { fail, git, out, warn } from "./lib/sh.ts";
 
 const { values } = parseArgs({
   options: {
@@ -100,7 +100,7 @@ async function main(): Promise<void> {
   let required: Bump = "none";
   if (published.length > 0) {
     if (overrides.length > 0) {
-      console.warn(`⚠ Jev-Override (${overrides.join("; ")}): requiring at least a patch bump`);
+      warn(`⚠ Jev-Override (${overrides.join("; ")}): requiring at least a patch bump`);
       required = "patch";
     } else {
       const diff = git("diff", ...diffArgs, "--", ...published);
@@ -118,7 +118,7 @@ async function main(): Promise<void> {
           );
         }
         required = j.bump;
-        console.log(
+        out(
           `Jev: ${j.bump} bump required (confidence ${j.confidence.toFixed(2)}; breaking ${j.evidence.breaking.toFixed(2)}, feature ${j.evidence.feature.toFixed(2)}, observable ${j.evidence.observable.toFixed(2)})`,
         );
       } catch (error) {
@@ -133,7 +133,7 @@ async function main(): Promise<void> {
         `a "${required}" bump is required for the published changes. Update package.json.`,
     );
   }
-  console.log(
+  out(
     `✓ version ${formatVersion(baseVersion)} → ${formatVersion(headVersion)} satisfies "${required}"`,
   );
 }

@@ -10,7 +10,7 @@ import { spawnSync } from "node:child_process";
 import { parseArgs } from "node:util";
 import { touchesJevFacing } from "./lib/jev-paths.ts";
 import { ZERO_SHA } from "./lib/range.ts";
-import { git } from "./lib/sh.ts";
+import { git, out } from "./lib/sh.ts";
 
 const { values } = parseArgs({
   options: { staged: { type: "boolean", default: false }, before: { type: "string" } },
@@ -28,9 +28,9 @@ const changed = (): string[] | undefined => {
 
 const paths = changed();
 if (paths !== undefined && !touchesJevFacing(paths)) {
-  console.log("jev fixtures: no Jev-facing change; live run not needed");
+  out("jev fixtures: no Jev-facing change; live run not needed");
   process.exit(0);
 }
-console.log("jev fixtures: running live-model fixtures (npm run test:jev)");
+out("jev fixtures: running live-model fixtures (npm run test:jev)");
 const result = spawnSync("npm", ["run", "--silent", "test:jev"], { stdio: "inherit" });
 process.exit(result.status ?? 1);

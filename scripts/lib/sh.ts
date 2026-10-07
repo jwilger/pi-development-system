@@ -19,8 +19,16 @@ export function truncate(text: string, max: number, keep: "head" | "tail" = "hea
     : `[truncated]…\n${text.slice(text.length - max)}`;
 }
 
+/** CLI output: stdout for results, stderr for warnings and failures. */
+export const out = (line: string): void => {
+  process.stdout.write(`${line}\n`);
+};
+export const warn = (line: string): void => {
+  process.stderr.write(`${line}\n`);
+};
+
 export function fail(message: string): never {
-  console.error(`\n✖ ${message}\n`);
+  warn(`\n✖ ${message}\n`);
   process.exit(1);
 }
 
