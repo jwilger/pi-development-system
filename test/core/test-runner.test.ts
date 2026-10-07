@@ -151,3 +151,14 @@ test("a missing test script in one workspace does not hide a failing test in ano
   const text = 'npm error Missing script: "test"\n# fail 2\nnot ok 1 - boom';
   assert.equal(exitCodeOf({ isError: true, text, command: "npm test --workspaces" }), 1);
 });
+
+test("a missing script beside a compile error in another workspace is still a failure", () => {
+  const text =
+    'npm error Missing script: "test"\nerror TS2322: Type string is not assignable\nnpm error Lifecycle script `test` failed';
+  assert.equal(exitCodeOf({ isError: true, text, command: "npm test --workspaces" }), 1);
+});
+
+test("tap and npx tap are test runners", () => {
+  assert.equal(isTestRunnerCommand("tap test/"), true);
+  assert.equal(isTestRunnerCommand("npx tap"), true);
+});

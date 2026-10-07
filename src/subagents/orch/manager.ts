@@ -788,10 +788,16 @@ export class ThreadManager {
     while (this.records.size >= limit) {
       const paths = [...this.records.keys()];
       const victim = paths.find((path) => {
-        const state = this.records.get(path)?.view.state;
+        const held = this.records.get(path);
+        const state = held?.view.state;
         const finished = state === "completed" || state === "failed" || state === "stopped";
+        // A driver still being created would land on a dropped record and never be disposed.
+        const opening =
+          held?.driver === undefined &&
+          (held?.initializing !== undefined || held?.contextReady !== undefined);
         return (
           finished &&
+          !opening &&
           !isDescendant(spawning, path) &&
           !paths.some((other) => isDescendant(other, path))
         );

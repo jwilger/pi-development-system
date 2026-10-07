@@ -336,3 +336,54 @@ test("an archived thread's driver is disposed", async () => {
   await manager.shutdown();
   assert.equal(disposed, 10, "archived drivers are disposed when dropped, the rest at shutdown");
 });
+
+test("a thread whose driver is still being created is not archived", async () => {
+  let created = 0;
+  let disposed = 0;
+  let release: (() => void) | undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const manager = new ThreadManager({
+    createDriver: async () => {
+      created += 1;
+      await gate;
+      return {
+        prompt: async () => undefined,
+        steer: async () => undefined,
+        snapshot: () => [],
+        output: () => "done",
+        abort: async () => undefined,
+        dispose: () => {
+          disposed += 1;
+        },
+        sendUpdate: () => undefined,
+      };
+    },
+    rootSnapshot: () => [],
+    getType: () => coder,
+    toolsFor: () => [],
+    maxThreads: 2,
+  });
+  manager.restore([
+    { view: done("/root/a", "/root"), definition: coder },
+    { view: done("/root/b", "/root"), definition: coder },
+  ]);
+  const observing = manager.observeTranscript("/root", "/root/a", () => undefined);
+  await new Promise((resolve) => setImmediate(resolve));
+  const spawned = manager.spawn("/root", {
+    path: "/root/c",
+    type: "coder",
+    task: "go",
+    wait: false,
+  });
+  await spawned;
+  assert.ok(
+    manager.list().some((t) => t.path === "/root/a"),
+    "the thread being opened stays registered",
+  );
+  release?.();
+  await observing.catch(() => undefined);
+  await manager.shutdown();
+  assert.equal(disposed, created, "every driver that was created is disposed");
+});

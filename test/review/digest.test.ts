@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import type { Exec } from "../../src/core/exec.ts";
-import { snapshotDiff } from "../../src/review/digest.ts";
+import { digestOf, snapshotDiff } from "../../src/review/digest.ts";
 
 // Real git, because the defects here were about what git actually prints under a user's config.
 const git = (cwd: string, ...args: string[]): string =>
@@ -206,4 +206,17 @@ test("a single-revision range includes untracked files, a two-dot range does not
   assert.ok(one.ok && two.ok);
   assert.ok("u.txt" in one.value.files);
   assert.equal("u.txt" in two.value.files, false);
+});
+
+test("the digest orders files by code unit, not by locale", async () => {
+  const dir = repo();
+  mkdirSync(join(dir, "docs"));
+  writeFileSync(join(dir, "README.md"), "r\n");
+  writeFileSync(join(dir, "docs", "x.md"), "x\n");
+  const snap = await snapshotDiff(exec, dir, "HEAD");
+  assert.ok(snap.ok, snap.ok ? "" : snap.error);
+  const { files } = snap.value;
+  // "R" (82) sorts before "d" (100) by code unit; localeCompare would put docs/ first.
+  const expected = digestOf(["README.md", "docs/x.md"].map((p) => `${p}\0${files[p]}`).join("\n"));
+  assert.equal(snap.value.digest, expected);
 });

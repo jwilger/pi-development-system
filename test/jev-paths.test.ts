@@ -9,13 +9,17 @@ test("changes under Jev code, fixtures or live tests need the live run", () => {
     "evals/jev/drift.json",
     "test/live/turn.live.ts",
     "test/jev/fixture-runner.ts",
+    "src/core/redact.ts",
+    "src/core/review.ts",
+    "src/core/routing.ts",
+    "src/core/git-intent.ts",
   ])
     assert.equal(touchesJevFacing([path]), true, path);
 });
 
 test("unrelated changes do not", () => {
   assert.equal(
-    touchesJevFacing(["src/core/review.ts", "README.md", "test/jev/turn.test.ts"]),
+    touchesJevFacing(["src/core/review-flow.ts", "README.md", "test/jev/turn.test.ts"]),
     false,
   );
   assert.equal(touchesJevFacing([]), false);

@@ -102,7 +102,8 @@ export async function snapshotDiff(
     const hashed = await hashUntracked(exec, cwd, untracked);
     if (!hashed.ok) return hashed;
     const files = { ...tracked.value, ...hashed.value };
-    const names = Object.keys(files).sort((a, b) => a.localeCompare(b));
+    // Code-unit order, not locale order: the digest must not depend on the runtime's collation.
+    const names = Object.keys(files).sort(byCodeUnit);
     const untrackedStat = [
       ...untracked.map((p) => ` ${p} (untracked)`),
       ...nested.map((p) => ` ${p} (nested repository, not reviewable)`),
@@ -117,6 +118,11 @@ export async function snapshotDiff(
     return err(cause instanceof Error ? cause.message : String(cause));
   }
 }
+
+const byCodeUnit = (a: string, b: string): number => {
+  if (a === b) return 0;
+  return a < b ? -1 : 1;
+};
 
 /** Content digests (`new:<blob>`) of untracked files; symlinks are hashed by target, not followed. */
 async function hashUntracked(

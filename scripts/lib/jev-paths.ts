@@ -8,6 +8,12 @@ export const JEV_FACING_PATHS: readonly string[] = [
   "evals/jev/",
   "test/live/",
   "test/jev/fixture-runner.ts",
+  // Core modules that decide what Jev is shown or how a live fixture is scored.
+  "src/core/redact.ts",
+  "src/core/review.ts",
+  "src/core/routing.ts",
+  "src/core/git-intent.ts",
+  "src/core/test-weakening.ts",
 ];
 
 export const touchesJevFacing = (paths: readonly string[]): boolean =>
