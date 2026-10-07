@@ -1,0 +1,93 @@
+{
+  "questionHash": "0d2bf1481dda28619c8655dff8e7f082f4fccf7d8aa03706a1bfce698ae79f712f459ac205bc5ffa",
+  "cases": [
+    {
+      "state": {
+        "title": "Trim emails on login",
+        "goal": "Logging in with a trailing space in the email succeeds.",
+        "files": "src/auth/login.ts,test/auth/login.test.ts",
+        "interfaces": "normalizeEmail(raw: string): string, called by login()",
+        "firstFailingTest": "test/auth/login.test.ts \"trims trailing whitespace\" asserts login resolves for \"a@b.c \"",
+        "steps": "Add failing test|Add normalizeEmail|Call it in login|Run suite"
+      },
+      "expected": "ready"
+    },
+    {
+      "state": {
+        "title": "Add --json flag",
+        "goal": "The CLI prints JSON when --json is passed.",
+        "files": "src/cli.ts,test/cli.test.ts",
+        "interfaces": "formatJson(result: CliResult): string exported from src/cli.ts; run(argv: string[]) calls it when argv includes \"--json\"",
+        "firstFailingTest": "test/cli.test.ts \"prints json\" asserts run([\"--json\"]) writes output that JSON.parse accepts",
+        "steps": "Write failing test|Add formatJson|Wire --json in cli|Run suite"
+      },
+      "expected": "ready"
+    },
+    {
+      "state": {
+        "title": "Trim emails on login",
+        "goal": "Improve login",
+        "files": "src/auth/login.ts,test/auth/login.test.ts",
+        "interfaces": "a helper function",
+        "firstFailingTest": "some tests",
+        "steps": "Make it work"
+      },
+      "expected": "needs-detail"
+    },
+    {
+      "state": {
+        "title": "Trim emails on login",
+        "goal": "Logging in with a trailing space in the email succeeds.",
+        "files": "src/auth/login.ts,test/auth/login.test.ts",
+        "interfaces": "some functions as needed",
+        "firstFailingTest": "test/auth/login.test.ts \"trims trailing whitespace\" asserts login resolves for \"a@b.c \"",
+        "steps": "Add failing test|Add normalizeEmail|Call it in login|Run suite"
+      },
+      "expected": "needs-detail"
+    },
+    {
+      "state": {
+        "title": "Trim emails on login",
+        "goal": "Logging in with a trailing space in the email succeeds.",
+        "files": "src/auth/login.ts,test/auth/login.test.ts",
+        "interfaces": "normalizeEmail(raw: string): string, called by login()",
+        "firstFailingTest": "tests for login",
+        "steps": "Add failing test|Add normalizeEmail|Call it in login|Run suite"
+      },
+      "expected": "needs-detail"
+    },
+    {
+      "state": {
+        "title": "Trim emails on login",
+        "goal": "Logging in with a trailing space in the email succeeds.",
+        "files": "src/auth/login.ts,test/auth/login.test.ts",
+        "interfaces": "normalizeEmail(raw: string): string, called by login()",
+        "firstFailingTest": "test/auth/login.test.ts \"trims trailing whitespace\" asserts login resolves for \"a@b.c \"",
+        "steps": "Implement everything and wire it all together|Make tests pass"
+      },
+      "expected": "needs-detail"
+    },
+    {
+      "state": {
+        "title": "Rebuild the auth system",
+        "goal": "Users can log in with passwords, OAuth and SSO, reset passwords, and admins can audit sessions; billing is migrated to the new accounts; the mobile app uses the new tokens.",
+        "files": "src/auth/**,src/admin/**,src/email/**,src/billing/**,mobile/**,db/migrations/**",
+        "interfaces": "login(), oauth(), sso(), reset(), audit(), migrateBilling(), mobileToken()",
+        "firstFailingTest": "all auth, billing and mobile tests",
+        "steps": "Do password|Do oauth|Do sso|Do reset|Do audit|Migrate billing|Port mobile"
+      },
+      "expected": "too-big"
+    },
+    {
+      "state": {
+        "title": "Add billing and fix the sidebar styling",
+        "goal": "Billing page exists and the sidebar has the right colours.",
+        "files": "src/billing/**,src/ui/sidebar.css",
+        "interfaces": "normalizeEmail(raw: string): string, called by login()",
+        "firstFailingTest": "test/auth/login.test.ts \"trims trailing whitespace\" asserts login resolves for \"a@b.c \"",
+        "steps": "Add failing test|Add normalizeEmail|Call it in login|Run suite"
+      },
+      "expected": "too-big"
+    }
+  ]
+}

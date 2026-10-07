@@ -194,4 +194,5 @@ test("loading registers the intake tool", () => {
   const fake = createFakePi({ hasUI: false });
   developmentSystem(fake.api);
   assert.ok(fake.tools.has("devsys_intake"));
+  assert.ok(fake.tools.has("devsys_task_check"));
 });
