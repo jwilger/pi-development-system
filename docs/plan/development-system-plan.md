@@ -47,6 +47,7 @@ less careful model than the one that wrote this):**
 - [x] I7 Anti-drift: verifier, compaction, model/phase recommendation
 - [x] I7b Cleanup: no skips, no nit file, no warnings, subagent thread cap, resync removed
 - [x] I8 Work sizing, slices, task records, tracker adapters, pi-goal-x hand-off
+- [ ] I8b Codemode and ambient activation (nested-call guard tests, exposure pass, intent trigger, verifier nudges)
 - [ ] I9 Product planning skills (brief, decisions, interview loop, lens review, journeys, ADR)
 - [ ] I10 Event modelling lite (slice schema v1, validator, GWT → tests)
 - [ ] I11 Design-system profile, threat modelling, skill lint, 1.0 readiness
@@ -430,6 +431,23 @@ Acceptance: `/devsys-start "add X"` proposes `change` and lists artifacts; skipp
 
 Release + STOP.
 
+### I8b — Codemode and ambient activation  (expect 0.75.0)
+
+**Goal.** Codemode (pi `codemode` tool, enabled in the author's settings) is
+used where it saves context, and the system's capabilities trigger from what
+the user is doing rather than from slash commands. **Why.** User decision
+after I8; research 06 (`docs/research/06-codemode-and-ambient-use.md`).
+
+- [ ] **I8b.1 Nested-call guard tests.** `test/harness/fake-pi.ts` gains `ctx.executeTool(name, args)` that emits `tool_call`/`tool_result` with ids `<parent>/<n>` and `parentToolCallId`, as pi does for codemode scripts. Tests: nested `bash` `git push --force` is hard-stopped; nested `edit` on a test file hits the test guard; nested `npm test` updates `lastTestRun`; a claim after a nested green run is not flagged by the turn verifier; `ctx.ui.confirm` inside a nested call reaches the user. Any failure is fixed in the guard, never in the test.
+- [ ] **I8b.2 Exposure pass.** `model-only` for tools that talk to the user (`devsys_request_approval`, `devsys_intake`, `devsys_begin_work`, `devsys_review_start`); `codemode` exposure for rarely used tools (`devsys_work_item`, `devsys_models`, `devsys_task_check`, `devsys_route_task`); the rest stay `direct`. Namespace `devsys-judge` (`exposure: "codemode"`) wraps the existing Jev questions (`judge_sizing`, `judge_test_change`, `judge_lenses`, `judge_task_readiness`) so scripts get our redaction and clipping instead of raw `models.classify`. Test: `pi.getAllTools()` exposures match a table.
+- [ ] **I8b.3 Intent trigger.** `src/jev/questions/intent.ts` + fixture: `judgeIntent(jev, {prompt, phase})` → `new-work | fix | review | question | continuation`. On `before_agent_start` with phase `idle` (or `new-work` ≥ 0.7 in any phase), append one guideline line to `systemPromptOptions` naming the tool to call (`devsys_intake` for new work/fix, `devsys_review_start` for review). Never for `question`/`continuation`. Phase-aware descriptions: a `model-only` tool `devsys` whose description is rewritten per phase through `prepareLoadout` (idle: intake; planning: task records + `devsys_begin_work`; implementing: red-first + verify; reviewing: review start/record; delivering: push/CI). Harness tests per phase.
+- [ ] **I8b.4 Verifier nudges.** Turn verifier adds two corrections (same limits as I7.2): "slice looks done, no review round for it" → names `devsys_review_start`; "architecture-shaping diff without an ADR" is reserved for I9.4's gate message (names `devsys_adr_new`). Fake-Jev tests.
+- [ ] **I8b.5 Verify script + docs.** `skills/strict-lints/references/verify.md`: a codemode script template that runs the profile's checks in parallel and returns `{tool, exit, firstFailures}`; the test-evidence tracker records each nested run (I8b.1 proves it). README section "You do not need the slash commands"; plan §1 gains: every prompt template must also be reachable through a tool plus an ambient trigger.
+
+Acceptance: with codemode on, a script that runs `git push --force` is blocked with the hard-stop reason; a plain "add X" request on an idle session gets the intake guideline line; `pi.getAllTools()` shows the exposure table.
+
+Release + STOP.
+
 ### I9 — Product planning skills  (expect 0.10.0)
 
 **Goal.** Brief, decision register, follow-ups, terminology, interview loop,
@@ -439,7 +457,7 @@ Torres).
 
 - [ ] **I9.1 Templates** under `skills/product-planning/references/`: `brief.md` (outcome, four risks, assumptions, non-goals, "deferral ≠ exclusion"), `decisions.md` (D/Q/F register), `followups.md` (P), `terminology.md`, `journeys.md` (J; "story of a user performing actions to achieve an outcome" test).
 - [ ] **I9.2 Skill `product-planning`** (≤ 300 lines + references): interview loop rule verbatim — "update docs after each answer, ask one next question, yield"; agent must not over-edit the brief (D55–D58 lesson): edits limited to the answered question; every answer becomes a D-item.
-- [ ] **I9.3 Lens review orchestration.** `prompts/devsys-lens-review.md` + `src/review/lens-review.ts`: builds five fresh `agent_spawn` payloads (lens-* agents, routed models), round-1 template, round-2 peer exchange, synthesis R-table + one-question agenda; guardrail line "agreement among agents is useful critique, not customer evidence" included in every lens prompt. Jev `judgeLenses` variant for product lenses chooses a subset for `capability` sizing (all five for `product`).
+- [ ] **I9.3 Lens review orchestration.** `prompts/devsys-lens-review.md` + `src/review/lens-review.ts`: returns a codemode script as the primary form (spawns the five lens agents, waits, writes the packets to the review file, returns only verdict lines and the path) and the five fresh `agent_spawn` payloads as fallback; builds the payloads (lens-* agents, routed models), round-1 template, round-2 peer exchange, synthesis R-table + one-question agenda; guardrail line "agreement among agents is useful critique, not customer evidence" included in every lens prompt. Jev `judgeLenses` variant for product lenses chooses a subset for `capability` sizing (all five for `product`).
 - [ ] **I9.4 ADR command.** `prompts/devsys-adr.md` + `devsys_adr_new({title})` tool creating next-numbered file from `docs/adr/0000-template.md`; commit guard adds soft gate `adr.missing` when Jev `judgeArchitectureShaping(diffStat) ≥ 0.7` and no ADR file is in the diff (non-negotiable 9 is enforced as soft gate here because the judgement is probabilistic; record this in ADR-0004).
 - [ ] **I9.5 Anti-leak lint.** `src/planning/brief-lint.ts`: brief must not contain solution-level detail markers (table names, endpoints, class names) — regex list + Jev `noul`; warning only.
 
@@ -468,10 +486,10 @@ Release + STOP.
 
 - [ ] **I11.1 `skills/profile-design-system`** (Frost: tokens → components; AI constrained to DS materials; governance for 90 %-fit vs snowflake).
 - [ ] **I11.2 `skills/threat-modelling`** (proportional; trust the single-owner machine; checklist; when to write `docs/security/threat-model.md`).
-- [ ] **I11.3 Headless mode audit.** Test that every guard blocks safely with `hasUI:false`.
+- [ ] **I11.3 Headless mode audit.** Test that every guard blocks safely with `hasUI:false`, including the nested-call paths from I8b.1.
 - [ ] **I11.4 Jev fixture coverage test.** Every file in `src/jev/questions/` has a fixture in `evals/jev/` and the question text hash in the fixture matches (forces re-evaluation when a question changes — non-negotiable 10).
 - [ ] **I11.5 README** (install, replace pi-subagent-manager, config reference, tiers, decision log, commands, agents), `CHANGELOG.md` generated from commits.
-- [ ] **I11.6 1.0 readiness review.** Two fresh reviewers (one Sonnet, one strong) over the whole package against synthesis §10; fix blocking; record remaining items as follow-ups.
+- [ ] **I11.6 1.0 readiness review.** Two fresh reviewers (one Sonnet, one strong) over the whole package against synthesis §10, run through the I9.3 script path; fix blocking; record remaining items as follow-ups.
 
 Release (1.0.0) + STOP.
 
