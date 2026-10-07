@@ -167,3 +167,12 @@ test("an item file written by the earlier format still reads", async () => {
   assert.equal(item.body, "body");
   assert.deepEqual(item.comments, ["hi"]);
 });
+
+test("every line terminator the file format cannot read is refused, so one item cannot lock the tracker", async () => {
+  const { tracker } = setup();
+  for (const bad of ["a\u2028b", "a\u2029b", "a\u0085b"]) {
+    assert.equal((await tracker.create({ title: bad })).ok, false, JSON.stringify(bad));
+    assert.equal((await tracker.create({ title: "fine", labels: [bad] })).ok, false);
+  }
+  assert.equal((await tracker.create({ title: "fine" })).ok, true);
+});

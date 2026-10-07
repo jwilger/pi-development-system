@@ -216,7 +216,7 @@ test("listing in-progress asks gh for the label so the limit cannot hide items",
 });
 
 test("a list that reached the limit is an error, not a silently short list", async () => {
-  const many = Array.from({ length: 500 }, (_, n) => issue({ number: n + 1 }));
+  const many = Array.from({ length: 1000 }, (_, n) => issue({ number: n + 1 }));
   const { exec } = fakeExec(() => ({ stdout: JSON.stringify(many) }));
   const r = await createGithubTracker({ exec, cwd: "/r" }).list({});
   assert.equal(r.ok, false);
@@ -237,4 +237,28 @@ test("a user label named in-progress is refused so it cannot change the status",
   assert.equal((await t.create({ title: "x", labels: ["in-progress"] })).ok, false);
   assert.equal((await t.update("7", { labels: ["in-progress"] })).ok, false);
   assert.equal(calls.length, 0);
+});
+
+test("the marker label is recognised whatever its case, and a user label in that case is refused", async () => {
+  const { exec } = fakeExec(() => ({
+    stdout: JSON.stringify(issue({ labels: [{ name: "In-Progress" }, { name: "bug" }] })),
+  }));
+  const t = createGithubTracker({ exec, cwd: "/r" });
+  const got = await t.get("7");
+  assert.ok(got.ok);
+  assert.equal(got.value.status, "in-progress");
+  assert.deepEqual(got.value.labels, ["bug"]);
+  assert.equal((await t.create({ title: "x", labels: ["IN-PROGRESS"] })).ok, false);
+});
+
+test("a full page of closed issues is fine to list as done, but not as everything", async () => {
+  const many = Array.from({ length: 1000 }, (_, n) => issue({ number: n + 1, state: "CLOSED" }));
+  const { exec } = fakeExec(() => ({ stdout: JSON.stringify(many) }));
+  const t = createGithubTracker({ exec, cwd: "/r" });
+  assert.equal((await t.list({ status: "done" })).ok, true);
+  const all = await t.list({});
+  assert.equal(all.ok, false);
+  const open = await t.list({ status: "open" });
+  assert.equal(open.ok, false);
+  if (!open.ok) assert.doesNotMatch(open.error.message, /narrow/);
 });

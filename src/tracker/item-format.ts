@@ -7,6 +7,9 @@ import {
   type WorkStatus,
 } from "./types.ts";
 
+/** Every line terminator `.` in the item header pattern cannot cross, plus NEL for safety. */
+const LINE_BREAK = /[\r\n\u2028\u2029\u0085]/;
+
 const COMMENTS = "\n## Comments\n";
 
 /** Comment lines are quoted so nothing a comment says can look like one of our headings. */
@@ -24,9 +27,9 @@ const unquote = (text: string): string =>
 
 /** What the file format cannot hold, or undefined when the item can be written and read back. */
 export const unwritable = (item: Pick<WorkItem, "title" | "labels">): string | undefined => {
-  if (/[\r\n]/.test(item.title)) return "a work item title must be a single line";
+  if (LINE_BREAK.test(item.title)) return "a work item title must be a single line";
   if (item.title.trim() === "") return "a work item title cannot be blank";
-  const bad = item.labels.find((l) => /[\r\n,]/.test(l) || l.trim() === "");
+  const bad = item.labels.find((l) => LINE_BREAK.test(l) || l.includes(",") || l.trim() === "");
   return bad === undefined
     ? undefined
     : `label ${JSON.stringify(bad)} is blank or holds a comma or line break`;

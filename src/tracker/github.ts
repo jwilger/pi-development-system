@@ -4,7 +4,7 @@ import { unwritable } from "./item-format.ts";
 
 /** Our status marker is a label; a user label with that name would change the status as a side effect. */
 const unusable = (item: { title: string; labels: readonly string[] }): string | undefined =>
-  item.labels.includes("in-progress")
+  item.labels.some(isMarker)
     ? '"in-progress" is reserved for the in-progress status; set status instead'
     : unwritable(item);
 
@@ -21,6 +21,8 @@ import {
 
 const FIELDS = "number,title,body,state,labels,comments";
 const IN_PROGRESS = "in-progress";
+/** GitHub label names are case-insensitive, so `In-Progress` is our marker too. */
+const isMarker = (name: string): boolean => name.toLowerCase() === IN_PROGRESS;
 const ISSUE_NUMBER = /^[1-9][0-9]*$/;
 const STATE_ARG = { open: "open", "in-progress": "open", done: "closed" } as const;
 
@@ -45,7 +47,7 @@ const isIssue = (value: unknown): value is GhIssue =>
 
 const statusOf = (state: string, labels: readonly string[]): WorkStatus => {
   if (state === "CLOSED") return "done";
-  return labels.includes(IN_PROGRESS) ? "in-progress" : "open";
+  return labels.some(isMarker) ? "in-progress" : "open";
 };
 
 const toItem = (issue: GhIssue): WorkItem => {
@@ -55,7 +57,7 @@ const toItem = (issue: GhIssue): WorkItem => {
     title: issue.title,
     body: issue.body ?? "",
     status: statusOf(issue.state, names),
-    labels: names.filter((n) => n !== IN_PROGRESS),
+    labels: names.filter((n) => !isMarker(n)),
     comments: (issue.comments ?? []).map((c) => c.body),
   };
 };
@@ -115,7 +117,7 @@ const view = async (gh: Gh, id: string): Promise<TrackerResult<WorkItem>> => {
   return raw.ok ? ok(toItem(raw.value)) : raw;
 };
 
-const LIST_LIMIT = 500;
+const LIST_LIMIT = 1000;
 
 /** The `gh issue list` arguments that select exactly the wanted status where gh can, so the limit bites last. */
 const listArgs = (status: WorkStatus | undefined): string[] => {
@@ -139,9 +141,14 @@ const listIssues = async (gh: Gh, filter: ItemFilter): Promise<TrackerResult<Wor
   if (!out.ok) return out;
   const parsed = parseIssues(out.value);
   if (parsed === undefined) return trackerError("gh issue list: unexpected output");
-  if (parsed.length >= LIST_LIMIT) {
+  // gh lists newest first. Cutting off old closed issues is harmless; cutting off open work is not.
+  if (parsed.length >= LIST_LIMIT && filter.status !== "done") {
+    const advice =
+      filter.status === undefined
+        ? "; ask for one status to narrow it"
+        : "; this adapter lists at most that many";
     return trackerError(
-      `gh issue list returned ${LIST_LIMIT} issues, so the list may be cut short; ask for one status (open, in-progress or done) to narrow it`,
+      `gh issue list returned ${LIST_LIMIT} issues, so the list may be cut short${advice}`,
     );
   }
   const items = parsed.map(toItem);
@@ -215,7 +222,7 @@ const updateIssue = async (
   const raw = await viewRaw(gh, id);
   if (!raw.ok) return raw;
   const current = toItem(raw.value);
-  const hadMarker = (raw.value.labels ?? []).some((l) => l.name === IN_PROGRESS);
+  const hadMarker = (raw.value.labels ?? []).some((l) => isMarker(l.name));
   if (patch.status === "in-progress") {
     // No --force: that would recolour the team's existing label. "Already exists" is success.
     const made = await gh(["label", "create", IN_PROGRESS]);

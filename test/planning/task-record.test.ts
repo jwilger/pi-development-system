@@ -194,3 +194,21 @@ test("a Run written as a fenced block is the command inside, without the info st
   assert.ok(!isParseError(r));
   assert.equal(r.run, "npm test");
 });
+
+test("fences close only on a matching fence: a longer fence can hold shorter ones, ~~~ can hold backticks", () => {
+  const nested = GOOD.replace(
+    "**Interfaces:**",
+    "**Interfaces:**\n````md\n```\n**Goal:** inner\n```\n````\n~~~\n```\n**Run:** inner\n~~~\n",
+  );
+  const r = parseTaskRecord(nested);
+  assert.ok(!isParseError(r));
+  assert.equal(r.run, "npm test -- test/auth/login.test.ts");
+  assert.match(r.goal, /trailing space/);
+});
+
+test("an id that appears twice in a plan is ambiguous even when named", () => {
+  const plan = `${GOOD}\n${GOOD}`;
+  const r = parseTaskRecord(plan, "T1");
+  assert.ok(isParseError(r));
+  assert.match(r.message, /appears 2 times/);
+});

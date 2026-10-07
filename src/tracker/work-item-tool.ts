@@ -24,7 +24,8 @@ const Parameters = Type.Object({
   ),
   status: Type.Optional(
     Type.Union([Type.Literal("open"), Type.Literal("in-progress"), Type.Literal("done")], {
-      description: "Status (update), or a filter (list).",
+      description:
+        "Status (update), or a filter (list). On GitHub, listing done shows the newest 1000 closed issues.",
     }),
   ),
   labels: Type.Optional(Type.Array(Type.String(), { description: "Labels (create, update)." })),

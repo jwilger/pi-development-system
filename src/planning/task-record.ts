@@ -38,15 +38,35 @@ const PLACEHOLDER =
 
 const isSection = (name: string): name is Section => SECTIONS.some((s) => s === name);
 
-const FENCE = /^\s*(?:```|~~~)/;
+const FENCE_LINE = /^\s*(`{3,}|~{3,})(.*)$/;
 const HEADING = /^#{1,6}\s/;
 
-/** For each line, whether it sits inside (or on the edge of) a fenced code block. */
+/** Opening fence: its character and length. Backtick fences cannot carry backticks in the info string. */
+const opening = (line: string): { char: string; length: number } | undefined => {
+  const m = FENCE_LINE.exec(line);
+  const run = m?.[1];
+  if (run === undefined || (run.startsWith("`") && (m?.[2] ?? "").includes("`"))) return undefined;
+  return { char: run.slice(0, 1), length: run.length };
+};
+
+/** A closing fence repeats the opening character at least as many times and carries no text. */
+const closes = (line: string, open: { char: string; length: number }): boolean => {
+  const m = FENCE_LINE.exec(line);
+  const run = m?.[1];
+  return (
+    run?.startsWith(open.char) === true && run.length >= open.length && (m?.[2] ?? "").trim() === ""
+  );
+};
+
+/** For each line, whether it sits inside (or on the edge of) a fenced code block, as CommonMark reads fences. */
 const fencedFlags = (lines: readonly string[]): boolean[] => {
-  let open = false;
+  let open: { char: string; length: number } | undefined;
   return lines.map((line) => {
-    if (!FENCE.test(line)) return open;
-    open = !open;
+    if (open === undefined) {
+      open = opening(line);
+      return open !== undefined;
+    }
+    if (closes(line, open)) open = undefined;
     return true;
   });
 };
@@ -95,9 +115,10 @@ function recordsIn(lines: readonly string[]): Located[] {
 /** A command or result without its backticks, or the body of a fenced block (its info string dropped). */
 const stripTicks = (text: string): string => {
   const lines = text.split("\n");
-  if (FENCE.test(lines[0] ?? "")) {
+  const fence = opening(lines[0] ?? "");
+  if (fence !== undefined) {
     const body = lines.slice(1);
-    if (FENCE.test(body.at(-1) ?? "")) body.pop();
+    if (closes(body.at(-1) ?? "", fence)) body.pop();
     return body.join("\n").trim();
   }
   return text.replace(/^`+|`+$/g, "").trim();
@@ -157,10 +178,13 @@ function locate(markdown: string, id: string | undefined): Located | ParseError 
   const records = recordsIn(markdown.split("\n"));
   const names = records.map((r) => r.id).join(", ");
   if (id !== undefined) {
-    return (
-      records.find((r) => r.id === id) ??
-      parseError(`no task record "${id}" (found: ${names || "none"})`)
-    );
+    const named = records.filter((r) => r.id === id);
+    const [first] = named;
+    if (first === undefined)
+      return parseError(`no task record "${id}" (found: ${names || "none"})`);
+    return named.length === 1
+      ? first
+      : parseError(`task record "${id}" appears ${named.length} times; ids must be unique`);
   }
   const [only, ...rest] = records;
   if (only === undefined) return parseError(NO_HEADER);
