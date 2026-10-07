@@ -9,7 +9,6 @@ import { applyPromptSection } from "../src/context/system-prompt.ts";
 import { DEFAULT_VERIFIER_MAX, registerTurnVerifier } from "../src/context/turn-verifier.ts";
 import { type Exec, timeoutAsFailure } from "../src/core/exec.ts";
 import { defaultMatrix } from "../src/core/models.ts";
-import { detectProfiles } from "../src/core/profile.ts";
 import { createApprovalStore } from "../src/gates/approvals.ts";
 import { registerCommitGuard } from "../src/gates/commit-guard.ts";
 import { registerGitGuard } from "../src/gates/git-guard.ts";
@@ -24,6 +23,7 @@ import { createReviewRecordTool, createReviewStartTool } from "../src/review/rev
 import { registerCiCommand } from "../src/state/ci-command.ts";
 import { loadConfig } from "../src/state/config.ts";
 import { createModelsTool, registerModelsCommand } from "../src/state/models-command.ts";
+import { detectProfiles } from "../src/state/profile-detect.ts";
 import { createRouteTaskTool } from "../src/state/route-task-tool.ts";
 import { createSessionState } from "../src/state/session-state.ts";
 import { registerTestEvidence } from "../src/state/test-evidence.ts";

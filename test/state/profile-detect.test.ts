@@ -3,7 +3,8 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { detectProfiles, parseProfiles } from "../../src/core/profile.ts";
+import { parseProfiles } from "../../src/core/profile.ts";
+import { detectProfiles } from "../../src/state/profile-detect.ts";
 
 const repo = (files: string[]): string => {
   const dir = mkdtempSync(join(tmpdir(), "devsys-profile-"));
