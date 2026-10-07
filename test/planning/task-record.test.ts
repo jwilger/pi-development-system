@@ -270,3 +270,10 @@ test("tbd in any case is rejected, matching the placeholder check", () => {
     assert.match(r.message, /TBD/);
   }
 });
+
+test("dashes and template text in Run or Expected are placeholders", () => {
+  for (const run of ["—", "–", "<command>", "-"]) {
+    const r = parseTaskRecord(GOOD.replace(/\*\*Run:\*\*.*\n/, `**Run:** ${run}\n`));
+    assert.ok(isParseError(r), run);
+  }
+});
