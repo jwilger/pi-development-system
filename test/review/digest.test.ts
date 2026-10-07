@@ -85,6 +85,15 @@ test("textconv that hides an edit and diff.submodule=log do not hide a changed p
   assert.notEqual(await digest(dir), first.value.digest);
 });
 
+test("diff.ignoreSubmodules=all does not hide a changed path from the digest", async () => {
+  const dir = repo();
+  git(dir, "config", "diff.ignoreSubmodules", "all");
+  writeFileSync(join(dir, "a.txt"), "one\ntwo\n");
+  const snap = await snapshotDiff(exec, dir, "HEAD");
+  assert.ok(snap.ok, snap.ok ? "" : snap.error);
+  assert.deepEqual(Object.keys(snap.value.files), ["a.txt"]);
+});
+
 test("editing a file with a non-ASCII name changes the digest and keys it by its real path", async () => {
   const dir = repo();
   writeFileSync(join(dir, "naïve.md"), "one\ntwo\n");

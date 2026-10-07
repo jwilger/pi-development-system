@@ -213,3 +213,7 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 ## From I6 review round 8
 
 - acceptance `review.unsatisfied` at commit time is dormant until I8.3 sets `activeSlice` and a phase of implementing|reviewing (same as I4's red-first gate); `/devsys-review` needs an explicit slice until then, and the status shows the most recent review when no slice is active.
+
+## From I6 review round 9
+
+- correctness for a two-dot range the reviewer task still mentions untracked files, which that range's digest leaves out; harmless (reads more than was digested).

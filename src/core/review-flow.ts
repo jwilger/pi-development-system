@@ -156,7 +156,7 @@ export function reviewerTask(input: {
   const lenses = input.lenses.join(", ");
   return [
     `Review slice ${input.slice}, round ${input.round}, through these lenses: ${lenses}.`,
-    `See the change with \`git diff ${input.diffRange}\` (and \`git diff --stat ${input.diffRange}\`), plus any untracked files listed by \`git status --short\` (git diff does not show them; read them directly). Read the callers, callees and tests it depends on, no more.`,
+    `See the change with \`git diff ${input.diffRange}\` (and \`git diff --stat ${input.diffRange}\`), plus any untracked files listed by \`git ls-files --others --exclude-standard\` (git diff does not show them; read them directly). Read the callers, callees and tests it depends on, no more.`,
     "Do not modify files; report demonstrable defects with a realistic trigger and the smallest local repair.",
     "Return exactly the review packet from your instructions, with exactly this header (slice and round must not change):",
     "",

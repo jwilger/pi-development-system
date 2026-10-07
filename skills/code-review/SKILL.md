@@ -22,7 +22,8 @@ Review is a soft gate (`review.unsatisfied`): skipping it needs a recorded depar
    round in one call). A packet is recorded once, in the round its header names;
    if the diff changed since the start, the round is refused: start again.
 4. Read the reply: `review: N/R clean` and `next:`.
-   - `fix-findings`: fix every blocking and should-fix finding, then start a new round.
+   - `fix-findings`: fix every blocking and should-fix finding, then start a new round
+     (starting again on an unchanged diff is refused).
    - `review`: the streak is short (or the diff changed with findings); start another round.
    - `stale-diff`: the diff changed after a satisfied review; one more round.
    - `done`: commit.
@@ -60,7 +61,9 @@ commit keeps the clean rounds already earned unless findings come back.
 ## Rules of thumb
 
 - Fix the findings before the next round. Do not argue a finding away; if it is
-  wrong, the reviewer marks it a false positive with evidence (Jev can only suggest).
+  wrong, record a `review.unsatisfied` departure with the evidence
+  (`devsys_record_departure`). Starting a round again on an unchanged diff after
+  findings is refused, so a finding is cleared by a fix, never by a re-roll.
 - Do not widen a review into an audit of the tree. The reviewer reads the diff and
   what it depends on.
 - Never edit the packet to make it pass.

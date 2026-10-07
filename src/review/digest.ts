@@ -46,6 +46,8 @@ export async function snapshotDiff(
       // can hide an edit whose converted text is unchanged.
       "--submodule=short",
       "--no-textconv",
+      // diff.ignoreSubmodules=all would hide a bump that `git add` still stages.
+      "--ignore-submodules=dirty",
     ];
     const [diff, stat, others] = await Promise.all([
       exec("git", [...plain, "--full-index", "--no-renames", range], { cwd, timeout: 15_000 }),

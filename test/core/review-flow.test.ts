@@ -146,6 +146,7 @@ test("reviewerTask carries the slice, lenses, diff range and packet format", () 
     "round 2",
     "types, tests",
     "git diff HEAD",
+    "git ls-files --others --exclude-standard",
     "### Verdict",
     "Do not modify",
   ]) {
