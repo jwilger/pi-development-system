@@ -247,19 +247,9 @@ export function createReviewRecordTool(
 
       const merged = combinePackets(packets);
       const { findings, notes } = await adjusted(deps, ctx, merged.findings, snap.value.sample);
-      const review = addRound(
-        { ...before, required },
-        {
-          lenses: merged.lenses,
-          findings,
-          reviewedAt: (deps.now?.() ?? new Date()).toISOString(),
-          diffDigest: snap.value.digest,
-          files: snap.value.files,
-        },
-      );
-
       // File the nits first: if this fails nothing is recorded and a retry cannot count the round twice.
-      const followups = renderFollowups(slice, review.rounds.length, findings);
+      const followups = renderFollowups(slice, expected, findings);
+      let reviewed = snap.value;
       if (followups !== undefined) {
         try {
           const dir = join(ctx.cwd, "docs", "decisions");
@@ -271,7 +261,23 @@ export function createReviewRecordTool(
             true,
           );
         }
+        // The file is part of the work tree, so writing it changed the diff. The round covers the
+        // reviewed code plus its own follow-up note; otherwise `done` would be stale on arrival.
+        const after = await snapshotDiff(deps.exec, ctx.cwd, params.diffRange?.trim() || "HEAD");
+        if (!after.ok)
+          return reply(`cannot read the diff after filing follow-ups: ${after.error}`, true);
+        reviewed = after.value;
       }
+      const review = addRound(
+        { ...before, required },
+        {
+          lenses: merged.lenses,
+          findings,
+          reviewedAt: (deps.now?.() ?? new Date()).toISOString(),
+          diffDigest: reviewed.digest,
+          files: reviewed.files,
+        },
+      );
       deps.state.update((s) => upsertReview(s, review));
       const counts = (sev: Finding["severity"]) =>
         findings.filter((f) => f.severity === sev).length;
@@ -280,7 +286,7 @@ export function createReviewRecordTool(
           `Round ${review.rounds.length} recorded: ${counts("blocking")} blocking, ${counts("should-fix")} should-fix, ${counts("nit")} nit, ${counts("false-positive")} false-positive.`,
           reviewLabel(review),
           ...notes,
-          `next: ${nextAction(review, snap.value.digest)}`,
+          `next: ${nextAction(review, reviewed.digest)}`,
         ].join("\n"),
       );
     },

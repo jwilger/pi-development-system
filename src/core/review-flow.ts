@@ -65,7 +65,8 @@ export function splitDiffByFile(diff: string): Record<string, string> {
     if (path !== undefined) out[path] = lines.join("\n");
   };
   for (const line of diff.split("\n")) {
-    const header = /^diff --git a\/.* b\/(.*)$/.exec(line);
+    // Git quotes unusual paths ("b/na\303\257ve.md"); strip the quotes rather than lose the section.
+    const header = /^diff --git "?a\/.*?"? "?b\/(.*?)"?$/.exec(line);
     if (header !== null) {
       flush();
       path = header[1] ?? line;

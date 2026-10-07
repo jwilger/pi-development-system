@@ -124,6 +124,13 @@ test("splitDiffByFile keys each file's section by its new path", () => {
   assert.match(parts["a.ts"] ?? "", /\+1/);
 });
 
+test("splitDiffByFile keeps git-quoted paths as their own section", () => {
+  const diff =
+    'diff --git "a/na\\303\\257ve.md" "b/na\\303\\257ve.md"\n+1\ndiff --git a/b.ts b/b.ts\n+2';
+  assert.equal(Object.keys(splitDiffByFile(diff)).length, 2);
+  assert.match(Object.values(splitDiffByFile(diff))[0] ?? "", /\+1/);
+});
+
 test("renderFollowups lists only nits, or nothing", () => {
   assert.equal(renderFollowups(s1, 1, [finding("blocking")]), undefined);
   const text = renderFollowups(s1, 2, [finding("nit"), finding("should-fix", "types-2")]) ?? "";

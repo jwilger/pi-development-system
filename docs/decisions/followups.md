@@ -179,3 +179,10 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 - tests `test/gates/commit-guard.test.ts` — the fake exec answers every git call alike, so the gate and tools digesting the same range is pinned by `snapshotDiff` being shared, not by a call-level assertion.
 - correctness `src/gates/commit-guard.ts` — in a repo with no commits `git diff HEAD` fails, so the digest is "unknown" and the gate needs a departure; `devsys_review_start` fails the same way.
 - api-contract plan I6.3 — review state lives inside the `devsys-state` entry rather than a separate `devsys-review` entry.
+
+## From I6 review round 2
+
+- tooling pi-lens flags `src/core/review-packet.ts` dynamic `RegExp` (L14/L21) as ReDoS: checked, the patterns are built only from literal section names and a constant separator, never from packet text. `parseReviewPacket` complexity 15 is a style warning; split if it grows.
+- tooling pi-lens `no-sort-without-comparator` on `src/review/digest.ts` is intentional: a plain string sort over `path\0digest` lines keeps the digest deterministic.
+- tooling pi-lens MD041 on `agents/reviewer.md` and `prompts/devsys-review.md` is intentional (no H1 in prompt files). Decide in I7 which pi-lens findings become gates.
+- robustness pi exec resolves `code ?? 0` after a timeout kill, so a `git diff` slower than 15s would be digested truncated; revisit if large repos hit it.

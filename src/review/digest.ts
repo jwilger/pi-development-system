@@ -29,27 +29,50 @@ export async function snapshotDiff(
   range: string,
 ): Promise<Result<DiffSnapshot, string>> {
   try {
+    // Plain, parseable output whatever the user's git config says: an external diff driver or
+    // forced colour removes the `diff --git` headers the per-file digests are cut from.
+    const plain = ["-c", "core.quotePath=false", "diff", "--no-ext-diff", "--no-color"];
     const [diff, stat, others] = await Promise.all([
-      exec("git", ["diff", range], { cwd, timeout: 15_000 }),
-      exec("git", ["diff", "--stat", range], { cwd, timeout: 15_000 }),
+      exec("git", [...plain, "--full-index", "--no-renames", range], { cwd, timeout: 15_000 }),
+      exec("git", [...plain, "--stat", range], { cwd, timeout: 15_000 }),
       range === "HEAD"
         ? exec("git", ["ls-files", "--others", "--exclude-standard"], { cwd, timeout: 15_000 })
         : Promise.resolve({ code: 0, stdout: "", stderr: "" }),
     ]);
     if (diff.code !== 0) return err(diff.stderr.trim() || `git diff ${range} failed`);
-    const untracked = others.code === 0 ? others.stdout.split("\n").filter((p) => p !== "") : [];
+    if (others.code !== 0) return err(others.stderr.trim() || "git ls-files --others failed");
+    const listed = others.stdout.split("\n").filter((p) => p !== "");
+    // A nested repository is listed as `dir/` and has no blob to hash.
+    const nested = listed.filter((p) => p.endsWith("/"));
+    const untracked = listed.filter((p) => !p.endsWith("/"));
+    if (untracked.length > MAX_UNTRACKED) {
+      return err(
+        `${untracked.length} untracked files (more than ${MAX_UNTRACKED}); commit or ignore some so they can be reviewed`,
+      );
+    }
     const files: Record<string, string> = {};
     for (const [path, text] of Object.entries(splitDiffByFile(diff.stdout))) {
-      files[path] = digestOf(text);
+      files[path] = fileDigest(text);
+    }
+    if (diff.stdout.trim() !== "" && Object.keys(files).length === 0) {
+      return err("could not read the diff: no per-file sections were found");
     }
     if (untracked.length > 0) {
-      const shown = untracked.slice(0, MAX_UNTRACKED);
-      const hashes = await exec("git", ["hash-object", "--", ...shown], { cwd, timeout: 15_000 });
-      const lines = hashes.code === 0 ? hashes.stdout.split("\n").filter((l) => l !== "") : [];
-      for (const [i, path] of shown.entries()) files[path] = `new:${lines[i] ?? "unhashed"}`;
+      const hashes = await exec("git", ["hash-object", "--", ...untracked], {
+        cwd,
+        timeout: 15_000,
+      });
+      const lines = hashes.stdout.split("\n").filter((l) => l !== "");
+      if (hashes.code !== 0 || lines.length !== untracked.length) {
+        return err(hashes.stderr.trim() || "git hash-object could not hash every untracked file");
+      }
+      for (const [i, path] of untracked.entries()) files[path] = `new:${lines[i]}`;
     }
     const names = Object.keys(files).sort();
-    const untrackedStat = untracked.map((p) => ` ${p} (untracked)`).join("\n");
+    const untrackedStat = [
+      ...untracked.map((p) => ` ${p} (untracked)`),
+      ...nested.map((p) => ` ${p} (nested repository, not reviewable)`),
+    ].join("\n");
     return ok({
       digest: digestOf(names.map((p) => `${p}\0${files[p]}`).join("\n")),
       files,
@@ -60,3 +83,11 @@ export async function snapshotDiff(
     return err(cause instanceof Error ? cause.message : String(cause));
   }
 }
+
+const NEW_FILE = /^new file mode .*\nindex 0+\.\.([0-9a-f]+)/m;
+
+/** A new file digests as its blob, the same form an untracked file gets, so `git add` changes nothing. */
+const fileDigest = (section: string): string => {
+  const blob = NEW_FILE.exec(section)?.[1];
+  return blob === undefined ? digestOf(section) : `new:${blob}`;
+};

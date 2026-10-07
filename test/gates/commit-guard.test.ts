@@ -6,12 +6,12 @@ import test from "node:test";
 import type { ClassifierAnswer } from "@earendil-works/pi-ai";
 import { err, ok } from "../../src/core/result.ts";
 import { addRound, startReview } from "../../src/core/review.ts";
-import { upsertReview } from "../../src/core/review-flow.ts";
+import { splitDiffByFile, upsertReview } from "../../src/core/review-flow.ts";
 import type { SliceRef } from "../../src/core/types.ts";
 import { registerCommitGuard } from "../../src/gates/commit-guard.ts";
 import { createRecordDepartureTool } from "../../src/gates/record-departure-tool.ts";
 import type { Jev } from "../../src/jev/client.ts";
-import { snapshotDiff } from "../../src/review/digest.ts";
+import { digestOf, snapshotDiff } from "../../src/review/digest.ts";
 import { createSessionState } from "../../src/state/session-state.ts";
 import { createFakePi } from "../harness/fake-pi.ts";
 
@@ -35,6 +35,7 @@ const jevJudging = (rationale: number, mix: number): Jev => ({
   model: () => "fake/jev",
 });
 
+const DIFF = "diff --git a/a.ts b/a.ts\n+1\n";
 const setup = (jev: Jev, diff = "a.ts | 2 +-") => {
   const cwd = mkdtempSync(join(tmpdir(), "devsys-commit-"));
   const fake = createFakePi({ hasUI: false, cwd });
@@ -46,7 +47,7 @@ const setup = (jev: Jev, diff = "a.ts | 2 +-") => {
     jev: () => jev,
     exec: async (command, args) => {
       execCalls.push([command, ...args]);
-      return { code: 0, stdout: diff, stderr: "" };
+      return { code: 0, stdout: args[0] === "ls-files" ? "" : diff, stderr: "" };
     },
   });
   const record = createRecordDepartureTool({ pi: fake.api, state, now });
@@ -239,12 +240,15 @@ test("commits that legitimately have no inline message are not blocked as opaque
 });
 
 // --- review.unsatisfied (I6.4) ---
-const DIFF = "a.ts | 2 +-";
 const withPhase = (t: ReturnType<typeof setup>, phase: "implementing" | "reviewing" | "idle") =>
   t.state.update((s) => ({ ...s, phase, activeSlice: "s1" as SliceRef }));
 // The digest the guard will compute: same fake exec as setup(), which answers every git call with DIFF.
 const currentDigest = async () => {
-  const snap = await snapshotDiff(async () => ({ code: 0, stdout: DIFF, stderr: "" }), "/", "HEAD");
+  const snap = await snapshotDiff(
+    async (_command, args) => ({ code: 0, stdout: args[0] === "ls-files" ? "" : DIFF, stderr: "" }),
+    "/",
+    "HEAD",
+  );
   if (!snap.ok) throw new Error(snap.error);
   return snap.value.digest;
 };
@@ -255,7 +259,7 @@ const cleanRounds = (n: number, digest: string) =>
   );
 
 test("while implementing, a commit with no review for the slice needs a departure", async () => {
-  const t = setup(jevJudging(0.9, 0.1));
+  const t = setup(jevJudging(0.9, 0.1), DIFF);
   withPhase(t, "implementing");
   const r = await t.bash(commit(GOOD));
   assert.equal(r?.block, true);
@@ -264,14 +268,14 @@ test("while implementing, a commit with no review for the slice needs a departur
 });
 
 test("a recorded review.unsatisfied departure lets the commit through", async () => {
-  const t = setup(jevJudging(0.9, 0.1));
+  const t = setup(jevJudging(0.9, 0.1), DIFF);
   withPhase(t, "reviewing");
   await t.depart("review.unsatisfied");
   assert.equal(await t.bash(commit(GOOD)), undefined);
 });
 
 test("a satisfied review on the current diff passes; a stale or partial one blocks", async () => {
-  const t = setup(jevJudging(0.9, 0.1));
+  const t = setup(jevJudging(0.9, 0.1), DIFF);
   withPhase(t, "implementing");
   const digest = await currentDigest();
   t.state.update((s) => upsertReview(s, cleanRounds(3, digest)));
@@ -283,16 +287,16 @@ test("a satisfied review on the current diff passes; a stale or partial one bloc
 });
 
 test("outside implementing and reviewing, or without an active slice, the review gate is silent", async () => {
-  const idle = setup(jevJudging(0.9, 0.1));
+  const idle = setup(jevJudging(0.9, 0.1), DIFF);
   withPhase(idle, "idle");
   assert.equal(await idle.bash(commit(GOOD)), undefined);
-  const noSlice = setup(jevJudging(0.9, 0.1));
+  const noSlice = setup(jevJudging(0.9, 0.1), DIFF);
   noSlice.state.update((s) => ({ ...s, phase: "implementing" }));
   assert.equal(await noSlice.bash(commit(GOOD)), undefined);
 });
 
 test("committing a reviewed change in parts passes: the rest is only reviewed files", async () => {
-  const t = setup(jevJudging(0.9, 0.1));
+  const t = setup(jevJudging(0.9, 0.1), DIFF);
   withPhase(t, "implementing");
   // Reviewed: two files. Now only one of them remains in the diff (the other was committed).
   const reviewed = Array.from({ length: 3 }).reduce<ReturnType<typeof startReview>>(
@@ -302,7 +306,7 @@ test("committing a reviewed change in parts passes: the rest is only reviewed fi
         findings: [],
         reviewedAt: "t",
         diffDigest: "earlier",
-        files: { [DIFF]: `new:${DIFF}`, "gone.ts": "x" },
+        files: { "a.ts": digestOf(splitDiffByFile(DIFF)["a.ts"] ?? ""), "gone.ts": "x" },
       }),
     startReview("s1" as SliceRef, 3),
   );
