@@ -36,15 +36,19 @@ jobs:
       - name: Build gate (only fix(ci) commits on a broken build)
         env:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
         run: |
           nix develop -c node scripts/build-gate.ts --ci \
-            --before "${{ github.event.before }}" --after "${{ github.sha }}"
+            --before "$BEFORE_SHA" --after "$AFTER_SHA"
       - name: Semantic version gate
         env:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
         run: |
           nix develop -c node scripts/check-version.ts --ci \
-            --before "${{ github.event.before }}" --after "${{ github.sha }}"
+            --before "$BEFORE_SHA" --after "$AFTER_SHA"
 
   lint:
     name: Lint
@@ -81,7 +85,8 @@ jobs:
       - name: Live Jev fixtures (only when Jev-facing paths changed)
         env:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
-        run: nix develop -c node scripts/run-jev-fixtures.ts --before ${{ github.event.before }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: nix develop -c node scripts/run-jev-fixtures.ts --before "$BEFORE_SHA"
 
   release:
     name: GitHub release
@@ -110,7 +115,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # npm trusted publishing (OIDC)
+      id-token: write  # npm trusted publishing (OIDC)
     steps:
       # v4
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
