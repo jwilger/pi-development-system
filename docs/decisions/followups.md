@@ -233,3 +233,7 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 ## From I6 review round 14
 
 - false-block `git commit <path> -m …` commits only the named paths, but the staged-then-edited check still looks at every staged file; it fails closed and re-staging or a departure clears it. Telling a pathspec from an option value needs option parsing.
+
+## From I6 review round 15
+
+- api-contract a packet whose verdict is `no-blocking` but lists only should-fix findings is still rejected (findings decide; the verdict is redundant). The round-14 prompt text now states the rule, so it is kept as a consistency check.

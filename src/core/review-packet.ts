@@ -15,7 +15,10 @@ const HEADER = new RegExp(
   `^##\\s+Review\\s+${SEP}\\s+(.+?)\\s+${SEP}\\s+round\\s+(\\S+)\\s+${SEP}\\s+lenses:\\s*(.*)$`,
   "m",
 );
-const FINDING = /^-\s*\[([^\]]+)\]\s+(\S+)\s+(?:`([^`]+)`\s+)?[—–-]\s+(.+)$/;
+// Reviewers add text after the location (`fn`, a second location); the first backticked one is the finding's.
+const FINDING = /^-\s*\[([^\]]+)\]\s+(\S+)\s+(?:`([^`]+)`[^—–]*?\s+)?[—–-]\s+(.+)$/;
+// An indented line under a finding is its detail (trigger, fix), unless it is itself a finding.
+const isDetail = (line: string): boolean => /^\s+/.test(line) && !/^\s*-\s*\[/.test(line);
 
 const section = (text: string, name: string): string | undefined => {
   const match = new RegExp(`^###\\s+${name}\\s*$`, "im").exec(text);
@@ -81,6 +84,7 @@ export function parseReviewPacket(text: string): ReviewPacket | ParseError {
   const findings: Finding[] = [];
   const lines = (section(text, "Findings") ?? "")
     .split("\n")
+    .filter((l) => !isDetail(l))
     .map((l) => l.trim())
     .filter((l) => l !== "" && !/^(?:-\s*)?[([]?(?:none|no findings?)[)\]]?\.?$/i.test(l));
   for (const [i, line] of lines.entries()) {

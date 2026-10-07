@@ -101,3 +101,16 @@ test("startReview and addRound build state immutably and number rounds", () => {
   assert.equal(s2.rounds[1]?.n, 2);
   assert.equal(s0.rounds.length, 0, "input is not mutated");
 });
+
+test("addRound keeps per-file digests only on the latest round", () => {
+  const round = {
+    lenses: ["types" as const],
+    findings: [],
+    reviewedAt: "t",
+    diffDigest: "d",
+    files: { "a.ts": "x" },
+  };
+  const s = addRound(addRound(startReview("s1" as SliceRef, 3), round), round);
+  assert.equal(s.rounds[0]?.files, undefined);
+  assert.deepEqual(s.rounds[1]?.files, { "a.ts": "x" });
+});

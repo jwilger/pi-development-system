@@ -71,7 +71,11 @@ export const startReview = (slice: SliceRef, required: number): ReviewState => (
 
 export const addRound = (state: ReviewState, round: Omit<ReviewRound, "n">): ReviewState => ({
   ...state,
-  rounds: [...state.rounds, { ...round, n: state.rounds.length + 1 }],
+  // Only the last round's per-file digests are ever compared, so earlier ones are not carried along.
+  rounds: [
+    ...state.rounds.map(({ files: _files, ...earlier }) => earlier),
+    { ...round, n: state.rounds.length + 1 },
+  ],
 });
 
 /** Review lenses Jev can select (plan I6.2). A lens applies at probability ≥ LENS_THRESHOLD. */

@@ -69,7 +69,7 @@ export async function snapshotDiff(
     const untracked = listed.filter((p) => !p.endsWith("/"));
     if (untracked.length > MAX_UNTRACKED) {
       return err(
-        `${untracked.length} untracked files (more than ${MAX_UNTRACKED}); commit or ignore some so they can be reviewed`,
+        `${untracked.length} untracked files (more than ${MAX_UNTRACKED}); stage (git add) or ignore some so they can be reviewed`,
       );
     }
     const files: Record<string, string> = {};

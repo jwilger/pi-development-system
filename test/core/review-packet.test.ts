@@ -93,3 +93,33 @@ test("a verdict that contradicts the findings is rejected", () => {
   );
   assert.ok(isParseError(q));
 });
+
+test("real reviewer shapes parse: text after the location, a second location, indented trigger and fix lines", () => {
+  const p = parseReviewPacket(
+    [
+      "## Review — s1 — round 1 — lenses: types",
+      "### Sources inspected",
+      "- a.ts:1-9",
+      "### Findings",
+      "- [should-fix] correctness `a.ts:125` (`fn`) — drops the error — hides a failure",
+      "  - Trigger: input x",
+      "  - Fix: return the error",
+      "- [nit] types `a.ts:1` and `b.ts:2` — naming",
+      "### Verdict",
+      "blocking",
+    ].join("\n"),
+  );
+  assert.ok(!isParseError(p));
+  assert.equal(p.findings.length, 2);
+  assert.equal(p.findings[0]?.path, "a.ts");
+  assert.equal(p.findings[0]?.line, 125);
+  assert.equal(p.findings[1]?.line, 1);
+});
+
+test("an indented line that is itself a finding is still counted", () => {
+  const p = parseReviewPacket(
+    "## Review — s1 — round 1 — lenses: types\n### Findings\n  - [blocking] types `a.ts:1` — x\n### Verdict\nblocking\n",
+  );
+  assert.ok(!isParseError(p));
+  assert.equal(p.findings.length, 1);
+});
