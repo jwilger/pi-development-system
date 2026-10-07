@@ -13,7 +13,7 @@ pre-commit:
     typecheck:
       run: npx tsc --noEmit
     lint:
-      run: biome check .
+      run: biome check --error-on-warnings .
     knip:
       run: npx knip
     ast-grep:

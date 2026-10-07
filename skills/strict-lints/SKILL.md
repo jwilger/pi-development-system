@@ -39,7 +39,8 @@ A warning is an error that has not been triaged yet. Before every commit:
   working; deny in CI.
 - Vendored code under `src/subagents` is on a ratchet: `test/subagents/nocheck-files.ts`
   lists the files still skipping type checks and may only shrink. A file you touch there
-  is made clean and dropped from the list.
+  is made type-clean and lint-clean, dropped from the list, and removed from the
+  `!src/subagents/...` exclusions in `biome.json`.
 
 ## What the extension does
 
