@@ -74,7 +74,6 @@ const readItem = async (root: string, id: string): Promise<TrackerResult<WorkIte
 };
 
 const itemIds = async (root: string): Promise<string[]> => {
-  if ((await refuseSymlink(root, itemsDir(root))) !== undefined) return [];
   try {
     const files = await readdir(itemsDir(root));
     return files.flatMap((f) =>
@@ -87,6 +86,8 @@ const itemIds = async (root: string): Promise<string[]> => {
 };
 
 const readAll = async (root: string): Promise<TrackerResult<WorkItem[]>> => {
+  const link = await refuseSymlink(root, itemsDir(root));
+  if (link !== undefined) return trackerError(link);
   const items: WorkItem[] = [];
   for (const id of (await itemIds(root)).toSorted(byCodeUnit)) {
     const item = await readItem(root, id);

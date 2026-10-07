@@ -227,6 +227,8 @@ test("a symlinked backlog, items directory or item file is never written through
   symlinkSync(outside, join(linkedDir.root, "work", "items"));
   assert.equal((await linkedDir.tracker.create({ title: "Hello" })).ok, false);
   assert.equal(existsSync(join(outside, "hello.md")), false);
+  const listed = await linkedDir.tracker.list({});
+  assert.equal(listed.ok, false);
 
   const linkedItem = setup();
   mkdirSync(join(linkedItem.root, "work", "items"), { recursive: true });
