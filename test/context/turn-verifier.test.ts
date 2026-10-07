@@ -173,6 +173,24 @@ test("evidence from an earlier run never backs a claim in a later run", async ()
   assert.deepEqual(t.asked[1]?.state.toolEvidence, []);
 });
 
+test("a question whose options are themselves questions, or end on a colon lead-in, is a question", async () => {
+  const t = setup({ claim: 1 });
+  assert.equal(
+    await t.turnEnd("All tests pass. Want me to:\n1. Push now?\n2. Open a PR?"),
+    undefined,
+  );
+  assert.equal(await t.turnEnd("All tests pass. Which next:\n- push\n- open a PR"), undefined);
+  assert.equal(t.asked.length, 0);
+});
+
+test("a tool-calling turn after a correction does not use up the no-repeat rule", async () => {
+  const t = setup({ claim: 1 });
+  assert.ok(await t.turnEnd("All tests pass.", { turnIndex: 0 }));
+  assert.equal(await t.turnEnd("Running it.", { toolCall: true, turnIndex: 1 }), undefined);
+  assert.equal(await t.turnEnd("All tests pass now.", { turnIndex: 2 }), undefined);
+  assert.equal(t.asked.length, 1);
+});
+
 test("the turn right after a correction is not corrected again", async () => {
   const t = setup({ claim: 1 });
   assert.ok(await t.turnEnd("All tests pass.", { turnIndex: 0 }));

@@ -31,17 +31,26 @@ export function assistantParts(message: AgentMessage): Parts | undefined {
 
 const LIST_ITEM = /^(?:\d+[.)]|[-*+])\s/;
 
+const QUESTION_END = /\?(?:\s*\([^()]{0,40}\))?[\s)"'*_`]*$/;
+/** A lead-in that introduces options ("Want me to:", "Which next:") before a bare list. */
+const LEAD_IN = /:\s*$/;
+
 /**
- * True when the message ends by asking the user something: the last non-empty line that is not an
- * option-list item ends with a question mark, optionally followed by a short parenthetical ("(y/n)").
+ * True when the message ends by asking the user something: the last non-empty line, or the last line
+ * before an option list, ends with a question mark (optionally followed by a short parenthetical
+ * like "(y/n)"), or a bare option list follows a colon lead-in.
  */
 export function asksUser(text: string): boolean {
-  const last = text
+  const lines = text
     .split("\n")
     .map((l) => l.trim())
-    .filter((l) => l !== "" && !LIST_ITEM.test(l))
-    .at(-1);
-  return last !== undefined && /\?(?:\s*\([^()]{0,40}\))?[\s)"'*_`]*$/.test(last);
+    .filter((l) => l !== "");
+  const last = lines.at(-1);
+  if (last === undefined) return false;
+  if (QUESTION_END.test(last)) return true;
+  const lead = lines.filter((l) => !LIST_ITEM.test(l)).at(-1);
+  if (lead === undefined) return false;
+  return QUESTION_END.test(lead) || (LIST_ITEM.test(last) && LEAD_IN.test(lead));
 }
 
 /** True when a scope.expansion departure already covers the slice: the remedy the note asks for exists. */
