@@ -18,7 +18,8 @@ const HEADER = new RegExp(
 // Reviewers add text after the location (`fn`, a second location); the first backticked one is the finding's.
 const FINDING = /^-\s*\[([^\]]+)\]\s+(\S+)\s+(?:`([^`]+)`[^—–]*?\s+)?[—–-]\s+(.+)$/;
 // An indented line under a finding is its detail (trigger, fix), unless it is itself a finding.
-const isDetail = (line: string): boolean => /^\s+/.test(line) && !/^\s*-\s*\[/.test(line);
+const isDetail = (line: string): boolean =>
+  /^\s+/.test(line) && !/^\s*(?:[-*+]|\d+[.)])\s*\[/.test(line);
 
 // `until` ends a section; by default any heading does. Findings ends only at a known section so a stray
 // heading inside it (### Nits) makes its lines errors instead of silently cutting the findings off.

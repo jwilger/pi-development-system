@@ -157,7 +157,7 @@ export function createReviewStartTool(
         [
           `${reviewLabel(review)}; round ${round}; diff ${snap.value.digest}. ${basis}`,
           `lenses: ${lenses.join(", ")}`,
-          `Spawn the reviewer with agent_spawn using exactly this payload, then pass its packet to devsys_review_record with diffDigest "${snap.value.digest}"${range === "HEAD" ? "" : ` and diffRange "${range}"`}:`,
+          `Spawn the reviewer with agent_spawn using exactly this payload, then pass its packet to devsys_review_record with slice "${slice}", diffDigest "${snap.value.digest}"${range === "HEAD" ? "" : ` and diffRange "${range}"`}:`,
           JSON.stringify(spawn),
         ].join("\n"),
       );

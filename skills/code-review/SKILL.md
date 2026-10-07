@@ -18,7 +18,7 @@ Review is a soft gate (`review.unsatisfied`): skipping it needs a recorded depar
 2. Run that `agent_spawn` unchanged. The reviewer is a top-level agent, not a
    child of this conversation, so it does not inherit your context.
 3. Pass the reviewer's packet, verbatim, to `devsys_review_record` with the
-   `diffDigest` the start reply gave, and the same `diffRange` if you gave one
+   `slice` and `diffDigest` the start reply gave, and the same `diffRange` if you gave one
    (`packets: [...]`; all lens packets of one
    round in one call). A packet is recorded once, in the round its header names;
    if the diff changed since the start, the round is refused: start again.

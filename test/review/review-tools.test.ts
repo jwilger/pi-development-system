@@ -256,3 +256,9 @@ test("a review of a range other than HEAD says it does not clear the commit gate
   const plain = await t.record({ packets: [packet("none", "no-blocking", 2)] });
   assert.doesNotMatch(text(plain), /does not clear it/);
 });
+
+test("the start reply tells the coordinator to pass the slice to record", async () => {
+  const t = setup(offline);
+  const r = await t.start({ slice: "s1" });
+  assert.match(text(r), /devsys_review_record with slice "s1", diffDigest/);
+});

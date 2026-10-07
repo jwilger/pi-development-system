@@ -139,3 +139,10 @@ test("a stray heading inside Findings is an error, not a silent cut", () => {
   );
   assert.ok(isParseError(p));
 });
+
+test("an indented finding with another bullet style is an error, not silently detail", () => {
+  const p = parseReviewPacket(
+    "## Review — s1 — round 1 — lenses: types\n### Findings\n- [should-fix] types `a.ts:1` — x\n  * [blocking] security `b.ts:3` — y\n### Verdict\nblocking\n",
+  );
+  assert.ok(isParseError(p));
+});
