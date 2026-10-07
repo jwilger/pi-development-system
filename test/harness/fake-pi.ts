@@ -148,7 +148,57 @@ export function createFakePi(init: FakePiOptions = {}) {
     return result;
   }
 
-  return { api, ctx, emit, tools, commands, entries, sentMessages, sendOptions, ui, handlers };
+  /**
+   * A stand-in for `ctx.executeTool()` as a codemode script sees it: every nested call is
+   * announced to `tool_call` handlers, then (unless blocked) run by `run`, then reported to
+   * `tool_result` handlers. Ids are `<parent>/<n>` and events carry `parentToolCallId`, as in pi.
+   */
+  function nestedExecutor(parentId: string, run: NestedRunner): NestedExecute {
+    let count = 0;
+    return async (toolName, input) => {
+      count += 1;
+      const toolCallId = `${parentId}/${count}`;
+      const base = { toolName, toolCallId, parentToolCallId: parentId, input };
+      const verdict = (await emit({ type: "tool_call", ...base } as never)) as
+        | { block?: boolean; reason?: string }
+        | undefined;
+      const blocked = verdict?.block === true;
+      const out = blocked
+        ? { text: verdict?.reason ?? "blocked", isError: true }
+        : await run(toolName, input);
+      await emit({
+        type: "tool_result",
+        ...base,
+        content: [{ type: "text", text: out.text }],
+        isError: out.isError,
+        details: undefined,
+      } as never);
+      return { blocked, reason: verdict?.reason, ...out };
+    };
+  }
+
+  return {
+    api,
+    ctx,
+    emit,
+    nestedExecutor,
+    tools,
+    commands,
+    entries,
+    sentMessages,
+    sendOptions,
+    ui,
+    handlers,
+  };
 }
+
+export type NestedRunner = (
+  toolName: string,
+  input: Record<string, unknown>,
+) => { text: string; isError: boolean } | Promise<{ text: string; isError: boolean }>;
+export type NestedExecute = (
+  toolName: string,
+  input: Record<string, unknown>,
+) => Promise<{ blocked: boolean; reason: string | undefined; text: string; isError: boolean }>;
 
 export type FakePi = ReturnType<typeof createFakePi>;
