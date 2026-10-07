@@ -1,5 +1,6 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { redactSecrets } from "../core/redact.ts";
 import { exitCodeOf, summarizeOutput } from "../core/test-runner.ts";
 import type { DevsysState, Phase } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
@@ -57,6 +58,8 @@ const claimMessage = (): string =>
 const driftMessage = (slice: string): string =>
   `Development system: your last message describes work beyond the active slice "${slice}". Either return to the slice, or call devsys_record_departure (gate scope.expansion) to record why the scope is growing.`;
 
+const TARGET_MAX = 120;
+
 const note = (content: string) => ({
   type: "custom_message" as const,
   customType: VERIFIER_ENTRY_TYPE,
@@ -95,10 +98,17 @@ export function registerTurnVerifier(deps: TurnVerifierDeps): void {
       structured: event.structuredContent,
       ...(command === undefined ? {} : { command }),
     });
+    // Name what ran or which file: a check that passes silently (`tsc --noEmit`) prints nothing.
+    const target = redactSecrets(
+      command ?? (typeof event.input.path === "string" ? event.input.path : ""),
+    )
+      .replace(/\s+/g, " ")
+      .slice(0, TARGET_MAX);
+    const described = target === "" ? summary : `${target} → ${summary}`;
     const item: ToolEvidence =
       event.toolName === "bash"
-        ? { tool: "bash", summary, exitCode }
-        : { tool: event.toolName, summary };
+        ? { tool: "bash", summary: described, exitCode }
+        : { tool: event.toolName, summary: described };
     evidence = [...evidence, item].slice(-MAX_EVIDENCE);
   });
 

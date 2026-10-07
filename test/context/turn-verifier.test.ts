@@ -39,12 +39,21 @@ function setup(opts: {
     model: () => "fake/jev",
   };
   registerTurnVerifier({ pi: fake.api, state, jev: () => jev, maxPerSession: () => opts.max ?? 6 });
-  const toolResult = (toolName: string, text: string, isError = false, command?: string) =>
+  const toolResult = (
+    toolName: string,
+    text: string,
+    isError = false,
+    command?: string,
+    path?: string,
+  ) =>
     fake.emit({
       type: "tool_result",
       toolName,
       toolCallId: "c",
-      input: command === undefined ? {} : { command },
+      input: {
+        ...(command === undefined ? {} : { command }),
+        ...(path === undefined ? {} : { path }),
+      },
       content: [{ type: "text", text }],
       isError,
       details: undefined,
@@ -208,6 +217,28 @@ test("a failing run piped through tail reaches Jev as a failure, not exit 0", as
   await t.turnEnd("All tests pass.");
   const evidence = t.asked[0]?.state.toolEvidence as string[];
   assert.match(evidence[0] ?? "", /^bash exit 1:/);
+});
+
+test("evidence names the command or file, so a silent passing check is not mistaken for nothing", async () => {
+  const t = setup({ claim: 0 });
+  await t.toolResult("bash", "(no output)", false, "npx tsc --noEmit");
+  await t.toolResult("read", "export const a = 1;", false, undefined, "src/a.ts");
+  await t.turnEnd("Type-check is clean.");
+  const evidence = t.asked[0]?.state.toolEvidence as string[];
+  assert.match(evidence[0] ?? "", /npx tsc --noEmit/);
+  assert.match(evidence[1] ?? "", /src\/a\.ts/);
+});
+
+test("a secret in the command never reaches Jev as evidence", async () => {
+  const t = setup({ claim: 0 });
+  await t.toolResult(
+    "bash",
+    "ok",
+    false,
+    "curl -H 'Authorization: Bearer abcdef1234567890abcdef' x",
+  );
+  await t.turnEnd("Done.");
+  assert.doesNotMatch(JSON.stringify(t.asked[0]?.state.toolEvidence), /abcdef1234567890abcdef/);
 });
 
 test("drift is not re-flagged once a scope.expansion departure covers the slice or session", async () => {

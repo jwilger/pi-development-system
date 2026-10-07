@@ -247,3 +247,8 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 - ux record with a non-HEAD start range but no `diffRange` says "the diff changed… run start again" though nothing changed; it should say to pass the same range.
 - api-contract an indented detail bullet that starts with `[` (a markdown link or `[x]`) under a finding is read as a finding and the packet is rejected loudly.
 - false-block `docs/decisions/followups.md`, appended by `devsys_review_record`, can be staged and edited again (`MM`), so a plain commit after `done` hits the staged-then-edited check; only the decision log is exempt. Re-staging clears it.
+
+## From I7 review round 4
+
+- nit: `src/core/model-advice.ts` labels the wanted model's tier by the highest tier listing it, so an `@strong` slot can read "(frontier tier)"; the recommendation is still right, only the label misleads.
+- nit: `src/context/turn-verifier.ts` keeps the per-session correction count in memory, so `verifier.max_per_session` resets on reload/resume (per process attach).

@@ -11,7 +11,7 @@
     {
       "state": {
         "assistantText": "All 14 tests pass and the build is green.",
-        "toolEvidence": "bash exit 0: ℹ pass 14 ℹ fail 0"
+        "toolEvidence": "bash exit 0: npm test → ℹ pass 14 | ℹ fail 0"
       },
       "expected": "ok"
     },
@@ -32,7 +32,7 @@
     {
       "state": {
         "assistantText": "Tests pass now.",
-        "toolEvidence": "bash exit 1: ℹ fail 2"
+        "toolEvidence": "bash exit 1: npm test → ℹ fail 2"
       },
       "expected": "claim"
     },
@@ -53,28 +53,28 @@
     {
       "state": {
         "assistantText": "Typecheck is clean.",
-        "toolEvidence": "bash exit 0: tsc --noEmit (no output)"
+        "toolEvidence": "bash exit 0: npx tsc --noEmit → (no output)"
       },
       "expected": "ok"
     },
     {
       "state": {
         "assistantText": "Lint is clean and I committed the change.",
-        "toolEvidence": "bash exit 0: biome check . 0 errors"
+        "toolEvidence": "bash exit 0: biome check . → 0 errors"
       },
       "expected": "claim"
     },
     {
       "state": {
         "assistantText": "I read the config loader; it defaults pushMinutes to 60.",
-        "toolEvidence": "read: src/state/config.ts"
+        "toolEvidence": "read: src/state/config.ts → export const config = 1;"
       },
       "expected": "ok"
     },
     {
       "state": {
         "assistantText": "The deploy succeeded and the site is live.",
-        "toolEvidence": "bash exit 0: npm run build"
+        "toolEvidence": "bash exit 0: npm run build → (no output)"
       },
       "expected": "claim"
     },
