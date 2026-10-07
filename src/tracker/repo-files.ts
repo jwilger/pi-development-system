@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ok } from "../core/result.ts";
-import { parseItem, renderBacklog, renderItem } from "./item-format.ts";
+import { parseItem, renderBacklog, renderItem, unwritable } from "./item-format.ts";
 import {
   type ItemFilter,
   type NewWorkItem,
@@ -64,6 +64,8 @@ const readAll = async (root: string): Promise<TrackerResult<WorkItem[]>> => {
 };
 
 const save = async (root: string, item: WorkItem): Promise<TrackerResult<WorkItem>> => {
+  const problem = unwritable(item);
+  if (problem !== undefined) return trackerError(problem);
   await mkdir(itemsDir(root), { recursive: true });
   await writeFile(fileOf(root, item.id), renderItem(item));
   const items = await readAll(root);
@@ -88,6 +90,8 @@ const listItems = async (root: string, filter: ItemFilter): Promise<TrackerResul
 };
 
 const createItem = async (root: string, input: NewWorkItem): Promise<TrackerResult<WorkItem>> => {
+  const problem = unwritable({ title: input.title, labels: input.labels ?? [] });
+  if (problem !== undefined) return trackerError(problem);
   const id = await freshId(root, input.title);
   if (id === undefined) return trackerError("a work item title needs letters or digits");
   return save(root, {

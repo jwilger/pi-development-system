@@ -9,8 +9,31 @@ import {
 
 const COMMENTS = "\n## Comments\n";
 
+/** Comment lines are quoted so nothing a comment says can look like one of our headings. */
+const quote = (text: string): string =>
+  text
+    .split("\n")
+    .map((line) => (line === "" ? ">" : `> ${line}`))
+    .join("\n");
+
+const unquote = (text: string): string =>
+  text
+    .split("\n")
+    .map((line) => line.replace(/^> ?/, ""))
+    .join("\n");
+
+/** What the file format cannot hold, or undefined when the item can be written and read back. */
+export const unwritable = (item: Pick<WorkItem, "title" | "labels">): string | undefined => {
+  if (/[\r\n]/.test(item.title)) return "a work item title must be a single line";
+  if (item.title.trim() === "") return "a work item title cannot be blank";
+  const bad = item.labels.find((l) => /[\r\n,]/.test(l) || l.trim() === "");
+  return bad === undefined
+    ? undefined
+    : `label ${JSON.stringify(bad)} is blank or holds a comma or line break`;
+};
+
 export const renderItem = (item: WorkItem): string => {
-  const comments = item.comments.map((c) => `\n### Comment\n\n${c}\n`).join("");
+  const comments = item.comments.map((c) => `\n### Comment\n\n${quote(c)}\n`).join("");
   return [
     `# ${item.title}`,
     "",
@@ -29,7 +52,7 @@ const commentsOf = (section: string): string[] =>
   section
     .split(/^### Comment\n\n/m)
     .slice(1)
-    .map((c) => c.replace(/\n$/, "").replace(/\n$/, ""));
+    .map((c) => unquote(c.replace(/\n+$/, "")));
 
 export const parseItem = (id: string, text: string): TrackerResult<WorkItem> => {
   const marker = text.lastIndexOf(COMMENTS);

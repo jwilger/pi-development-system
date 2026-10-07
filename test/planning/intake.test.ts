@@ -54,3 +54,19 @@ test("the proposal names the size, the artifacts, the departure rule and that ev
   assert.match(text, /artifact\.skipped:<artifact>/);
   assert.match(text, /never blocked/i);
 });
+
+test("a family of light and full artifacts is offered once, and not at all when one is recommended", () => {
+  const high = need({
+    "brief-lite": 0.9,
+    brief: 0.9,
+    "decision-register": 0.9,
+    "lens-review-optional": 0.8,
+    "lens-review": 0.8,
+  });
+  assert.deepEqual(proposeArtifacts("product", high).consider, []);
+  assert.deepEqual(proposeArtifacts("change", high).consider, [
+    "brief-lite",
+    "lens-review-optional",
+  ]);
+  assert.deepEqual(proposeArtifacts("change", need({ brief: 0.9 })).consider, ["brief"]);
+});

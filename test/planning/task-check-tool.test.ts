@@ -43,8 +43,14 @@ const setup = (jev: Jev, file: string | undefined) => {
   if (file !== undefined) writeFileSync(join(cwd, "work", "T1.md"), file);
   const fake = createFakePi({ cwd });
   const tool = createTaskCheckTool({ jev: () => jev });
-  const run = (path: string) =>
-    tool.execute("c", { path } as never, undefined, undefined, fake.ctx as never);
+  const run = (path: string, id?: string) =>
+    tool.execute(
+      "c",
+      { path, ...(id === undefined ? {} : { id }) } as never,
+      undefined,
+      undefined,
+      fake.ctx as never,
+    );
   return { run };
 };
 const textOf = (r: { content: readonly { type: string; text?: string }[] }): string =>
@@ -82,4 +88,15 @@ test("an unreadable path and a path outside the repository are errors", async ()
   const s = setup(online(), undefined);
   assert.equal((await s.run("work/nope.md")).isError, true);
   assert.equal((await s.run("../outside.md")).isError, true);
+});
+
+test("a plan file with several records is checked by id", async () => {
+  const plan = `# Plan\n\n## Goal and why\n\nText.\n\n${RECORD}\n${RECORD.replace("T1", "T2").replace(/\*\*Run:\*\*.*\n/, "")}`;
+  const { run } = setup(online(), plan);
+  const first = await run("work/T1.md", "T1");
+  assert.match(textOf(first), /T1: ready/);
+  const bad = await run("work/T1.md", "T2");
+  assert.equal(bad.isError, true);
+  assert.match(textOf(bad), /missing section: Run/);
+  assert.equal((await run("work/T1.md")).isError, true);
 });

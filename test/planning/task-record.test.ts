@@ -81,3 +81,48 @@ test("a section's text may continue over several lines", () => {
   assert.ok(!isParseError(r));
   assert.match(r.goal, /Logging in\nwith spaces/);
 });
+
+const SECOND = GOOD.replace("## T1 — Trim emails on login", "## T2 — Lowercase emails").replace(
+  /\*\*Run:\*\*.*\n/,
+  "",
+);
+
+test("a plan file with other headings and several records parses the record named by id", () => {
+  const plan = `# Plan\n\n## Goal and why\n\nText.\n\n${GOOD}\n${SECOND}`;
+  const first = parseTaskRecord(plan, "T1");
+  assert.ok(!isParseError(first));
+  assert.equal(first.id, "T1");
+  const second = parseTaskRecord(plan, "T2");
+  assert.ok(isParseError(second));
+  assert.match(second.message, /missing section: Run/);
+});
+
+test("several records without an id is an error naming them; an unknown id is an error", () => {
+  const plan = `${GOOD}\n${SECOND}`;
+  const many = parseTaskRecord(plan);
+  assert.ok(isParseError(many));
+  assert.match(many.message, /T1, T2/);
+  const unknown = parseTaskRecord(plan, "T9");
+  assert.ok(isParseError(unknown));
+  assert.match(unknown.message, /T9/);
+});
+
+test("a later record's sections never fill in the first record's gaps", () => {
+  const r = parseTaskRecord(`${without("Run")}\n${SECOND.replace("## T2", "## T2")}`, "T1");
+  assert.ok(isParseError(r));
+  assert.match(r.message, /missing section: Run/);
+});
+
+test("a section given twice is an error", () => {
+  const r = parseTaskRecord(
+    GOOD.replace("**Out of scope:**", "**Run:** `npm run other`\n**Out of scope:**"),
+  );
+  assert.ok(isParseError(r));
+  assert.match(r.message, /duplicate section: Run/);
+});
+
+test("the colon may sit outside the bold", () => {
+  const r = parseTaskRecord(GOOD.replace("**Goal:**", "**Goal**:"));
+  assert.ok(!isParseError(r));
+  assert.match(r.goal, /trailing space/);
+});

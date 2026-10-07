@@ -131,37 +131,61 @@ const createIssue = async (gh: Gh, input: NewWorkItem): Promise<TrackerResult<Wo
   return view(gh, number);
 };
 
-const applyStatus = async (
-  gh: Gh,
-  id: string,
-  status: WorkStatus,
-): Promise<TrackerResult<string>> => {
-  if (status === "done") return gh(["issue", "close", id]);
-  // Reopening an issue that is already open fails; only the label change below decides the result.
-  await gh(["issue", "reopen", id]);
-  const flag = status === "in-progress" ? "--add-label" : "--remove-label";
-  return gh(["issue", "edit", id, flag, IN_PROGRESS]);
+/** Label changes that make the issue's labels exactly `wanted` (plus the in-progress marker when asked for). */
+const labelFlags = (current: WorkItem, patch: WorkItemPatch): string[] => {
+  const wanted = patch.labels ?? current.labels;
+  const marked = (patch.status ?? current.status) === "in-progress";
+  const add = [
+    ...wanted.filter((l) => !current.labels.includes(l)),
+    ...(marked ? [IN_PROGRESS] : []),
+  ];
+  const remove = [
+    ...current.labels.filter((l) => !wanted.includes(l)),
+    ...(marked ? [] : [IN_PROGRESS]),
+  ];
+  return [
+    ...add.flatMap((l) => ["--add-label", l]),
+    ...remove.flatMap((l) => ["--remove-label", l]),
+  ];
 };
 
-const editArgs = (patch: WorkItemPatch): string[] => [
+const editFlags = (current: WorkItem, patch: WorkItemPatch): string[] => [
   ...(patch.title === undefined ? [] : ["--title", patch.title]),
   ...(patch.body === undefined ? [] : ["--body", patch.body]),
-  ...(patch.labels ?? []).flatMap((label) => ["--add-label", label]),
+  ...(patch.labels === undefined && patch.status === undefined ? [] : labelFlags(current, patch)),
 ];
 
+/** Closing or reopening only when the issue is not already in the wanted state. */
+const stateCommand = (current: WorkItem, status: WorkStatus | undefined): string | undefined => {
+  if (status === undefined) return undefined;
+  if (status === "done") return current.status === "done" ? undefined : "close";
+  return current.status === "done" ? "reopen" : undefined;
+};
+
+/**
+ * Labels are replaced, as in the repo-files tracker. Order: make sure the marker label exists, apply every
+ * edit in one `gh issue edit`, then close or reopen last, so a failure before the state change leaves the
+ * issue's open/closed state alone.
+ */
 const updateIssue = async (
   gh: Gh,
   id: string,
   patch: WorkItemPatch,
 ): Promise<TrackerResult<WorkItem>> => {
-  if (!ISSUE_NUMBER.test(id)) return notNumber(id);
-  const edits = editArgs(patch);
-  if (edits.length > 0) {
-    const edited = await gh(["issue", "edit", id, ...edits]);
+  const current = await view(gh, id);
+  if (!current.ok) return current;
+  if (patch.status === "in-progress") {
+    const made = await gh(["label", "create", IN_PROGRESS, "--force"]);
+    if (!made.ok) return made;
+  }
+  const flags = editFlags(current.value, patch);
+  if (flags.length > 0) {
+    const edited = await gh(["issue", "edit", id, ...flags]);
     if (!edited.ok) return edited;
   }
-  if (patch.status !== undefined) {
-    const changed = await applyStatus(gh, id, patch.status);
+  const command = stateCommand(current.value, patch.status);
+  if (command !== undefined) {
+    const changed = await gh(["issue", command, id]);
     if (!changed.ok) return changed;
   }
   return view(gh, id);

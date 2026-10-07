@@ -11,6 +11,11 @@ const Parameters = Type.Object({
   path: Type.String({
     description: "Path to the task record markdown file, inside the repository.",
   }),
+  id: Type.Optional(
+    Type.String({
+      description: "Which task record to check when the file (such as a plan) holds several.",
+    }),
+  ),
 });
 
 const reply = (text: string, isError = false) => ({
@@ -50,7 +55,7 @@ export function createTaskCheckTool(deps: {
           true,
         );
       }
-      const record = parseTaskRecord(markdown);
+      const record = parseTaskRecord(markdown, params.id);
       if (isParseError(record))
         return reply(`${params.path} is not ready: ${record.message}`, true);
       const judged = await judgeTaskReadiness(deps.jev(ctx), record);

@@ -1,11 +1,11 @@
 import type { ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { type Static, Type } from "typebox";
 import { parseSizing } from "../core/sizing.ts";
-import { isParseError, type Sizing, type SliceRef } from "../core/types.ts";
+import { type DevsysState, isParseError, type Sizing, type SliceRef } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
 import { judgeSizing } from "../jev/questions/sizing.ts";
 import type { SessionState } from "../state/session-state.ts";
-import { phaseFor, proposeArtifacts, renderProposal, sliceSlug } from "./intake.ts";
+import { phaseFor, proposeArtifacts, renderProposal, sliceSlug, uniqueSlice } from "./intake.ts";
 
 const Parameters = Type.Object({
   request: Type.String({ description: "What the user asked for, in their words." }),
@@ -27,6 +27,13 @@ const sizeChoices = (proposed: Sizing): string[] => [
   proposed,
   ...SIZES.filter((s) => s !== proposed),
 ];
+
+const slicesInUse = (state: DevsysState): Set<string> =>
+  new Set([
+    ...(state.activeSlice === undefined ? [] : [state.activeSlice]),
+    ...(state.reviews ?? []).map((r) => r.slice),
+    ...state.openDepartures.flatMap((d) => (d.scope.kind === "slice" ? [d.scope.slice] : [])),
+  ]);
 
 /** `devsys_intake`: Jev proposes a size and artifact set; the user confirms; state moves to the first phase. */
 export function createIntakeTool(deps: {
@@ -65,7 +72,7 @@ export function createIntakeTool(deps: {
       if (picked === undefined) return reply(`${proposal}\nIntake cancelled; nothing changed.`);
       const sizing = parseSizing(picked);
       if (isParseError(sizing)) return reply(sizing.message, true);
-      const slice = sliceSlug(request) as SliceRef;
+      const slice = uniqueSlice(sliceSlug(request), slicesInUse(deps.state.get())) as SliceRef;
       deps.state.update((s) => ({
         ...s,
         phase: phaseFor(sizing),

@@ -104,3 +104,12 @@ test("an empty request is an error", async () => {
   const { run } = setup(online("change"));
   assert.equal((await run({ request: "  " })).isError, true);
 });
+
+test("a second intake with the same wording gets its own slice, not the old one's state", async () => {
+  const { fake, state, run } = setup(online("change"));
+  fake.ui.selectResponses.push("change", "change");
+  await run({ request: "trim the email" });
+  assert.equal(state.get().activeSlice, "trim-the-email");
+  await run({ request: "trim the email" });
+  assert.equal(state.get().activeSlice, "trim-the-email-2");
+});

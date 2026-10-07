@@ -84,3 +84,30 @@ test("a title with no letters or digits is refused", async () => {
   const { tracker } = setup();
   assert.equal((await tracker.create({ title: "!!!" })).ok, false);
 });
+
+test("input the file format cannot hold is refused before anything is written", async () => {
+  const { root, tracker } = setup();
+  assert.equal((await tracker.create({ title: "two\nlines" })).ok, false);
+  assert.equal((await tracker.create({ title: "ok", labels: ["a, b"] })).ok, false);
+  assert.equal(existsSync(join(root, "work")), false);
+  const good = value(await tracker.create({ title: "Fine" }));
+  assert.equal((await tracker.update(good.id, { title: "x\ny" })).ok, false);
+  assert.equal((await tracker.update(good.id, { labels: ["p, q"] })).ok, false);
+  assert.deepEqual(value(await tracker.get(good.id)), good);
+  assert.equal((await tracker.list({})).ok, true);
+});
+
+test("comments and bodies that look like our own headings survive a round trip", async () => {
+  const { tracker } = setup();
+  const made = value(await tracker.create({ title: "A", body: "x\n\n## Comments\n\ny" }));
+  value(await tracker.comment(made.id, "first"));
+  value(await tracker.comment(made.id, "has\n## Comments\nand\n### Comment\n\ninside"));
+  value(await tracker.comment(made.id, "last"));
+  const back = value(await tracker.get(made.id));
+  assert.equal(back.body, "x\n\n## Comments\n\ny");
+  assert.deepEqual(back.comments, [
+    "first",
+    "has\n## Comments\nand\n### Comment\n\ninside",
+    "last",
+  ]);
+});

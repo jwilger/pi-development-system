@@ -95,19 +95,61 @@ test("create passes title, body and labels as separate arguments and returns the
   assert.equal(args.filter((a) => a === "--label").length, 2);
 });
 
-test("update to done closes; to in-progress labels and reopens; edits go through gh issue edit", async () => {
+const lines = (calls: Call[]) => calls.map((c) => c.args.join(" "));
+
+test("update edits title and body in one gh issue edit, then closes", async () => {
   const { exec, calls } = fakeExec(() => ({ stdout: JSON.stringify(issue()) }));
-  const t = createGithubTracker({ exec, cwd: "/r" });
-  await t.update("7", { status: "done", title: "New" });
-  const joined = calls.map((c) => c.args.join(" "));
-  assert.ok(joined.some((j) => j.startsWith("issue close 7")));
-  assert.ok(joined.some((j) => j.startsWith("issue edit 7") && j.includes("--title New")));
-  calls.length = 0;
-  await t.update("7", { status: "in-progress" });
-  const second = calls.map((c) => c.args.join(" "));
-  assert.ok(
-    second.some((j) => j.startsWith("issue edit 7") && j.includes("--add-label in-progress")),
+  await createGithubTracker({ exec, cwd: "/r" }).update("7", { status: "done", title: "New" });
+  const seen = lines(calls);
+  const edit = seen.findIndex((j) => j.startsWith("issue edit 7") && j.includes("--title New"));
+  const close = seen.findIndex((j) => j.startsWith("issue close 7"));
+  assert.ok(edit >= 0 && close > edit, "edit first, state change last");
+});
+
+test("in-progress makes sure the label exists before editing, and never reopens an open issue", async () => {
+  const { exec, calls } = fakeExec(() => ({ stdout: JSON.stringify(issue()) }));
+  await createGithubTracker({ exec, cwd: "/r" }).update("7", { status: "in-progress" });
+  const seen = lines(calls);
+  const made = seen.findIndex((j) => j.startsWith("label create in-progress --force"));
+  const edit = seen.findIndex(
+    (j) => j.startsWith("issue edit 7") && j.includes("--add-label in-progress"),
   );
+  assert.ok(made >= 0 && edit > made);
+  assert.equal(
+    seen.some((j) => j.startsWith("issue reopen")),
+    false,
+  );
+});
+
+test("a failed label creation changes nothing about the issue", async () => {
+  const { exec, calls } = fakeExec((args) =>
+    args[0] === "label"
+      ? { code: 1, stderr: "no permission" }
+      : { stdout: JSON.stringify(issue({ state: "CLOSED" })) },
+  );
+  const r = await createGithubTracker({ exec, cwd: "/r" }).update("7", { status: "in-progress" });
+  assert.equal(r.ok, false);
+  assert.deepEqual(
+    lines(calls).filter((j) => /^issue (edit|reopen|close)/.test(j)),
+    [],
+  );
+});
+
+test("a closed issue moved to open is reopened after the edit", async () => {
+  const { exec, calls } = fakeExec(() => ({ stdout: JSON.stringify(issue({ state: "CLOSED" })) }));
+  await createGithubTracker({ exec, cwd: "/r" }).update("7", { status: "open" });
+  assert.ok(lines(calls).some((j) => j.startsWith("issue reopen 7")));
+});
+
+test("labels in a patch replace the issue's labels, as in the repo-files tracker", async () => {
+  const { exec, calls } = fakeExec(() => ({
+    stdout: JSON.stringify(issue({ labels: [{ name: "bug" }, { name: "old" }] })),
+  }));
+  await createGithubTracker({ exec, cwd: "/r" }).update("7", { labels: ["bug", "new"] });
+  const edit = lines(calls).find((j) => j.startsWith("issue edit 7")) ?? "";
+  assert.match(edit, /--add-label new/);
+  assert.match(edit, /--remove-label old/);
+  assert.doesNotMatch(edit, /--add-label bug|--remove-label bug/);
 });
 
 test("comment runs gh issue comment with the body as one argument", async () => {

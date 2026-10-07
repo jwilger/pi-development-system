@@ -1,4 +1,4 @@
-import { type ParseError, parseError } from "../core/types.ts";
+import { isParseError, type ParseError, parseError } from "../core/types.ts";
 
 /** Appendix C of the plan: the one-task-per-implementer format a weaker model can follow. */
 export type TaskRecord = {
@@ -27,7 +27,7 @@ const SECTIONS = [
 type Section = (typeof SECTIONS)[number];
 
 const HEADER = /^## (\S+) [—-] (.+)$/;
-const SECTION_LINE = /^\*\*([^:*]+):\*\*\s*(.*)$/;
+const SECTION_LINE = /^\*\*([^:*]+)(?::\*\*|\*\*:)\s*(.*)$/;
 const STEP = /^\s*(?:\d+[.)]|[-*])\s+(.*)$/;
 const STEPS_MIN = 3;
 const STEPS_MAX = 7;
@@ -36,19 +36,43 @@ const PLACEHOLDER = /^(?:n\/?a|none|todo|tbc|-|…|\.\.\.|works?|it works|passes
 
 const isSection = (name: string): name is Section => SECTIONS.some((s) => s === name);
 
+type Sections = { readonly text: Map<Section, string>; readonly duplicates: Section[] };
+
 /** Splits the body into section texts keyed by name; text may continue over several lines. */
-function splitSections(lines: readonly string[]): Map<Section, string> {
+function splitSections(lines: readonly string[]): Sections {
   const found = new Map<Section, string[]>();
+  const duplicates: Section[] = [];
   let current: string[] | undefined;
   for (const line of lines) {
     const match = SECTION_LINE.exec(line);
     const name = match?.[1]?.trim();
     if (match !== null && name !== undefined && isSection(name)) {
+      if (found.has(name)) duplicates.push(name);
       current = match[2] === "" ? [] : [match[2] ?? ""];
       found.set(name, current);
     } else current?.push(line);
   }
-  return new Map([...found].map(([name, text]) => [name, text.join("\n").trim()]));
+  const text = new Map([...found].map(([name, body]) => [name, body.join("\n").trim()] as const));
+  return { text, duplicates };
+}
+
+type Located = { readonly id: string; readonly title: string; readonly lines: readonly string[] };
+
+/** Every `## <id> — <title>` block; any other `## ` heading ends the block before it. */
+function recordsIn(lines: readonly string[]): Located[] {
+  const records: { id: string; title: string; lines: string[] }[] = [];
+  let open: { id: string; title: string; lines: string[] } | undefined;
+  for (const line of lines) {
+    if (line.startsWith("## ")) {
+      const header = HEADER.exec(line);
+      open =
+        header === null
+          ? undefined
+          : { id: header[1] ?? "", title: header[2]?.trim() ?? "", lines: [] };
+      if (open !== undefined) records.push(open);
+    } else open?.lines.push(line);
+  }
+  return records;
 }
 
 const stripTicks = (text: string): string => text.replace(/^`+|`+$/g, "").trim();
@@ -72,8 +96,12 @@ function concrete(name: "Run" | "Expected", text: string): string | undefined {
 const get = (sections: ReadonlyMap<Section, string>, s: Section): string => sections.get(s) ?? "";
 
 /** Every readiness problem in the sections, so the author fixes them in one pass. */
-function problemsOf(markdown: string, sections: ReadonlyMap<Section, string>): string[] {
+function problemsOf(markdown: string, split: Sections): string[] {
+  const sections = split.text;
   const problems: string[] = [];
+  if (split.duplicates.length > 0) {
+    problems.push(`duplicate section: ${[...new Set(split.duplicates)].join(", ")}`);
+  }
   const missing = SECTIONS.filter((s) => get(sections, s) === "");
   if (missing.length > 0) problems.push(`missing section: ${missing.join(", ")}`);
   if (/\bTBD\b/.test(markdown)) problems.push("contains TBD; decide it or split the task");
@@ -94,21 +122,35 @@ const filesOf = (text: string): string[] =>
     .map((f) => stripTicks(f.trim()))
     .filter((f) => f !== "");
 
-/** Parses one task record, reporting every problem together. */
-export function parseTaskRecord(markdown: string): TaskRecord | ParseError {
-  const lines = markdown.split("\n");
-  const headerAt = lines.findIndex((l) => l.startsWith("## "));
-  const header = headerAt < 0 ? null : HEADER.exec(lines[headerAt] ?? "");
-  if (header === null) {
-    return parseError("header must be `## <id> — <title>` (an id, an em dash, then the title)");
+const NO_HEADER = "header must be `## <id> — <title>` (an id, an em dash, then the title)";
+
+function locate(markdown: string, id: string | undefined): Located | ParseError {
+  const records = recordsIn(markdown.split("\n"));
+  const names = records.map((r) => r.id).join(", ");
+  if (id !== undefined) {
+    return (
+      records.find((r) => r.id === id) ??
+      parseError(`no task record "${id}" (found: ${names || "none"})`)
+    );
   }
-  const sections = splitSections(lines.slice(headerAt + 1));
-  const problems = problemsOf(markdown, sections);
+  const [only, ...rest] = records;
+  if (only === undefined) return parseError(NO_HEADER);
+  return rest.length === 0
+    ? only
+    : parseError(`the file holds ${records.length} task records (${names}); name the one to check`);
+}
+
+/** Parses one task record (the only one in the file, or the one named by `id`), reporting every problem together. */
+export function parseTaskRecord(markdown: string, id?: string): TaskRecord | ParseError {
+  const found = locate(markdown, id);
+  if (isParseError(found)) return found;
+  const split = splitSections(found.lines);
+  const problems = problemsOf(found.lines.join("\n"), split);
   if (problems.length > 0) return parseError(problems.join("; "));
-  const text = (s: Section): string => get(sections, s);
+  const text = (s: Section): string => get(split.text, s);
   return {
-    id: header[1] ?? "",
-    title: header[2]?.trim() ?? "",
+    id: found.id,
+    title: found.title,
     goal: text("Goal"),
     files: filesOf(text("Files")),
     interfaces: text("Interfaces"),

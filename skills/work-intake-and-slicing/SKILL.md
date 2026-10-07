@@ -39,7 +39,7 @@ If the plan spells out every line, it has become the implementation, and a revie
 
 ## Task records
 
-Format: `## <id> — <title>` then **Goal**, **Files**, **Interfaces**, **First failing test**, **Steps** (3 to 7, each reviewable alone), **Run**, **Expected**, **Out of scope**.
+Format: `## <id> — <title>` then the sections, each written as a bold label with the colon inside, `**Goal:**`, `**Files:**`, `**Interfaces:**`, `**First failing test:**`, `**Steps:**` (3 to 7, each reviewable alone), `**Run:**`, `**Expected:**`, `**Out of scope:**`.
 
 - Goal is one observable sentence.
 - Run is a command and Expected is its concrete result.
