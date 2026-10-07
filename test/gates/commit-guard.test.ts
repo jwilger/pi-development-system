@@ -36,7 +36,7 @@ const jevJudging = (rationale: number, mix: number): Jev => ({
 });
 
 const DIFF = "diff --git a/a.ts b/a.ts\n+1\n";
-type Names = { staged?: string; unstaged?: string };
+type Names = { staged?: string; unstaged?: string; fail?: boolean };
 const setup = (jev: Jev, diff = "a.ts | 2 +-", names: Names = {}) => {
   const cwd = mkdtempSync(join(tmpdir(), "devsys-commit-"));
   const fake = createFakePi({ hasUI: false, cwd });
@@ -53,7 +53,8 @@ const setup = (jev: Jev, diff = "a.ts | 2 +-", names: Names = {}) => {
         : args.includes("--name-only")
           ? ((args.includes("--cached") ? names.staged : names.unstaged) ?? "")
           : diff;
-      return { code: 0, stdout, stderr: "" };
+      const failed = names.fail === true && args.includes("--name-only");
+      return { code: failed ? 1 : 0, stdout, stderr: "" };
     },
   });
   const record = createRecordDepartureTool({ pi: fake.api, state, now });
@@ -380,4 +381,28 @@ test("a dirty submodule does not count as an edit after staging", async () => {
   assert.ok(
     t.execCalls.some((c) => c.includes("--name-only") && c.includes("--ignore-submodules=dirty")),
   );
+});
+
+test("the re-stage exemption needs a whole-repo add ahead of the commit, in this directory", async () => {
+  const digest = await currentDigest();
+  const blocked = async (command: string, names?: Names) => {
+    const t = setup(jevJudging(0.9, 0.1), DIFF, names ?? { staged: "a.ts\0", unstaged: "a.ts\0" });
+    withPhase(t, "implementing");
+    t.state.update((s) => upsertReview(s, cleanRounds(3, digest)));
+    return (await t.bash(command))?.block === true;
+  };
+  assert.equal(
+    await blocked(`git commit -m 'docs: update a.ts notes'`),
+    true,
+    "name inside a message",
+  );
+  assert.equal(await blocked(`git add -A src/ && ${commit(GOOD)}`), true, "pathspec");
+  assert.equal(await blocked(`cd sub && git add . && ${commit(GOOD)}`), true, "other directory");
+  assert.equal(await blocked(`git -C ../other add -A && ${commit(GOOD)}`), true, "other repo");
+  assert.equal(await blocked(`${commit(GOOD)} && git add -A`), true, "add after the commit");
+  assert.equal(await blocked(`git commit --include x -m '${GOOD}'`), true, "--include needs paths");
+  assert.equal(await blocked(`git commit -uall -m '${GOOD}'`), true, "-uall is not -a");
+  assert.equal(await blocked(`git commit -mtab -m '${GOOD}'`), true, "-mtab is a message");
+  assert.equal(await blocked(`git commit -sa -m '${GOOD}'`), false, "-sa includes -a");
+  assert.equal(await blocked(commit(GOOD), { fail: true }), true, "unreadable names");
 });

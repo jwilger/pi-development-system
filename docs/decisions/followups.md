@@ -195,3 +195,8 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 
 - usability `git add -p` hunk-level commit-in-parts is blocked by the staged-then-edited check with advice ("stage it again") that does not fit; a departure clears it. Revisit if it bites.
 - robustness a timed-out git call now reads as failure (`timeoutAsFailure`, 124) in every guard that uses the extension's exec; case-insensitive filesystems and `git stash` were not probed.
+
+## From I6 review round 5
+
+- robustness a git process killed from outside (OOM) still reads as exit 0 through pi's exec; documented in `src/core/exec.ts`, not detectable.
+- usability `git add -p` partial staging shows the "edited after git add / only partly staged" message; a departure clears it.

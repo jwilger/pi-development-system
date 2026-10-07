@@ -11,6 +11,8 @@ export const TIMEOUT_CODE = 124;
 /**
  * pi reports a killed command as `code: 0, killed: true`, so a timed-out `git diff` would look like an
  * empty diff. A guard must never read that as "nothing changed": make the kill a failure.
+ * Limit: a process killed from outside (e.g. the OOM killer) also reads as `code: 0` with `killed` unset;
+ * pi's API does not expose that, so it cannot be detected here.
  */
 export const timeoutAsFailure = (result: {
   code: number;

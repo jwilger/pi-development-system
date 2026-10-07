@@ -137,40 +137,68 @@ async function reviewNeeds(
   if (gap !== undefined) return [{ gate: REVIEW, why: gap }];
   // The review saw the work tree; a plain `git commit` records the index. A file staged and then edited
   // again would commit the older, unreviewed content.
-  const stale = stagedThenEdited(await changedNames(deps.exec, ctx.cwd), command);
+  const names = await changedNames(deps.exec, ctx.cwd);
+  if (names === undefined) {
+    return [
+      {
+        gate: REVIEW,
+        why: "cannot read which files are staged or edited, so the staged content cannot be compared with the reviewed work tree",
+      },
+    ];
+  }
+  const stale = stagedThenEdited(names, command);
   return stale.length === 0
     ? []
     : [
         {
           gate: REVIEW,
-          why: `the staged content of ${stale.join(", ")} differs from the work tree that was reviewed (edited after \`git add\`); stage it again`,
+          why: `the staged content of ${stale.join(", ")} differs from the work tree that was reviewed (edited after \`git add\`, or only partly staged); stage it again, or depart if committing in parts is deliberate`,
         },
       ];
 }
 
 /** Files staged and also changed since staging; empty when the commit stages everything itself. */
 const stagedThenEdited = (
-  names: { staged: readonly string[]; unstaged: readonly string[] } | undefined,
+  names: { staged: readonly string[]; unstaged: readonly string[] },
   command: string,
-): string[] =>
-  names === undefined || stagesAllTracked(command)
-    ? []
-    : // A path named in the command is committed (or re-staged) from the work tree, which was reviewed.
-      names.staged.filter((name) => names.unstaged.includes(name) && !command.includes(name));
+): string[] => {
+  const invocations = resolveGit(command).invocations;
+  if (stagesAllTracked(invocations)) return [];
+  // A path that is an argument of the commit or add itself is committed (or re-staged) from the work tree,
+  // which was reviewed. Message text is one argument and never equals a path.
+  const named = new Set(
+    invocations.filter((i) => i.sub === "commit" || i.sub === "add").flatMap((i) => i.args),
+  );
+  return names.staged.filter((name) => names.unstaged.includes(name) && !named.has(name));
+};
 
 const STAGE_ALL = new Set(["-A", "--all", "-u", "--update", "."]);
+const BOOLEAN_SHORT = /[enqsvz]/;
 
-/** The command re-stages every tracked change itself: `commit -a`, or `git add -A|-u|.`. Read from parsed invocations, not message text. */
-function stagesAllTracked(command: string): boolean {
-  return resolveGit(command).invocations.some(
-    (i) =>
-      (i.sub === "commit" &&
-        i.args.some(
-          (a) =>
-            a === "--all" || a === "--include" || (/^-[a-zA-Z]{1,4}$/.test(a) && a.includes("a")),
-        )) ||
-      (i.sub === "add" && i.args.some((a) => STAGE_ALL.has(a))),
-  );
+/** `-a` inside a short-flag cluster such as `-sa`; a value-taking letter ends the cluster (`-mtab`, `-uall`). */
+function clusterHasA(arg: string): boolean {
+  if (!/^-[a-zA-Z]+$/.test(arg)) return false;
+  for (const ch of arg.slice(1)) {
+    if (ch === "a") return true;
+    if (!BOOLEAN_SHORT.test(ch)) return false;
+  }
+  return false;
+}
+
+/**
+ * The command re-stages every tracked change of this repository before it commits: `commit -a`, or
+ * `git add -A|-u|.` with no pathspec, in the same directory, ahead of the commit. Read from parsed
+ * invocations, not message text.
+ */
+function stagesAllTracked(invocations: ReturnType<typeof resolveGit>["invocations"]): boolean {
+  const firstCommit = invocations.findIndex((i) => i.sub === "commit");
+  return invocations.some((i, index) => {
+    if (i.dir !== undefined) return false;
+    if (i.sub === "commit") return i.args.some((a) => a === "--all" || clusterHasA(a));
+    if (i.sub !== "add" || (firstCommit !== -1 && index > firstCommit)) return false;
+    const paths = i.args.filter((a) => !a.startsWith("-"));
+    return i.args.some((a) => STAGE_ALL.has(a)) && paths.every((a) => a === ".");
+  });
 }
 
 async function changedNames(
