@@ -82,12 +82,12 @@ test("existing config tables survive a write", async () => {
   });
   writeFileSync(
     join(cwd, CONFIG_FILE),
-    'version = 1\n\n[delivery]\nmode = "pull-request"\n\n[jev]\ntimeout_ms = 5000\n',
+    'version = 1\n\n[delivery]\nmode = "pull-request"\n\n[verifier]\nmax_per_session = 5\n',
   );
   await run();
   const config = await loadConfig(cwd);
   assert.equal(config.ok && config.value.delivery.mode, "pull-request");
-  assert.equal(config.ok && config.value.jev.timeoutMs, 5000);
+  assert.equal(config.ok && config.value.verifier.maxPerSession, 5);
 });
 
 test("interactively, 'accept this and all remaining slots' stops asking after one question", async () => {

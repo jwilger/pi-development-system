@@ -31,7 +31,6 @@ export type DevsysConfig = {
   readonly profiles: { readonly override: readonly string[] };
   readonly models: ModelMatrix;
   readonly routing: Readonly<Record<string, Route>>;
-  readonly jev: { readonly timeoutMs: number; readonly confidenceFloor: number };
   readonly verifier: { readonly maxPerSession: number };
   readonly cadence: { readonly pushMinutes: number };
   readonly eventModel: { readonly provider: string };
@@ -170,12 +169,20 @@ function route(raw: unknown, key: string): Result<Route, ConfigError> {
     : ok({ slot, thinkingLevel });
 }
 
+const ROUTING_KEY = /^(?:trivial|routine|complex|expert|\*)\/(?:low|medium|high|\*)$/;
+
 function routing(root: Table): Result<Readonly<Record<string, Route>>, ConfigError> {
   const raw = root.routing;
   if (raw === undefined) return ok(DEFAULT_ROUTING);
   if (!isTable(raw)) return fail("routing must be a table", "routing");
   const result: Record<string, Route> = {};
   for (const [pattern, value] of Object.entries(raw)) {
+    if (!ROUTING_KEY.test(pattern)) {
+      return fail(
+        `routing.${pattern}: key must be <difficulty>/<risk>, each a level or *`,
+        `routing.${pattern}`,
+      );
+    }
     const parsed = route(value, `routing.${pattern}`);
     if (!parsed.ok) return parsed;
     result[pattern] = parsed.value;
@@ -201,7 +208,6 @@ const TOP_LEVEL = [
   "profiles",
   "models",
   "routing",
-  "jev",
   "verifier",
   "cadence",
   "event_model",
@@ -237,27 +243,20 @@ function deliveryAndReview(
 
 function limits(
   root: Table,
-): Result<Pick<DevsysConfig, "jev" | "verifier" | "cadence" | "eventModel">, ConfigError> {
-  const j = section(root, "jev", ["timeout_ms", "confidence_floor"]);
+): Result<Pick<DevsysConfig, "verifier" | "cadence" | "eventModel">, ConfigError> {
   const v = section(root, "verifier", ["max_per_session"]);
   const c = section(root, "cadence", ["push_minutes"]);
   const e = section(root, "event_model", ["provider"]);
-  if (!j.ok) return j;
   if (!v.ok) return v;
   if (!c.ok) return c;
   if (!e.ok) return e;
-  const timeout = number(j.value, "jev", "timeout_ms", 4000, POSITIVE);
-  const floor = number(j.value, "jev", "confidence_floor", 0.6, { min: 0, max: 1, integer: false });
   const max = number(v.value, "verifier", "max_per_session", 6, POSITIVE);
   const push = number(c.value, "cadence", "push_minutes", 60, POSITIVE);
   const provider = text(e.value, "event_model", "provider", "builtin");
-  if (!timeout.ok) return timeout;
-  if (!floor.ok) return floor;
   if (!max.ok) return max;
   if (!push.ok) return push;
   if (!provider.ok) return provider;
   return ok({
-    jev: { timeoutMs: timeout.value, confidenceFloor: floor.value },
     verifier: { maxPerSession: max.value },
     cadence: { pushMinutes: push.value },
     eventModel: { provider: provider.value },

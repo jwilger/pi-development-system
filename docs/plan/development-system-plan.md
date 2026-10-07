@@ -578,10 +578,6 @@ jev         = ["typesafe/jev-latest", "openrouter/typesafe/jev-latest", "opencod
 "complex/*"      = ["strong",      "high"]
 "expert/*"       = ["frontier",    "high"]
 
-[jev]
-timeout_ms = 4000
-confidence_floor = 0.6
-
 [verifier]
 max_per_session = 6
 

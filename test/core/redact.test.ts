@@ -75,3 +75,9 @@ test("redacts unquoted and spaced secrets and well-known token shapes", () => {
 test("ordinary code that merely mentions keys is left alone", () => {
   assert.equal(redactSecrets("const key = 1;"), "const key = 1;");
 });
+
+test("redaction stays fast on a huge unbroken word", () => {
+  const started = Date.now();
+  redactSecrets("a".repeat(100_000));
+  assert.ok(Date.now() - started < 500, "redactSecrets must not be quadratic");
+});

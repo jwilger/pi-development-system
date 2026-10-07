@@ -137,3 +137,12 @@ test("a multi-line private key is redacted even when only its tail would be kept
   const s = summarizeOutput(out);
   assert.doesNotMatch(s, /SECRETSECRET|bGluZ/);
 });
+
+test("brew tap is not a test runner", () => {
+  assert.equal(isTestRunnerCommand("brew tap homebrew/cask"), false);
+});
+
+test("a repo with no test script is not a failing test run", () => {
+  const text = 'npm error Missing script: "test"';
+  assert.equal(exitCodeOf({ isError: true, text, command: "npm test" }), 0);
+});

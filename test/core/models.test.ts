@@ -170,10 +170,10 @@ test("renderMatrixToml writes a [models] table that has one line per slot", () =
 
 test("upsertModelsTable replaces only the [models] table and keeps everything else", () => {
   const before =
-    '[delivery]\nmode = "trunk"\n\n[models]\nstrong = ["a/b"]\n\n[jev]\ntimeout_ms = 10\n';
+    '[delivery]\nmode = "trunk"\n\n[models]\nstrong = ["a/b"]\n\n[verifier]\nmax_per_session = 10\n';
   const after = upsertModelsTable(before, defaultMatrix());
   assert.match(after, /^\[delivery\]\nmode = "trunk"\n\n\[models\]\n/);
-  assert.match(after, /\n\[jev\]\ntimeout_ms = 10\n$/);
+  assert.match(after, /\n\[verifier\]\nmax_per_session = 10\n$/);
   assert.equal(after.includes('strong = ["a/b"]'), false);
   assert.equal(after.split("[models]").length, 2);
   assert.equal(upsertModelsTable(after, defaultMatrix()), after);

@@ -1,6 +1,6 @@
 {
   "name": "@jwilger/pi-development-system",
-  "version": "0.45.2",
+  "version": "0.46.0",
   "description": "A pi extension package representing a seasoned approach to software development using a full AI SDLC.",
   "keywords": [
     "pi-package"

@@ -2,7 +2,7 @@ import { basename, isAssignment, segments, splitLines, WRAPPERS } from "./git-in
 import { redactSecrets } from "./redact.ts";
 
 const PACKAGE_MANAGERS = new Set(["npm", "pnpm", "yarn", "bun"]);
-const DIRECT_RUNNERS = new Set(["vitest", "jest", "pytest", "mocha", "ava", "tap"]);
+const DIRECT_RUNNERS = new Set(["vitest", "jest", "pytest", "mocha", "ava"]);
 const EXEC_PREFIX = new Set(["npx", "bunx", "pnpx"]);
 const SUMMARY_LINES = 3;
 const SUMMARY_MAX = 300;
@@ -59,6 +59,7 @@ export type ResultLike = {
 };
 
 /** A pipe or sequence makes the shell report the last command's status, not the runner's. */
+const NO_TEST_SCRIPT = /Missing script: "?test/;
 const MASKS_STATUS = /[|;\n]/;
 const FAILURE_MARKERS =
   /^(?:# |ℹ )fail [1-9]|test result: FAILED|\b[1-9]\d* (?:failed|failing)\b|^FAILED\b|^FAIL\b|\bnot ok\b/m;
@@ -68,6 +69,8 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
 
 /** Exit code of a bash tool result: structured `exit_code`, else pi's status line, else error/not. */
 export function exitCodeOf(result: ResultLike): number {
+  // `npm test` in a package without a test script exits 1 but ran no tests, so it is not a RED.
+  if (NO_TEST_SCRIPT.test(result.text)) return 0;
   const reported = reportedExit(result);
   if (reported !== 0) return reported;
   // `npm test | tail` exits 0 whatever the tests did, even in the structured status; trust the output.

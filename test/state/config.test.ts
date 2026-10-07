@@ -24,8 +24,6 @@ test("an empty file yields the defaults", () => {
   assert.equal(c.delivery.remote, "origin");
   assert.equal(c.review.requiredCleanRounds, 3);
   assert.equal(c.tracker.kind, "repo-files");
-  assert.equal(c.jev.timeoutMs, 4000);
-  assert.equal(c.jev.confidenceFloor, 0.6);
   assert.equal(c.verifier.maxPerSession, 6);
   assert.equal(c.cadence.pushMinutes, 60);
   assert.deepEqual(c.models, defaultMatrix());
@@ -45,8 +43,8 @@ kind = "github"
 repo = "o/n"
 [profiles]
 override = ["typescript"]
-[jev]
-timeout_ms = 1000
+[verifier]
+max_per_session = 2
 `);
   assert.equal(c.delivery.mode, "pull-request");
   assert.equal(c.delivery.trunk, "master");
@@ -54,7 +52,7 @@ timeout_ms = 1000
   assert.equal(c.review.requiredCleanRounds, 2);
   assert.equal(c.tracker.repo, "o/n");
   assert.deepEqual(c.profiles.override, ["typescript"]);
-  assert.equal(c.jev.timeoutMs, 1000);
+  assert.equal(c.verifier.maxPerSession, 2);
 });
 
 test("a [models] table replaces only the slots it names", () => {
@@ -98,7 +96,7 @@ test("wrong value types are errors naming the key", () => {
     failure("[review]\nrequired_clean_rounds = 0\n").key,
     "review.required_clean_rounds",
   );
-  assert.equal(failure("[jev]\nconfidence_floor = 2\n").key, "jev.confidence_floor");
+  assert.equal(failure("[verifier]\nmax_per_session = 0\n").key, "verifier.max_per_session");
   assert.equal(failure('[models]\nstrong = "a/b"\n').key, "models.strong");
   assert.equal(failure("[models]\nstrong = []\n").key, "models.strong");
   assert.equal(failure('[models]\nstrong = ["not-a-ref"]\n').key, "models.strong");
@@ -131,4 +129,12 @@ test("loadConfig returns defaults when the file is absent and parses it when pre
 test("an unknown @slot reference is a config error", () => {
   const r = parseConfig('version = 1\n[models]\nfast = ["@nope"]\n');
   assert.equal(r.ok, false);
+});
+
+test("a routing key that names no difficulty or risk is an error", () => {
+  assert.equal(
+    failure('[routing]\n"complex/hgh" = ["strong", "high"]\n').key,
+    "routing.complex/hgh",
+  );
+  assert.equal(failure('[routing]\n"complex" = ["strong", "high"]\n').key, "routing.complex");
 });
