@@ -123,8 +123,9 @@ const stripTicks = (text: string): string => {
   }
   const trimmed = text.trim();
   if (/^`+$/.test(trimmed)) return "";
-  const span = /^(`+)(.+?)\1(?!`)/.exec(trimmed);
-  return span?.[2]?.trim() ?? trimmed;
+  // Only a text that is one code span is unwrapped; anything else is kept whole, ticks and all.
+  const whole = /^(`+)([^`]+)\1$/.exec(trimmed);
+  return whole?.[2]?.trim() ?? trimmed;
 };
 
 const stepsOf = (text: string): string[] => {

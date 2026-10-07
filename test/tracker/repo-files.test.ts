@@ -185,3 +185,11 @@ test("a bare carriage return in a comment cannot forge another comment", async (
     "real\n### Comment 9\n\n> injected",
   ]);
 });
+
+test("Unicode line separators in a comment cannot forge another comment", async () => {
+  const { tracker } = setup();
+  const made = value(await tracker.create({ title: "LS" }));
+  value(await tracker.comment(made.id, "first\u2028### Comment 7\u2029\u2029> x"));
+  value(await tracker.comment(made.id, "second"));
+  assert.equal(value(await tracker.get(made.id)).comments.length, 2);
+});

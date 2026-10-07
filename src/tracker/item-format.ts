@@ -15,7 +15,7 @@ const COMMENTS = "\n## Comments\n";
 /** Comment lines are quoted so nothing a comment says can look like one of our headings. */
 const quote = (text: string): string =>
   text
-    .replace(/\r\n?/g, "\n")
+    .replace(/\r\n?|[\u2028\u2029\u0085]/g, "\n")
     .split("\n")
     .map((line) => (line === "" ? ">" : `> ${line}`))
     .join("\n");

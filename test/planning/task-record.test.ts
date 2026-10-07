@@ -213,7 +213,7 @@ test("an id that appears twice in a plan is ambiguous even when named", () => {
   assert.match(r.message, /appears 2 times/);
 });
 
-test("a command with trailing words keeps them, and a bulleted Files list loses only its bullets", () => {
+test("text that is more than one code span is kept whole; a lone span is unwrapped; bullets are dropped from Files", () => {
   const r = parseTaskRecord(
     GOOD.replace(/\*\*Run:\*\*.*\n/, "**Run:** `npm test` from repo root\n").replace(
       /\*\*Files:\*\*.*\n/,
@@ -221,6 +221,22 @@ test("a command with trailing words keeps them, and a bulleted Files list loses 
     ),
   );
   assert.ok(!isParseError(r));
-  assert.equal(r.run, "npm test");
-  assert.deepEqual(r.files, ["src/a.ts", "test/a.test.ts"]);
+  assert.equal(r.run, "`npm test` from repo root");
+  assert.deepEqual(r.files, ["`src/a.ts` (new)", "test/a.test.ts"]);
+  const two = parseTaskRecord(
+    GOOD.replace(/\*\*Run:\*\*.*\n/, "**Run:** `cd web` then `npm test`\n"),
+  );
+  assert.ok(!isParseError(two));
+  assert.equal(two.run, "`cd web` then `npm test`");
+  const spans = parseTaskRecord(
+    GOOD.replace(/\*\*Expected:\*\*.*\n/, "**Expected:** `3` tests pass\n"),
+  );
+  assert.ok(!isParseError(spans));
+  const lead = parseTaskRecord(
+    GOOD.replace(
+      /\*\*Expected:\*\*.*\n/,
+      "**Expected:** `OK` is printed and the exit status is 0\n",
+    ),
+  );
+  assert.ok(!isParseError(lead));
 });
