@@ -113,3 +113,10 @@ test("a second intake with the same wording gets its own slice, not the old one'
   await run({ request: "trim the email" });
   assert.equal(state.get().activeSlice, "trim-the-email-2");
 });
+
+test("a fix judged by an online Jev with no extra need lists nothing to consider", async () => {
+  const { fake, run } = setup(online("fix", 0.01));
+  fake.ui.selectResponses.push("fix");
+  const r = await run({ request: "trim the email" });
+  assert.doesNotMatch(textOf(r), /Also consider/);
+});

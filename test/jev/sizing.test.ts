@@ -37,7 +37,8 @@ test("a confident sizing is returned with a need for every artifact", async () =
   });
   assert.equal(r.ok && r.value.sizing, "change");
   assert.equal(r.ok && r.value.confidence, 0.8);
-  assert.equal(r.ok && r.value.artifactNeed["task-record"], 1);
+  assert.equal(r.ok && r.value.artifactNeed["task-record"], 0);
+  assert.equal(r.ok && r.value.artifactNeed.review, 0);
   assert.equal(r.ok && r.value.artifactNeed["event-model"], 0.2);
   assert.equal(r.ok && r.value.artifactNeed["brief-lite"], r.ok && r.value.artifactNeed.brief);
   assert.ok(seen[0]?.questions.includes("sizing"));

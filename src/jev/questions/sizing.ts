@@ -95,8 +95,9 @@ export async function judgeSizing(
     sizing: label,
     confidence: sizing.confidence,
     artifactNeed: {
-      "task-record": 1,
-      review: 1,
+      // Fixed by size, never Jev's call; a nonzero need would put them in every "Also consider".
+      "task-record": 0,
+      review: 0,
       "adr-if-needed": p("adr-if-needed"),
       brief: p("brief"),
       "brief-lite": p("brief"),
