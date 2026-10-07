@@ -38,6 +38,19 @@ const PLACEHOLDER =
 
 const isSection = (name: string): name is Section => SECTIONS.some((s) => s === name);
 
+const FENCE = /^\s*(?:```|~~~)/;
+const HEADING = /^#{1,6}\s/;
+
+/** For each line, whether it sits inside (or on the edge of) a fenced code block. */
+const fencedFlags = (lines: readonly string[]): boolean[] => {
+  let open = false;
+  return lines.map((line) => {
+    if (!FENCE.test(line)) return open;
+    open = !open;
+    return true;
+  });
+};
+
 type Sections = { readonly text: Map<Section, string>; readonly duplicates: Section[] };
 
 /** Splits the body into section texts keyed by name; text may continue over several lines. */
@@ -45,8 +58,9 @@ function splitSections(lines: readonly string[]): Sections {
   const found = new Map<Section, string[]>();
   const duplicates: Section[] = [];
   let current: string[] | undefined;
-  for (const line of lines) {
-    const match = SECTION_LINE.exec(line);
+  const fenced = fencedFlags(lines);
+  for (const [at, line] of lines.entries()) {
+    const match = fenced[at] === true ? null : SECTION_LINE.exec(line);
     const name = match?.[1]?.trim();
     if (match !== null && name !== undefined && isSection(name)) {
       if (found.has(name)) duplicates.push(name);
@@ -60,12 +74,13 @@ function splitSections(lines: readonly string[]): Sections {
 
 type Located = { readonly id: string; readonly title: string; readonly lines: readonly string[] };
 
-/** Every `## <id> — <title>` block; any other `## ` heading ends the block before it. */
+/** Every `## <id> — <title>` block; any other heading (outside code fences) ends the block before it. */
 function recordsIn(lines: readonly string[]): Located[] {
   const records: { id: string; title: string; lines: string[] }[] = [];
   let open: { id: string; title: string; lines: string[] } | undefined;
-  for (const line of lines) {
-    if (line.startsWith("## ")) {
+  const fenced = fencedFlags(lines);
+  for (const [at, line] of lines.entries()) {
+    if (fenced[at] !== true && HEADING.test(line)) {
       const header = HEADER.exec(line);
       open =
         header === null
@@ -77,13 +92,25 @@ function recordsIn(lines: readonly string[]): Located[] {
   return records;
 }
 
-const stripTicks = (text: string): string => text.replace(/^`+|`+$/g, "").trim();
+/** A command or result without its backticks, or the body of a fenced block (its info string dropped). */
+const stripTicks = (text: string): string => {
+  const lines = text.split("\n");
+  if (FENCE.test(lines[0] ?? "")) {
+    const body = lines.slice(1);
+    if (FENCE.test(body.at(-1) ?? "")) body.pop();
+    return body.join("\n").trim();
+  }
+  return text.replace(/^`+|`+$/g, "").trim();
+};
 
-const stepsOf = (text: string): string[] =>
-  text.split("\n").flatMap((line) => {
-    const item = STEP.exec(line)?.[1]?.trim();
+const stepsOf = (text: string): string[] => {
+  const lines = text.split("\n");
+  const fenced = fencedFlags(lines);
+  return lines.flatMap((line, at) => {
+    const item = fenced[at] === true ? undefined : STEP.exec(line)?.[1]?.trim();
     return item === undefined || item === "" ? [] : [item];
   });
+};
 
 function concrete(name: "Run" | "Expected", text: string): string | undefined {
   const bare = stripTicks(text);

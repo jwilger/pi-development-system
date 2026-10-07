@@ -230,3 +230,11 @@ test("labels gh would split on commas, and one-line titles, are validated before
   assert.equal((await t.update("7", { labels: ["a,b"] })).ok, false);
   assert.equal(calls.length, 0);
 });
+
+test("a user label named in-progress is refused so it cannot change the status", async () => {
+  const { exec, calls } = fakeExec(() => ({ stdout: JSON.stringify(issue()) }));
+  const t = createGithubTracker({ exec, cwd: "/r" });
+  assert.equal((await t.create({ title: "x", labels: ["in-progress"] })).ok, false);
+  assert.equal((await t.update("7", { labels: ["in-progress"] })).ok, false);
+  assert.equal(calls.length, 0);
+});

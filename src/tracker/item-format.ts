@@ -32,17 +32,13 @@ export const unwritable = (item: Pick<WorkItem, "title" | "labels">): string | u
     : `label ${JSON.stringify(bad)} is blank or holds a comma or line break`;
 };
 
+/** Written to pass our own markdownlint: no trailing space, no repeated heading text, no stacked blank lines. */
 export const renderItem = (item: WorkItem): string => {
-  const comments = item.comments.map((c) => `\n### Comment\n\n${quote(c)}\n`).join("");
-  return [
-    `# ${item.title}`,
-    "",
-    `Status: ${item.status}`,
-    `Labels: ${item.labels.join(", ")}`,
-    "",
-    item.body,
-    COMMENTS + comments,
-  ].join("\n");
+  const labels = item.labels.length === 0 ? "" : ` ${item.labels.join(", ")}`;
+  const top = `# ${item.title}\n\nStatus: ${item.status}\nLabels:${labels}`;
+  const body = item.body === "" ? [] : [item.body];
+  const comments = item.comments.map((c, n) => `\n### Comment ${n + 1}\n\n${quote(c)}\n`);
+  return `${[top, ...body, "## Comments"].join("\n\n")}\n${comments.join("")}`;
 };
 
 const isStatus = (value: string): value is WorkStatus =>
@@ -50,7 +46,7 @@ const isStatus = (value: string): value is WorkStatus =>
 
 const commentsOf = (section: string): string[] =>
   section
-    .split(/^### Comment\n\n/m)
+    .split(/^### Comment(?: \d+)?\n\n/m)
     .slice(1)
     .map((c) => unquote(c.replace(/\n+$/, "")));
 
@@ -59,7 +55,7 @@ export const parseItem = (id: string, raw: string): TrackerResult<WorkItem> => {
   const marker = text.lastIndexOf(COMMENTS);
   const main = marker < 0 ? text : text.slice(0, marker);
   const comments = marker < 0 ? [] : commentsOf(text.slice(marker + COMMENTS.length));
-  const head = /^# (.+)\n\nStatus: (.*)\nLabels: (.*)\n\n?/.exec(main);
+  const head = /^# (.+)\n\nStatus: (.*)\nLabels:[ ]?(.*)(?:\n\n|\n$|$)/.exec(main);
   if (head === null)
     return trackerError(`work item ${id}: expected "# title", Status and Labels lines`);
   const [whole, title = "", status = "", labels = ""] = head;

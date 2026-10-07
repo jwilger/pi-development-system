@@ -170,3 +170,27 @@ test("indented sub-bullets belong to their step and do not count as steps", () =
   assert.ok(!isParseError(r));
   assert.equal(r.steps.length, 3);
 });
+
+test("a later heading of any level ends the record, so following prose cannot leak into it", () => {
+  const plan = `${GOOD}\n### I2 — Next increment\n\nTBD later.\n\n# Appendix\n\nMore.\n`;
+  const r = parseTaskRecord(plan);
+  assert.ok(!isParseError(r));
+  assert.equal(r.outOfScope, "password handling.");
+});
+
+test("fenced content is not structure: headings, sections and list items inside a fence", () => {
+  const fenced = GOOD.replace(
+    "**Interfaces:**",
+    "**Interfaces:**\n```md\n## Foo — bar\n**Goal:** other\n1. x\n2. y\n3. z\n4. w\n```\n",
+  );
+  const r = parseTaskRecord(fenced);
+  assert.ok(!isParseError(r));
+  assert.equal(r.id, "T1");
+  assert.equal(r.steps.length, 3);
+});
+
+test("a Run written as a fenced block is the command inside, without the info string", () => {
+  const r = parseTaskRecord(GOOD.replace(/\*\*Run:\*\*.*\n/, "**Run:**\n```sh\nnpm test\n```\n"));
+  assert.ok(!isParseError(r));
+  assert.equal(r.run, "npm test");
+});

@@ -19,10 +19,10 @@
         "title": "Add --json flag",
         "goal": "The CLI prints JSON when --json is passed.",
         "files": "src/cli.ts,test/cli.test.ts",
-        "interfaces": "formatJson(result: Result): string",
-        "firstFailingTest": "test/cli.test.ts \"prints json\" asserts stdout parses as JSON",
+        "interfaces": "formatJson(result: CliResult): string exported from src/cli.ts; run(argv: string[]) calls it when argv includes \"--json\"",
+        "firstFailingTest": "test/cli.test.ts \"prints json\" asserts run([\"--json\"]) writes output that JSON.parse accepts",
         "steps": "Write failing test|Add formatJson|Wire --json in cli|Run suite",
-        "run": "npm test -- test/auth/login.test.ts",
+        "run": "npm test -- test/cli.test.ts",
         "expected": "1 test passes, 0 fail"
       },
       "expected": "ready"

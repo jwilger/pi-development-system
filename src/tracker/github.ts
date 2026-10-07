@@ -1,6 +1,13 @@
 import type { Exec } from "../core/exec.ts";
 import { ok } from "../core/result.ts";
 import { unwritable } from "./item-format.ts";
+
+/** Our status marker is a label; a user label with that name would change the status as a side effect. */
+const unusable = (item: { title: string; labels: readonly string[] }): string | undefined =>
+  item.labels.includes("in-progress")
+    ? '"in-progress" is reserved for the in-progress status; set status instead'
+    : unwritable(item);
+
 import {
   type ItemFilter,
   type NewWorkItem,
@@ -142,7 +149,7 @@ const listIssues = async (gh: Gh, filter: ItemFilter): Promise<TrackerResult<Wor
 };
 
 const createIssue = async (gh: Gh, input: NewWorkItem): Promise<TrackerResult<WorkItem>> => {
-  const problem = unwritable({ title: input.title, labels: input.labels ?? [] });
+  const problem = unusable({ title: input.title, labels: input.labels ?? [] });
   if (problem !== undefined) return trackerError(problem);
   const labels = (input.labels ?? []).flatMap((l) => ["--label", l]);
   const out = await gh([
@@ -203,7 +210,7 @@ const updateIssue = async (
   id: string,
   patch: WorkItemPatch,
 ): Promise<TrackerResult<WorkItem>> => {
-  const problem = unwritable({ title: patch.title ?? "x", labels: patch.labels ?? [] });
+  const problem = unusable({ title: patch.title ?? "x", labels: patch.labels ?? [] });
   if (problem !== undefined) return trackerError(problem);
   const raw = await viewRaw(gh, id);
   if (!raw.ok) return raw;

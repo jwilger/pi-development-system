@@ -141,3 +141,29 @@ test("item files saved with CRLF line endings still read and write", async () =>
   assert.equal(value(await tracker.get(made.id)).body, "line one\nline two");
   assert.equal((await tracker.create({ title: "Other" })).ok, true);
 });
+
+test("item files pass our own markdownlint rules: no trailing space, no repeated headings, no stacked blanks", async () => {
+  const { root, tracker } = setup();
+  const made = value(await tracker.create({ title: "Lint" }));
+  value(await tracker.comment(made.id, "one"));
+  value(await tracker.comment(made.id, "two"));
+  const text = readFileSync(join(root, "work", "items", `${made.id}.md`), "utf8");
+  assert.doesNotMatch(text, / +$/m);
+  assert.doesNotMatch(text, /\n\n\n/);
+  const headings = text.split("\n").filter((l) => l.startsWith("#"));
+  assert.equal(new Set(headings).size, headings.length);
+  assert.deepEqual(value(await tracker.get(made.id)).comments, ["one", "two"]);
+  assert.equal(value(await tracker.get(made.id)).body, "");
+});
+
+test("an item file written by the earlier format still reads", async () => {
+  const { root, tracker } = setup();
+  mkdirSync(join(root, "work", "items"), { recursive: true });
+  writeFileSync(
+    join(root, "work", "items", "old.md"),
+    "# Old\n\nStatus: open\nLabels: \n\nbody\n\n## Comments\n\n### Comment\n\n> hi\n\n",
+  );
+  const item = value(await tracker.get("old"));
+  assert.equal(item.body, "body");
+  assert.deepEqual(item.comments, ["hi"]);
+});
