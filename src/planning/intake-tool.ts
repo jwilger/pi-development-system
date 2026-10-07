@@ -1,9 +1,17 @@
-import type { ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+  ToolDefinition,
+} from "@earendil-works/pi-coding-agent";
 import { type Static, Type } from "typebox";
+import { parseDeparture } from "../core/departure.ts";
+import { lookupGate } from "../core/gates.ts";
 import { parseSizing } from "../core/sizing.ts";
 import { type DevsysState, isParseError, type Sizing, type SliceRef } from "../core/types.ts";
+import { DEPARTURE_ENTRY_TYPE } from "../gates/record-departure-tool.ts";
 import type { Jev } from "../jev/client.ts";
 import { judgeSizing } from "../jev/questions/sizing.ts";
+import { appendDecision } from "../state/decision-log.ts";
 import type { SessionState } from "../state/session-state.ts";
 import { phaseFor, proposeArtifacts, renderProposal, sliceSlug, uniqueSlice } from "./intake.ts";
 
@@ -35,8 +43,40 @@ const slicesInUse = (state: DevsysState): Set<string> =>
     ...state.openDepartures.flatMap((d) => (d.scope.kind === "slice" ? [d.scope.slice] : [])),
   ]);
 
+/**
+ * I8.1 sizes a fix without a review artifact, but the commit gate reviews every slice (I6.4). The user choosing
+ * "fix" is the explicit agreement, so it is recorded as a user-approved departure for this slice only.
+ */
+async function fixWithoutReview(
+  deps: { pi: ExtensionAPI; state: SessionState },
+  ctx: ExtensionContext,
+  slice: SliceRef,
+): Promise<string | undefined> {
+  const info = lookupGate("review.unsatisfied");
+  const at = new Date();
+  const departure = parseDeparture({
+    id: `dep-${at.getTime()}-intake`,
+    gate: "review.unsatisfied",
+    tier: "soft",
+    default: info?.default ?? "finish the fresh-context review before release",
+    chosen: "no review rounds for this slice",
+    why: "the user confirmed this work as a fix, which the sizing table plans without a review artifact",
+    costIfWrong: "a defect in a small change ships without a fresh-context look",
+    approver: "user",
+    scope: { kind: "slice", slice },
+    revisitWhen: "the fix turns out to touch more than its task record named",
+    recordedAt: at.toISOString().replace(/\.\d{3}Z$/, "Z"),
+  });
+  if (isParseError(departure)) return undefined;
+  const { path } = await appendDecision(ctx.cwd, departure, at);
+  deps.pi.appendEntry(DEPARTURE_ENTRY_TYPE, departure);
+  deps.state.update((s) => ({ ...s, openDepartures: [...s.openDepartures, departure] }));
+  return path;
+}
+
 /** `devsys_intake`: Jev proposes a size and artifact set; the user confirms; state moves to the first phase. */
 export function createIntakeTool(deps: {
+  pi: ExtensionAPI;
   state: SessionState;
   jev: (ctx: ExtensionContext) => Jev;
 }): ToolDefinition<typeof Parameters> {
@@ -79,8 +119,13 @@ export function createIntakeTool(deps: {
         sizing,
         activeSlice: slice,
       }));
+      const departed = sizing === "fix" ? await fixWithoutReview(deps, ctx, slice) : undefined;
       const final = renderProposal({ sizing, basis, proposal: proposalFor(sizing) });
-      return reply(`${final}\nPhase: ${phaseFor(sizing)}. Active slice: ${slice}.`);
+      const note =
+        departed === undefined
+          ? ""
+          : `\nRecorded in ${departed}: no review rounds for this fix (you sized it fix).`;
+      return reply(`${final}\nPhase: ${phaseFor(sizing)}. Active slice: ${slice}.${note}`);
     },
   };
 }

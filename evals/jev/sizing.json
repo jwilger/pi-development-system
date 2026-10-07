@@ -4,14 +4,16 @@
     {
       "state": {
         "request": "Login fails with a 500 when the email has a trailing space; trim it",
-        "repoSummary": "typescript web app with auth module"
+        "repoSummary": "typescript web app with auth module",
+        "unwanted": "adr-if-needed,brief,journeys,event-model,architecture,lens-review"
       },
       "expected": "fix"
     },
     {
       "state": {
         "request": "Fix the off-by-one in pagination that drops the last item",
-        "repoSummary": "typescript api"
+        "repoSummary": "typescript api",
+        "unwanted": "adr-if-needed,brief,journeys,event-model,architecture,lens-review"
       },
       "expected": "fix"
     },
@@ -32,21 +34,24 @@
     {
       "state": {
         "request": "Let users share a saved report by link, with expiry and revoke, including a new share page and notifications",
-        "repoSummary": "typescript saas with reports, auth and email"
+        "repoSummary": "typescript saas with reports, auth and email",
+        "wants": "journeys,event-model"
       },
       "expected": "capability"
     },
     {
       "state": {
         "request": "Add team workspaces: invitations, roles, billing per seat, and a switcher in the UI",
-        "repoSummary": "single-user typescript saas"
+        "repoSummary": "single-user typescript saas",
+        "wants": "journeys,event-model"
       },
       "expected": "capability"
     },
     {
       "state": {
         "request": "We want to build a marketplace connecting independent tutors with students; nothing exists yet",
-        "repoSummary": "empty repository"
+        "repoSummary": "empty repository",
+        "wants": "brief,architecture"
       },
       "expected": "product"
     },
@@ -60,7 +65,8 @@
     {
       "state": {
         "request": "Rename the internal helper parseDate to parseIsoDate across the module",
-        "repoSummary": "typescript library"
+        "repoSummary": "typescript library",
+        "unwanted": "adr-if-needed,brief,journeys,event-model,architecture,lens-review"
       },
       "expected": "fix"
     },

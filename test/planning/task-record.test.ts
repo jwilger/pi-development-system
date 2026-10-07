@@ -257,3 +257,8 @@ test("TBD in the header title is a problem like TBD anywhere else", () => {
   assert.ok(isParseError(r));
   assert.match(r.message, /contains TBD/);
 });
+
+test("a header whose title is only spaces is not a header", () => {
+  const r = parseTaskRecord(GOOD.replace(/^## T1 — .*$/m, "## T1 —   "));
+  assert.ok(isParseError(r));
+});

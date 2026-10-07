@@ -26,7 +26,7 @@ const SECTIONS = [
 ] as const;
 type Section = (typeof SECTIONS)[number];
 
-const HEADER = /^## (\S+) [—-] (.+)$/;
+const HEADER = /^## (\S+) [—-] (\S.*?)\s*$/;
 const SECTION_LINE = /^\*\*([^:*]+)(?::\*\*|\*\*:)\s*(.*)$/;
 /** Top-level list items only (CommonMark allows up to three spaces of indent); deeper items belong to the step above. */
 const STEP = /^ {0,3}(?:\d+[.)]|[-*+])\s+(.*)$/;

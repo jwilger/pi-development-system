@@ -141,7 +141,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   pi.registerTool(createRequestApprovalTool({ pi, approvals }));
   pi.registerTool(createModelsTool());
   pi.registerTool(createRouteTaskTool({ jev: (ctx) => jevHolder.forContext(ctx) }));
-  pi.registerTool(createIntakeTool({ state, jev: (ctx) => jevHolder.forContext(ctx) }));
+  pi.registerTool(createIntakeTool({ pi, state, jev: (ctx) => jevHolder.forContext(ctx) }));
   pi.registerTool(createTaskCheckTool({ jev: (ctx) => jevHolder.forContext(ctx) }));
   pi.registerTool(createWorkItemTool({ exec }));
   const reviewDeps = {

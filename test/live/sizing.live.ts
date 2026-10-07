@@ -14,8 +14,17 @@ test("sizing fixture reaches 0.8 with a real Jev", async () => {
       repoSummary: c.state.repoSummary ?? "",
     });
     const got = r.ok ? r.value.sizing : "error";
-    if (got === c.expected) passed++;
-    else misses.push(`${c.state.request} → ${got}, expected ${c.expected}`);
+    const need = r.ok ? r.value.artifactNeed : {};
+    const listed = (key: string): string[] =>
+      (c.state[key] ?? "").split(",").filter((x) => x !== "");
+    const low = listed("wants").filter((a) => (need[a as keyof typeof need] ?? 0) < 0.5);
+    const high = listed("unwanted").filter((a) => (need[a as keyof typeof need] ?? 0) >= 0.5);
+    if (got === c.expected && low.length === 0 && high.length === 0) passed++;
+    else {
+      misses.push(
+        `${c.state.request} → ${got}, expected ${c.expected}; needed but low: ${low.join(",") || "-"}; unneeded but high: ${high.join(",") || "-"}`,
+      );
+    }
   }
   assert.equal(rateShortfall(passed, fixture.cases.length, 0.8, misses), undefined);
 });

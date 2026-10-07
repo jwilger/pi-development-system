@@ -125,10 +125,8 @@ async function reviewNeeds(
   ctx: ExtensionContext,
   command: string,
 ): Promise<Need[]> {
-  const { phase, activeSlice, sizing } = deps.state.get();
+  const { phase, activeSlice } = deps.state.get();
   if ((phase !== "implementing" && phase !== "reviewing") || activeSlice === undefined) return [];
-  // A fix is sized without a review artifact (I8.1); the gate must not demand rounds the size never asked for.
-  if (sizing === "fix") return [];
   const snap = await snapshotDiff(deps.exec, ctx.cwd, "HEAD");
   // An unreadable diff cannot be compared; the gate asks for a departure rather than guessing.
   const gap = reviewGap(

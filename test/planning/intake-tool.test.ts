@@ -38,7 +38,7 @@ const offline: Jev = {
 const setup = (jev: Jev, hasUI = true) => {
   const fake = createFakePi({ cwd: mkdtempSync(join(tmpdir(), "devsys-intake-")), hasUI });
   const state = createSessionState(fake.api);
-  const tool = createIntakeTool({ state, jev: () => jev });
+  const tool = createIntakeTool({ pi: fake.api, state, jev: () => jev });
   const run = (params: Record<string, unknown>) =>
     tool.execute("c", params as never, undefined, undefined, fake.ctx as never);
   return { fake, state, run };
@@ -119,4 +119,22 @@ test("a fix judged by an online Jev with no extra need lists nothing to consider
   fake.ui.selectResponses.push("fix");
   const r = await run({ request: "trim the email" });
   assert.doesNotMatch(textOf(r), /Also consider/);
+});
+
+test("confirming a fix records a user-approved review departure for that slice only", async () => {
+  const { fake, state, run } = setup(online("fix"));
+  fake.ui.selectResponses.push("fix");
+  const r = await run({ request: "trim the email on login" });
+  const [dep] = state.get().openDepartures;
+  assert.equal(dep?.gate, "review.unsatisfied");
+  assert.equal(dep?.approver, "user");
+  assert.deepEqual(dep?.scope, { kind: "slice", slice: "trim-the-email-on-login" });
+  assert.match(textOf(r), /no review rounds for this fix/);
+});
+
+test("sizes other than fix record no departure", async () => {
+  const { fake, state, run } = setup(online("change"));
+  fake.ui.selectResponses.push("change");
+  await run({ request: "make retry configurable" });
+  assert.deepEqual(state.get().openDepartures, []);
 });
