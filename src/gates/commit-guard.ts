@@ -14,7 +14,7 @@ import {
 } from "../core/commit-message.ts";
 import type { Exec } from "../core/exec.ts";
 import { resolveGit } from "../core/git-invocations.ts";
-import { reviewGap } from "../core/review-flow.ts";
+import { DECISION_LOG, reviewGap } from "../core/review-flow.ts";
 import { type GateId, isParseError, parseGateId } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
 import { judgeCommit, MIX_THRESHOLD, RATIONALE_FLOOR } from "../jev/questions/commit.ts";
@@ -176,7 +176,9 @@ const stagedThenEdited = (
     .filter((i) => (i.sub === "commit" || i.sub === "add") && !isDryRun(i) && inThisDir(i, cwd))
     .flatMap((i) => i.args.filter((a) => !a.startsWith("-")).map(cleanPath));
   const covered = (name: string) => named.some((n) => name === n || name.startsWith(`${n}/`));
-  return names.staged.filter((name) => names.unstaged.includes(name) && !covered(name));
+  return names.staged.filter(
+    (name) => names.unstaged.includes(name) && !covered(name) && !DECISION_LOG.test(name),
+  );
 };
 
 const cleanPath = (arg: string): string => arg.replace(/^(\.\/)+/, "").replace(/\/+$/, "");

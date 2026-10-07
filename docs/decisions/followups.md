@@ -225,3 +225,7 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 ## From I6 review round 12
 
 - correctness only the departure log (`docs/decisions/YYYY-MM.md`) is exempt from "covered by the last round"; other files the system writes into the work tree during a slice would need the same treatment.
+
+## From I6 review round 13
+
+- docs the skill says a re-roll on an unchanged diff after findings is refused, but a departure recorded in between changes the whole-diff digest and the re-roll is accepted; the sanctioned path for a disputed finding is itself a departure, so this is accepted.

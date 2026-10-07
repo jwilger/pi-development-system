@@ -452,3 +452,14 @@ test("recording a departure after review does not make the review stale", async 
   t.state.update((s) => upsertReview(s, reviewed));
   assert.equal(await t.bash(commit(GOOD)), undefined);
 });
+
+test("a departure written to a staged decision log is not an edit after review", async () => {
+  const digest = await currentDigest();
+  const t = setup(jevJudging(0.9, 0.1), DIFF, {
+    staged: "a.ts\0docs/decisions/2026-10.md\0",
+    unstaged: "docs/decisions/2026-10.md\0",
+  });
+  withPhase(t, "implementing");
+  t.state.update((s) => upsertReview(s, cleanRounds(3, digest)));
+  assert.equal(await t.bash(commit(GOOD)), undefined);
+});

@@ -31,7 +31,7 @@ export type DiffNow = {
 };
 
 // The departure log is the system's own record (devsys_record_departure writes it), not work under review.
-const DECISION_LOG = /^docs\/decisions\/\d{4}-\d{2}\.md$/;
+export const DECISION_LOG = /^docs\/decisions\/\d{4}-\d{2}\.md$/;
 
 /** Every file in the current diff was in the last round's diff, byte for byte: a part of what was reviewed. */
 const coveredByLastRound = (review: ReviewState, now: DiffNow): boolean => {
