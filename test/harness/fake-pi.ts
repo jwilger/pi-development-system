@@ -1,3 +1,4 @@
+import type { ClassifierAnswer } from "@earendil-works/pi-ai";
 import type {
   ExtensionAPI,
   ExtensionContext,
@@ -29,6 +30,8 @@ export type FakePiOptions = {
   models?: { id: string; cost?: { input: number; output: number } }[];
   /** Names `pi.getActiveTools()` reports; add `codemode` to simulate codemode being on. */
   activeTools?: string[];
+  /** Answers every Jev `classify` call returns, by question name; unset means classify throws. */
+  classifyAnswers?: Record<string, ClassifierAnswer> | undefined;
 };
 
 /**
@@ -78,7 +81,16 @@ export function createFakePi(init: FakePiOptions = {}) {
           return { provider: c.slice(0, at), id: c.slice(at + 1) };
         }),
       classify: async () => {
-        throw new Error("fake registry: classify not configured");
+        const answers = init.classifyAnswers;
+        if (answers === undefined) throw new Error("fake registry: classify not configured");
+        return {
+          api: "typesafe-system-one",
+          provider: "fake",
+          model: "jev",
+          answers,
+          stopReason: "stop",
+          timestamp: 0,
+        };
       },
     },
     ui: {

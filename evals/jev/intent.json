@@ -1,0 +1,117 @@
+{
+  "questionHash": "a85313b2522097f1",
+  "cases": [
+    {
+      "state": {
+        "prompt": "add a --json flag to the export command",
+        "phase": "idle"
+      },
+      "expected": "new-work"
+    },
+    {
+      "state": {
+        "prompt": "Can we make the retry delay configurable instead of hard-coded?",
+        "phase": "idle"
+      },
+      "expected": "new-work"
+    },
+    {
+      "state": {
+        "prompt": "rename parseDate to parseIsoDate everywhere",
+        "phase": "idle"
+      },
+      "expected": "new-work"
+    },
+    {
+      "state": {
+        "prompt": "Build a share-by-link feature for saved reports",
+        "phase": "idle"
+      },
+      "expected": "new-work"
+    },
+    {
+      "state": {
+        "prompt": "login returns a 500 when the email has a trailing space",
+        "phase": "idle"
+      },
+      "expected": "fix"
+    },
+    {
+      "state": {
+        "prompt": "the build is failing on main, please sort it out",
+        "phase": "idle"
+      },
+      "expected": "fix"
+    },
+    {
+      "state": {
+        "prompt": "please review the diff before I commit it",
+        "phase": "idle"
+      },
+      "expected": "review"
+    },
+    {
+      "state": {
+        "prompt": "can you look over docs/plan/foo.md and tell me what is wrong with it",
+        "phase": "idle"
+      },
+      "expected": "review"
+    },
+    {
+      "state": {
+        "prompt": "how does the turn verifier decide when to push back?",
+        "phase": "idle"
+      },
+      "expected": "question"
+    },
+    {
+      "state": {
+        "prompt": "what is the difference between model-only and codemode exposure?",
+        "phase": "idle"
+      },
+      "expected": "question"
+    },
+    {
+      "state": {
+        "prompt": "why did the CI job fail yesterday?",
+        "phase": "idle"
+      },
+      "expected": "question"
+    },
+    {
+      "state": {
+        "prompt": "yes",
+        "phase": "implementing"
+      },
+      "expected": "continuation"
+    },
+    {
+      "state": {
+        "prompt": "continue",
+        "phase": "implementing"
+      },
+      "expected": "continuation"
+    },
+    {
+      "state": {
+        "prompt": "option 2, and use the shorter name",
+        "phase": "planning"
+      },
+      "expected": "continuation"
+    },
+    {
+      "state": {
+        "prompt": "go ahead",
+        "phase": "reviewing"
+      },
+      "expected": "continuation"
+    },
+    {
+      "state": {
+        "prompt": "that plan looks good, approved",
+        "phase": "planning"
+      },
+      "expected": "continuation"
+    }
+  ]
+}

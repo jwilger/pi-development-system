@@ -7,6 +7,8 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { cadenceLine, DEFAULT_PUSH_MINUTES } from "../src/context/cadence.ts";
 import { appendContextTail, renderContextTail } from "../src/context/context-tail.ts";
+import { createPhaseTool } from "../src/context/devsys-tool.ts";
+import { applyIntentGuideline } from "../src/context/intent-trigger.ts";
 import { registerModelAdvice } from "../src/context/model-advice.ts";
 import { renderStatus, renderStatusLine, STATUS_KEY } from "../src/context/status.ts";
 import { applyPromptSection } from "../src/context/system-prompt.ts";
@@ -87,8 +89,9 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   pi.on("session_start", (_event, ctx) => rebuild(ctx));
   pi.on("session_tree", (_event, ctx) => rebuild(ctx));
 
-  pi.on("before_agent_start", (event) => {
+  pi.on("before_agent_start", async (event, ctx) => {
     applyPromptSection(event, state.get(), nonNegotiables);
+    await applyIntentGuideline(event, state.get(), jevHolder.forContext(ctx));
   });
 
   pi.on("context", (event) => {
@@ -156,6 +159,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   ];
   for (const tool of rarelyUsed) pi.registerTool(tool);
   pi.on("session_start", () => declareWithoutCodemode(pi, rarelyUsed));
+  pi.registerTool(createPhaseTool({ state }));
   pi.registerTool(createBeginWorkTool({ state }));
   pi.registerTool(createIntakeTool({ pi, state, jev: (ctx) => jevHolder.forContext(ctx) }));
   const reviewDeps = {
