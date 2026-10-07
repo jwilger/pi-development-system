@@ -56,6 +56,12 @@ export function reviewGap(state: DevsysState, slice: SliceRef, now: DiffNow): st
   }
 }
 
+const ESCAPES: Record<string, string> = { t: "\t", n: "\n", '"': '"', "\\": "\\" };
+
+/** Undo git's C-style quoting of a path (`\"`, `\\`, `\t`, `\n`; octal bytes were already turned off with quotePath=false). */
+const unquote = (path: string): string =>
+  path.replace(/\\([tn"\\])/g, (_m, c: string) => ESCAPES[c] ?? c);
+
 /** A unified diff cut into one text per file, keyed by the file's new path. */
 export function splitDiffByFile(diff: string): Record<string, string> {
   const out: Record<string, string> = {};
@@ -69,7 +75,7 @@ export function splitDiffByFile(diff: string): Record<string, string> {
     const header = /^diff --git "?a\/.*?"? "?b\/(.*?)"?$/.exec(line);
     if (header !== null) {
       flush();
-      path = header[1] ?? line;
+      path = unquote(header[1] ?? line);
       lines = [];
     }
     lines.push(line);

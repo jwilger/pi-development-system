@@ -3,6 +3,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { appendContextTail, renderContextTail } from "../src/context/context-tail.ts";
 import { renderStatus, renderStatusLine, STATUS_KEY } from "../src/context/status.ts";
 import { applyPromptSection } from "../src/context/system-prompt.ts";
+import { type Exec, timeoutAsFailure } from "../src/core/exec.ts";
 import { detectProfiles } from "../src/core/profile.ts";
 import { createApprovalStore } from "../src/gates/approvals.ts";
 import { registerCommitGuard } from "../src/gates/commit-guard.ts";
@@ -77,24 +78,26 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
     return messages === undefined ? undefined : { messages };
   });
 
+  const exec: Exec = async (command, args, options) =>
+    timeoutAsFailure(await pi.exec(command, args, options));
   registerGitGuard({ pi, approvals, jev: (ctx) => jevHolder.forContext(ctx) });
   registerCommitGuard({
     pi,
     state,
     jev: (ctx) => jevHolder.forContext(ctx),
-    exec: (command, args, options) => pi.exec(command, args, options),
+    exec,
   });
   registerCiCommand({
     pi,
     state,
-    exec: (command, args, options) => pi.exec(command, args, options),
+    exec,
   });
   registerPushGuard({
     pi,
     state,
     approvals,
     jev: (ctx) => jevHolder.forContext(ctx),
-    exec: (command, args, options) => pi.exec(command, args, options),
+    exec,
   });
   registerTestGuard({ pi, state, approvals, jev: (ctx) => jevHolder.forContext(ctx) });
   registerTestEvidence({ pi, state });
@@ -107,8 +110,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   const reviewDeps = {
     state,
     jev: (ctx: ExtensionContext) => jevHolder.forContext(ctx),
-    exec: (command: string, args: string[], options?: { cwd?: string; timeout?: number }) =>
-      pi.exec(command, args, options),
+    exec,
   } satisfies Parameters<typeof createReviewStartTool>[0];
   pi.registerTool(createReviewStartTool(reviewDeps));
   pi.registerTool(createReviewRecordTool(reviewDeps));

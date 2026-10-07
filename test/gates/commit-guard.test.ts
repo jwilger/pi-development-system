@@ -346,3 +346,38 @@ test("staging everything in the same command, or edits to files that are not sta
   all.state.update((s) => upsertReview(s, cleanRounds(3, digest)));
   assert.equal(await all.bash(`git add -A && ${commit(GOOD)}`), undefined);
 });
+
+test("only a command that re-stages everything skips the staged-then-edited check", async () => {
+  const digest = await currentDigest();
+  const run = async (command: string, names: Names = { staged: "a.ts\0", unstaged: "a.ts\0" }) => {
+    const t = setup(jevJudging(0.9, 0.1), DIFF, names);
+    withPhase(t, "implementing");
+    t.state.update((s) => upsertReview(s, cleanRounds(3, digest)));
+    return t.bash(command);
+  };
+  // `git add other` and a message that merely contains " -a…" do not re-stage a.ts.
+  assert.equal((await run(`git add b.ts && ${commit(GOOD)}`))?.block, true);
+  assert.equal(
+    (await run(`git commit -m 'perf(x): run -parallel jobs because it is faster'`))?.block,
+    true,
+  );
+  // These really do take the work tree.
+  assert.equal(await run(`git add -A && ${commit(GOOD)}`), undefined);
+  assert.equal(await run(`git add . && ${commit(GOOD)}`), undefined);
+  assert.equal(await run(`git add -u && ${commit(GOOD)}`), undefined);
+  assert.equal(await run(`git commit -a -m '${GOOD}'`), undefined);
+  assert.equal(await run(`git commit --all -m '${GOOD}'`), undefined);
+  // A path named in the command is committed from the work tree.
+  assert.equal(await run(`git commit -m '${GOOD}' a.ts`), undefined);
+});
+
+test("a dirty submodule does not count as an edit after staging", async () => {
+  const t = setup(jevJudging(0.9, 0.1), DIFF);
+  withPhase(t, "implementing");
+  const digest = await currentDigest();
+  t.state.update((s) => upsertReview(s, cleanRounds(3, digest)));
+  await t.bash(commit(GOOD));
+  assert.ok(
+    t.execCalls.some((c) => c.includes("--name-only") && c.includes("--ignore-submodules=dirty")),
+  );
+});

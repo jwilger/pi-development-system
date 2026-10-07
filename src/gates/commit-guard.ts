@@ -13,6 +13,7 @@ import {
   parseConventionalCommit,
 } from "../core/commit-message.ts";
 import type { Exec } from "../core/exec.ts";
+import { resolveGit } from "../core/git-invocations.ts";
 import { reviewGap } from "../core/review-flow.ts";
 import { type GateId, isParseError, parseGateId } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
@@ -152,16 +153,40 @@ const stagedThenEdited = (
   names: { staged: readonly string[]; unstaged: readonly string[] } | undefined,
   command: string,
 ): string[] =>
-  names === undefined || stagesEverything(command)
+  names === undefined || stagesAllTracked(command)
     ? []
-    : names.staged.filter((name) => names.unstaged.includes(name));
+    : // A path named in the command is committed (or re-staged) from the work tree, which was reviewed.
+      names.staged.filter((name) => names.unstaged.includes(name) && !command.includes(name));
+
+const STAGE_ALL = new Set(["-A", "--all", "-u", "--update", "."]);
+
+/** The command re-stages every tracked change itself: `commit -a`, or `git add -A|-u|.`. Read from parsed invocations, not message text. */
+function stagesAllTracked(command: string): boolean {
+  return resolveGit(command).invocations.some(
+    (i) =>
+      (i.sub === "commit" &&
+        i.args.some(
+          (a) =>
+            a === "--all" || a === "--include" || (/^-[a-zA-Z]{1,4}$/.test(a) && a.includes("a")),
+        )) ||
+      (i.sub === "add" && i.args.some((a) => STAGE_ALL.has(a))),
+  );
+}
 
 async function changedNames(
   exec: Exec,
   cwd: string,
 ): Promise<{ staged: string[]; unstaged: string[] } | undefined> {
   try {
-    const base = ["-c", "core.quotePath=false", "diff", "--no-ext-diff", "--name-only", "-z"];
+    const base = [
+      "-c",
+      "core.quotePath=false",
+      "diff",
+      "--no-ext-diff",
+      "--name-only",
+      "-z",
+      "--ignore-submodules=dirty",
+    ];
     const [staged, unstaged] = await Promise.all([
       exec("git", [...base, "--cached"], { cwd, timeout: 10_000 }),
       exec("git", base, { cwd, timeout: 10_000 }),

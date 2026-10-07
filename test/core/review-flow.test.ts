@@ -152,3 +152,9 @@ test("reviewerTask carries the slice, lenses, diff range and packet format", () 
     assert.ok(task.includes(part), part);
   }
 });
+
+test("splitDiffByFile undoes git's escapes in quoted paths so staged and untracked keys agree", () => {
+  const diff =
+    'diff --git "a/q\\"uote.txt" "b/q\\"uote.txt"\n+1\ndiff --git "a/t\\tab" "b/t\\tab"\n+2';
+  assert.deepEqual(Object.keys(splitDiffByFile(diff)), ['q"uote.txt', "t\tab"]);
+});
