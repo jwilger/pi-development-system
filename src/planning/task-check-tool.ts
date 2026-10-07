@@ -29,6 +29,15 @@ const insideRepo = (cwd: string, target: string): boolean => {
   return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
 };
 
+/** Jev's aspect keys, named as the record's own sections so the author knows what to edit. */
+const SECTION_OF: Readonly<Record<string, string>> = {
+  goal: "Goal",
+  interfaces: "Interfaces",
+  firstFailingTest: "First failing test",
+  steps: "Steps",
+  check: "Run and Expected",
+};
+
 /** `devsys_task_check`: structural readiness is deterministic; Jev adds "specific enough" and "one task". */
 export function createTaskCheckTool(deps: {
   jev: (ctx: ExtensionContext) => Jev;
@@ -72,7 +81,8 @@ export function createTaskCheckTool(deps: {
           `${record.id}: too-big. Split it into task records that each need one failing test, then check each.`,
         );
       }
-      return reply(`${record.id}: needs-detail. Make these more specific: ${missing.join(", ")}.`);
+      const named = missing.map((m) => SECTION_OF[m] ?? m).join(", ");
+      return reply(`${record.id}: needs-detail. Make these more specific: ${named}.`);
     },
   };
 }

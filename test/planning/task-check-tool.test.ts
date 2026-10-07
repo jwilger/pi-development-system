@@ -71,7 +71,10 @@ test("a record missing Run is flagged with the section named", async () => {
 test("Jev reading it as vague lists what to add; too big says split", async () => {
   const vague = await setup(online({ interfaces: 0.9 }), RECORD).run("work/T1.md");
   assert.match(textOf(vague), /needs-detail/);
-  assert.match(textOf(vague), /interfaces/);
+  assert.match(textOf(vague), /Interfaces/);
+  const run = await setup(online({ check: 0.9, firstFailingTest: 0.9 }), RECORD).run("work/T1.md");
+  assert.match(textOf(run), /First failing test, Run and Expected/);
+  assert.doesNotMatch(textOf(run), /\bcheck\b|firstFailingTest/);
   const big = await setup(online({ tooBig: 0.9 }), RECORD).run("work/T1.md");
   assert.match(textOf(big), /too-big/);
   assert.match(textOf(big), /split/i);
