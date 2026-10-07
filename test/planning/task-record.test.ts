@@ -262,3 +262,11 @@ test("a header whose title is only spaces is not a header", () => {
   const r = parseTaskRecord(GOOD.replace(/^## T1 — .*$/m, "## T1 —   "));
   assert.ok(isParseError(r));
 });
+
+test("tbd in any case is rejected, matching the placeholder check", () => {
+  for (const word of ["tbd", "Tbd"]) {
+    const r = parseTaskRecord(GOOD.replace("password handling.", word));
+    assert.ok(isParseError(r), word);
+    assert.match(r.message, /TBD/);
+  }
+});

@@ -54,4 +54,4 @@ Use `devsys_work_item` for the backlog. It reads `[tracker] kind` from `.develop
 
 ## Handing off
 
-`/devsys-plan <slug>` writes `docs/plan/<slug>.md` in this structure and, when a goal tool is available, starts a goal to complete it. Review the plan with the user before any implementation.
+`/devsys-plan <slug>` writes `docs/plan/<slug>.md` in this structure and checks every task record. Then it stops for the user to review the plan. Only after they approve does it start a goal to complete the plan, when a goal tool is available: a goal can begin implementing on its own, so it must not exist before the review.

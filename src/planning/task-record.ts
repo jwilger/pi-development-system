@@ -176,7 +176,7 @@ function problemsOf(markdown: string, split: Sections): string[] {
   }
   const missing = SECTIONS.filter((s) => got(sections, s) === "");
   if (missing.length > 0) problems.push(`missing section: ${missing.join(", ")}`);
-  if (/\bTBD\b/.test(markdown)) problems.push("contains TBD; decide it or split the task");
+  if (/\bTBD\b/i.test(markdown)) problems.push("contains TBD; decide it or split the task");
   const steps = stepsOf(get(sections, "Steps"));
   if (!missing.includes("Steps") && (steps.length < STEPS_MIN || steps.length > STEPS_MAX)) {
     problems.push(`Steps must be ${STEPS_MIN}-${STEPS_MAX} steps, found ${steps.length}`);
