@@ -45,6 +45,7 @@ less careful model than the one that wrote this):**
 - [x] I5 Vendored subagents with dynamic model/effort routing
 - [x] I6 Review orchestration (fresh reviewer, lenses, recoverable clean streak)
 - [x] I7 Anti-drift: verifier, compaction, model/phase recommendation
+- [ ] I7b Cleanup: no skips, no nit file, no warnings, subagent thread cap, resync removed
 - [ ] I8 Work sizing, slices, task records, tracker adapters, pi-goal-x hand-off
 - [ ] I9 Product planning skills (brief, decisions, interview loop, lens review, journeys, ADR)
 - [ ] I10 Event modelling lite (slice schema v1, validator, GWT → tests)
@@ -392,6 +393,23 @@ non-negotiable 3, research 05 B2/B3, research 04 §4.
 Acceptance: a fabricated "all tests pass" with no test run in the turn triggers a corrective continuation; after `/compact` the state block is present and `/devsys-status` is unchanged.
 
 Release + STOP.
+
+### I7b — Cleanup before I8  (expect 0.41.0)
+
+**Goal.** Close five gaps the author found after I7. **Why.** Non-negotiable 2
+(a green gate must mean the same thing), non-negotiable 3, and the author's
+rule that a finding is either fixed now or not worth fixing. Decisions made in
+conversation with the author, recorded here as the source of truth.
+
+- [ ] **I7b.1 Subagent thread cap.** `src/subagents/orch/manager.ts:260`: the cap counts only live (non-terminal) threads; terminal threads are archived/evicted from `records` beyond a configurable count/age while `agent_steer` can still resume them from their session file (verify restore-from-disk first, test it). Add settings key and tests. Record in `src/subagents/VENDORED.md`.
+- [ ] **I7b.2 No skipped tests.** Offline Jev fixture checks (question-hash pins, schema) always run in `npm test`. Live-model fixtures become `npm run test:jev`, which FAILS (not skips) without `TYPESAFE_API_KEY`; the pre-push hook and CI run it only when the diff touches Jev-facing paths (`src/jev/**`, `evals/jev/**`, `src/core/*intent*`, question text); skipped by path, never by `skip`. `npm test` reports 0 skipped.
+- [ ] **I7b.3 Nit policy.** Reviewers report only demonstrable defects; every finding is fixed in the same round or rejected with a one-line reason in the packet. `devsys_review_record` stops writing `docs/decisions/followups.md`; delete the file after triaging its entries (fix what is worth fixing, drop the rest). Update `skills/code-review`, `agents/reviewer.md`, `reviewerTask`, `prompts/devsys-review.md`, D11 wording.
+- [ ] **I7b.4 Remove compaction resync.** billion-context cancels pi's auto-compaction, so the resync is inert; the per-turn context tail already restates state. Delete `src/context/compaction.ts`, its tests and wiring; keep `renderStateBlock` only if still used. Amend I7.3 in this plan.
+- [ ] **I7b.5 Warnings are errors.** Broad biome rule groups at error severity with reasoned per-rule exceptions (spirit of emschwartz.me/your-clippy-config-should-be-stricter: enable the lints that stop panics/silent failures/escape hatches; do not enable whole contradictory categories; every suppression carries a reason); knip, markdownlint and an ast-grep/semgrep pass in lefthook and CI. In-session rule in `principles/NON-NEGOTIABLES.md` + skill `strict-lints`: `lens_diagnostics` findings must be fixed (or the stale cause found and fixed) before a commit; the commit guard consults lens diagnostics where available. Vendored `src/subagents`: ratchet — a checked list of still-exempt files may only shrink; any file touched must leave the list (typecheck + lint clean).
+
+Acceptance: `npm test` shows 0 skipped; a spawn succeeds after 70 finished threads; `docs/decisions/followups.md` is gone and no code writes it; no `[devsys resync]` anywhere; CI runs the new lint gates green; the ratchet list is committed.
+
+Release + STOP. Fresh review rounds until CLEAN, as for every increment.
 
 ### I8 — Work sizing, slices, task records, trackers, pi-goal-x hand-off  (expect 0.9.0)
 
