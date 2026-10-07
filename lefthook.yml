@@ -16,6 +16,8 @@ pre-commit:
       run: biome check .
     test:
       run: npm test
+    jev-fixtures:
+      run: node scripts/run-jev-fixtures.ts --staged
     nix-format:
       glob: "*.nix"
       run: nixfmt --check {staged_files}

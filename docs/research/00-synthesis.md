@@ -156,7 +156,7 @@ src/review/      fresh reviewer orchestration, lens selection, finding severity,
 src/tracker/     Tracker interface + adapters (repo-files, github; jira/linear later) + pi-goal-x hand-off
 src/planning/    brief/decisions/journeys/event-model slice schema v1 + validator
 src/core/models  model matrix: slots, family patterns, newest-version resolution (pure; D14)
-test/            node --test; fake ExtensionAPI harness; Jev fixture evals (opt-in via DEVSYS_JEV_FIXTURES=1 + any Jev credential)
+test/            node --test; fake ExtensionAPI harness; Jev fixture evals (`test/live`, `npm run test:jev`, run when Jev-facing paths change)
 ```
 
 Key mechanics (research 04): guards return `{block, reason}` with an

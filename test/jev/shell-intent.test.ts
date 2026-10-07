@@ -46,20 +46,8 @@ test("judgeShellIntent treats a wrong-typed answer as a provider error", async (
 });
 
 import { SHELL_INTENT_QUESTION } from "../../src/jev/questions/shell-intent.ts";
-import { fixturesEnabled, loadFixture, questionHash, realJev } from "./fixture-runner.ts";
+import { loadFixture, questionHash } from "./fixture-runner.ts";
 
-test("fixture pins the current question text", { skip: !fixturesEnabled() }, () => {
+test("fixture pins the current question text", () => {
   assert.equal(loadFixture("shell-intent").questionHash, questionHash(SHELL_INTENT_QUESTION));
-});
-
-test("shell-intent fixture reaches 0.9 with a real Jev", { skip: !fixturesEnabled() }, async () => {
-  const jev = await realJev();
-  const fixture = loadFixture("shell-intent");
-  let passed = 0;
-  for (const c of fixture.cases) {
-    const r = await judgeShellIntent(jev, c.state.command ?? "");
-    if (r.ok && r.value.intent === c.expected) passed++;
-    else console.log("  miss:", c.state.command, "→", JSON.stringify(r), "expected", c.expected);
-  }
-  assert.ok(passed / fixture.cases.length >= 0.9, `${passed}/${fixture.cases.length}`);
 });

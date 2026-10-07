@@ -3,12 +3,7 @@ import test from "node:test";
 import type { ClassifierAnswer } from "@earendil-works/pi-ai";
 import { err, ok } from "../../src/core/result.ts";
 import type { Jev } from "../../src/jev/client.ts";
-import {
-  FIX_RELATED_QUESTION,
-  FIX_RELATED_THRESHOLD,
-  judgeFixRelated,
-} from "../../src/jev/questions/fix-related.ts";
-import { fixturesEnabled, loadFixture, questionHash, realJev } from "./fixture-runner.ts";
+import { FIX_RELATED_THRESHOLD, judgeFixRelated } from "../../src/jev/questions/fix-related.ts";
 
 const jevAnswering = (answers: Record<string, ClassifierAnswer>) => {
   const seen: Record<string, string>[] = [];
@@ -56,21 +51,4 @@ test("judgeFixRelated passes errors through and rejects wrong-typed answers", as
     related: { type: "choice", choice: "a", probabilities: {}, confidence: 1 },
   });
   assert.equal((await judgeFixRelated(wrong.jev, input)).ok, false);
-});
-
-test("fix-related fixture reaches 0.8 with a real Jev", { skip: !fixturesEnabled() }, async () => {
-  const fixture = loadFixture("fix-related");
-  assert.equal(fixture.questionHash, questionHash({ ...FIX_RELATED_QUESTION }));
-  const jev = await realJev();
-  let passed = 0;
-  for (const c of fixture.cases) {
-    const r = await judgeFixRelated(jev, {
-      diff: c.state.diff ?? "",
-      failingLog: c.state.failingLog ?? "",
-      message: c.state.message ?? "",
-    });
-    if (r.ok && (r.value >= FIX_RELATED_THRESHOLD ? "related" : "unrelated") === c.expected)
-      passed++;
-  }
-  assert.ok(passed / fixture.cases.length >= 0.8, `${passed}/${fixture.cases.length}`);
 });

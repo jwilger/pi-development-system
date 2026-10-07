@@ -9,7 +9,7 @@ import {
   medianLabel,
   RISK_QUESTION,
 } from "../../src/jev/questions/route.ts";
-import { fixturesEnabled, loadFixture, questionHash, realJev } from "./fixture-runner.ts";
+import { loadFixture, questionHash } from "./fixture-runner.ts";
 
 const choice = (label: string, confidence: number): ClassifierAnswer => ({
   type: "choice",
@@ -84,24 +84,8 @@ test("the task text is redacted and clipped before it reaches Jev", async () => 
 
 const hash = () => questionHash({ ...DIFFICULTY_QUESTION }) + questionHash({ ...RISK_QUESTION });
 
-test("fixture pins the current question text", { skip: !fixturesEnabled() }, () => {
+test("fixture pins the current question text", () => {
   assert.equal(loadFixture("route").questionHash, hash());
-});
-
-test("route fixture reaches 0.8 with a real Jev", { skip: !fixturesEnabled() }, async () => {
-  const jev = await realJev();
-  const fixture = loadFixture("route");
-  let passed = 0;
-  for (const c of fixture.cases) {
-    const r = await judgeTaskRouting(jev, {
-      task: c.state.task ?? "",
-      filesTouched: (c.state.files ?? "").split(",").filter(Boolean),
-    });
-    const got = r.ok ? `${r.value.difficulty}/${r.value.risk}` : "error";
-    if (got === c.expected) passed++;
-    else console.log("  miss:", c.state.task, "→", got, "expected", c.expected);
-  }
-  assert.ok(passed / fixture.cases.length >= 0.8, `${passed}/${fixture.cases.length}`);
 });
 
 test("medianLabel: an exact tie resolves to the higher level", async () => {

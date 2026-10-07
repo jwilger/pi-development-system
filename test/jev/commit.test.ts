@@ -3,8 +3,7 @@ import test from "node:test";
 import type { ClassifierAnswer } from "@earendil-works/pi-ai";
 import { err, ok } from "../../src/core/result.ts";
 import type { Jev } from "../../src/jev/client.ts";
-import { judgeCommit, MIX_QUESTION, RATIONALE_QUESTION } from "../../src/jev/questions/commit.ts";
-import { fixturesEnabled, loadFixture, questionHash, realJev } from "./fixture-runner.ts";
+import { judgeCommit } from "../../src/jev/questions/commit.ts";
 
 const jevWith = (answers: Record<string, ClassifierAnswer> | undefined): Jev => ({
   ask: async () => (answers === undefined ? err({ kind: "provider", message: "x" }) : ok(answers)),
@@ -54,38 +53,4 @@ test("judgeCommit sends secrets redacted and clips long diffs", async () => {
   });
   assert.equal(String(seen.message).includes("abcdef0123456789abcdef"), false);
   assert.ok(String(seen.diff).length <= 8000);
-});
-
-const judged = async (
-  name: string,
-  hash: string,
-  pick: (v: { rationale: number; mixesStructuralAndBehavioural: number }) => string,
-) => {
-  assert.equal(loadFixture(name).questionHash, hash);
-  const jev = await realJev();
-  let passed = 0;
-  const fixture = loadFixture(name);
-  for (const c of fixture.cases) {
-    const r = await judgeCommit(jev, {
-      message: c.state.message ?? "",
-      diffStat: c.state.diffStat ?? "",
-      diff: c.state.diff ?? "",
-    });
-    if (r.ok && pick(r.value) === c.expected) passed++;
-  }
-  assert.ok(passed / fixture.cases.length >= 0.8, `${passed}/${fixture.cases.length}`);
-};
-
-test("commit-rationale fixture reaches 0.8 with a real Jev", {
-  skip: !fixturesEnabled(),
-}, async () => {
-  await judged("commit-rationale", questionHash({ ...RATIONALE_QUESTION }), (v) =>
-    v.rationale >= 0.5 ? "rationale" : "none",
-  );
-});
-
-test("commit-mix fixture reaches 0.8 with a real Jev", { skip: !fixturesEnabled() }, async () => {
-  await judged("commit-mix", questionHash({ ...MIX_QUESTION }), (v) =>
-    v.mixesStructuralAndBehavioural >= 0.7 ? "mixed" : "clean",
-  );
 });

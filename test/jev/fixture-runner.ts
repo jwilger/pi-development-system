@@ -5,8 +5,6 @@ import { ModelRegistry, ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { createJev, type Jev } from "../../src/jev/client.ts";
 import { DEFAULT_JEV_CANDIDATES } from "../../src/jev/models.ts";
 
-export const fixturesEnabled = (): boolean => process.env.DEVSYS_JEV_FIXTURES === "1";
-
 export type FixtureCase = { state: Record<string, string>; expected: string };
 export type Fixture = { questionHash: string; cases: FixtureCase[] };
 

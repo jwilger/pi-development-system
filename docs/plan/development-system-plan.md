@@ -284,7 +284,7 @@ write-only. Cite: `$D/docs/models.md` "Use classifier models", `$D/docs/codemode
 - [x] **I2.2 Question: shell intent.**
   Files: `src/jev/questions/shell-intent.ts`, `evals/jev/shell-intent.json`, `test/jev/shell-intent.test.ts`.
   Interface: `judgeShellIntent(jev, command: string): Promise<Result<{intent: GitIntent; confidence: number}, JevError>>` using `choice` over the `GitIntent` set (includes `"ordinary"` as no-match). Policy in code: confidence < 0.6 → `"unknown"`.
-  Fixture: ≥ 12 cases `{command, expected}`. Fixture test runs only when `DEVSYS_JEV_FIXTURES=1` is set (`test.skip` otherwise) and asserts ≥ 10/12. The fixture runner needs a real classifier call outside a pi session: first try the SDK (`DefaultResourceLoader` + `createAgentSession` with `SessionManager.inMemory()`, then `session.modelRegistry` — verify the property exists in `$D/dist/core/sdk.d.ts`); if that is impractical, fall back to `pi -p --mode json` with a tiny fixture-runner extension that prints answers. Decide in this task and record the choice in `evals/jev/README.md`. Deterministic test: low-confidence mapping. Run/Expected: `npm test` pass (fixture skipped); `DEVSYS_JEV_FIXTURES=1 npm test` pass with any Jev credential present.
+  Fixture: ≥ 12 cases `{command, expected}`. Fixture accuracy test lives in `test/live/` (run by `npm run test:jev`, never skipped; see I7b.2) and asserts ≥ 10/12; the question-hash pin is an offline test in `test/jev/`. The fixture runner needs a real classifier call outside a pi session: first try the SDK (`DefaultResourceLoader` + `createAgentSession` with `SessionManager.inMemory()`, then `session.modelRegistry` — verify the property exists in `$D/dist/core/sdk.d.ts`); if that is impractical, fall back to `pi -p --mode json` with a tiny fixture-runner extension that prints answers. Decide in this task and record the choice in `evals/jev/README.md`. Deterministic test: low-confidence mapping. Run/Expected: `npm test` pass; `npm run test:jev` pass with any Jev credential present.
 - [x] **I2.3 Wire into git guard.** `unknown` from the fast path → Jev; Jev offline/low-confidence → if UI, `ctx.ui.confirm` ("Could not classify this command; approve?"), else block. Status line reflects Jev availability. Test with fake Jev returning `history-rewrite` → hard stop path. Run/Expected: pass.
 - [x] **I2.4 Question: test-change motive.**
   Files: `src/jev/questions/test-change.ts`, `evals/jev/test-change.json`, `src/core/test-paths.ts` (`isTestPath(path, profile?)`).
@@ -652,8 +652,8 @@ a view. Validator codes: `duplicate-id`, `unknown-ref`, `missing-origin`,
 Rules: one narrow judgement per question; include a no-match outcome; batch
 independent questions over the same state into one call; cache by content
 hash; fixture `evals/jev/<id>.json` = `{questionHash, cases:[{state, expected}]}`,
-run when `DEVSYS_JEV_FIXTURES=1` and any `[models] jev` candidate has
-credentials, pass rate asserted per fixture (default ≥
+run by `npm run test:jev` (never skipped; lefthook and CI run it when a Jev-facing path
+changes), pass rate asserted per fixture (default ≥
 0.8; safety-relevant `shell-intent`, `test-change` ≥ 0.9). Question text
 change → fixture hash mismatch → test fails until fixture is re-run and
 updated (non-negotiable 10).

@@ -3,12 +3,17 @@
 Each `evals/jev/<id>.json` is `{questionHash, cases:[{state, expected}]}` and pins the
 behaviour of one Jev question (Appendix E of the plan). The hash is the first 16 hex
 chars of SHA-256 over `JSON.stringify(question)`; changing the question text fails the
-fixture test until the cases are re-run and the hash updated (non-negotiable 10).
+offline hash test until the cases are re-run and the hash updated (non-negotiable 10).
+The hash tests live in `test/jev/*.test.ts` and always run with `npm test`.
 
-Fixtures call a real classifier, so they run only with `DEVSYS_JEV_FIXTURES=1` and when a
-Jev credential is configured in pi (`typesafe/jev-latest` etc.):
+The accuracy runs call a real classifier and live in `test/live/*.live.ts`. They never
+skip: `npm run test:jev` fails without a Jev credential configured in pi
+(`typesafe/jev-latest` etc.). Lefthook (pre-commit) and CI run them through
+`scripts/run-jev-fixtures.ts`, which runs them only when the change touches a Jev-facing
+path (`scripts/lib/jev-paths.ts`: `src/jev/`, `evals/jev/`, `test/live/`,
+`test/jev/fixture-runner.ts`) and says so when it skips by path:
 
-    DEVSYS_JEV_FIXTURES=1 npm test
+    npm run test:jev
 
 ## Runner decision (I2.2)
 

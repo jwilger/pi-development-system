@@ -55,6 +55,8 @@
   },
   "scripts": {
     "test": "node --experimental-transform-types --no-warnings --test \"test/**/*.test.ts\"",
+    "test:jev": "node --experimental-transform-types --no-warnings --test \"test/live/*.live.ts\"",
+    "check:jev": "node scripts/run-jev-fixtures.ts",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",

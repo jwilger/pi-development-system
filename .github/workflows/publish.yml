@@ -57,9 +57,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: cachix/install-nix-action@v31
       - run: nix develop -c npm ci
       - run: nix develop -c npm test
+      - name: Live Jev fixtures (only when Jev-facing paths changed)
+        run: nix develop -c node scripts/run-jev-fixtures.ts --before ${{ github.event.before }}
 
   release:
     name: GitHub release
