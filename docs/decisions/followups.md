@@ -241,3 +241,9 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 ## From I6 review round 16
 
 - api-contract recorded packets that put prose lists of refuted checks inside Findings are rejected with an error (never silently); the reviewer task and agents/reviewer.md now say to put them under Sources inspected.
+
+## From I6 review round 18
+
+- ux record with a non-HEAD start range but no `diffRange` says "the diff changed… run start again" though nothing changed; it should say to pass the same range.
+- api-contract an indented detail bullet that starts with `[` (a markdown link or `[x]`) under a finding is read as a finding and the packet is rejected loudly.
+- false-block `docs/decisions/followups.md`, appended by `devsys_review_record`, can be staged and edited again (`MM`), so a plain commit after `done` hits the staged-then-edited check; only the decision log is exempt. Re-staging clears it.
