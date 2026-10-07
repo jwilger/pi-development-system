@@ -500,7 +500,7 @@ export function diffAgentSettings(base: AgentType, draft: AgentType): AgentSetti
     const after = draft[key];
     if (JSON.stringify(before ?? null) === JSON.stringify(after ?? null)) continue;
     if (after === undefined) override[key] = null as never;
-    else (override[key] as unknown) = structuredClone(after);
+    else Object.assign(override, { [key]: structuredClone(after) });
   }
   void CLEARABLE_OVERRIDE_FIELDS;
   return override;
