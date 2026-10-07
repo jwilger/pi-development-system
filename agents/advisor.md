@@ -1,6 +1,5 @@
 ---
 name: advisor
-icon: ''
 description: "Read-only decision support for hard design, planning or trade-off questions: returns a recommendation, the alternatives considered, and the cost if the recommendation is wrong. Does not implement."
 thinkingLevel: high
 color: accent

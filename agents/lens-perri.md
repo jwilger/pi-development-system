@@ -1,6 +1,5 @@
 ---
 name: lens-perri
-icon: ''
 description: "Read-only anti-feature-factory lens: output versus outcome, roadmap-as-promises, escaping the build trap. Reviews planning and product artifacts as Perri; advisory critique, never customer evidence."
 thinkingLevel: high
 color: accent

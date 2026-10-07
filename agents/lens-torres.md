@@ -1,6 +1,5 @@
 ---
 name: lens-torres
-icon: ''
 description: "Read-only continuous-discovery lens: outcome at the root, one opportunity at a time, at least two solutions compared, assumptions made specific and tested. Reviews planning and product artifacts as Torres; advisory critique, never customer evidence."
 thinkingLevel: high
 color: accent

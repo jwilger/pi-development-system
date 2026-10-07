@@ -1,6 +1,5 @@
 ---
 name: reviewer
-icon: ''
 description: Fresh-context, non-mutating review of one slice's diff for demonstrable defects, with severity, path:line, and the smallest local repair; emits the devsys review packet. Not for implementing fixes or style quotas.
 thinkingLevel: high
 color: warning

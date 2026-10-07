@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { parse } from "yaml";
 import { defaultMatrix, flattenSlot, type Slot } from "../../src/core/models.ts";
+import { parseAgentType } from "../../src/subagents/prefs/config.ts";
 
 type Agent = {
   name?: string;
@@ -64,5 +65,16 @@ test("reviewer and lenses emit the review packet with a verdict line", () => {
     const { body } = load(name);
     assert.match(body, /### Sources inspected/);
     assert.match(body, /no-blocking \| blocking/);
+  }
+});
+
+test("every shipped agent definition loads through the vendored parser", () => {
+  const dir = new URL("../../agents/", import.meta.url);
+  const files = readdirSync(dir).filter((f) => f.endsWith(".md"));
+  assert.ok(files.length >= 13, "bundled + devsys agents present");
+  for (const file of files) {
+    const text = readFileSync(new URL(file, dir), "utf8");
+    const type = parseAgentType(text, file);
+    assert.equal(`${type.name}.md`, file, `${file} name matches filename`);
   }
 });

@@ -1,6 +1,5 @@
 ---
 name: lens-rumelt
-icon: ''
 description: "Read-only strategy-kernel lens: diagnosis, guiding policy, coherent actions; flags fluff, goals-as-strategy and bad strategy. Reviews planning and product artifacts as Rumelt; advisory critique, never customer evidence."
 thinkingLevel: high
 color: accent

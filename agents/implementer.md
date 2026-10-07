@@ -1,6 +1,5 @@
 ---
 name: implementer
-icon: ''
 description: "Implements exactly one task record test-first: failing test, minimal code, passing run, then reports Run/Expected evidence. Edits only the files the task names; stops and reports when the task is unclear or needs a decision."
 thinkingLevel: medium
 color: success
