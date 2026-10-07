@@ -86,9 +86,10 @@ function reportedExit(result: ResultLike): number {
 
 /** The last few non-empty output lines, redacted and bounded: what the runner said at the end. */
 export function summarizeOutput(output: string): string {
-  const lines = output
+  // Redact first: a multi-line secret (PEM key) must be recognised before the tail is cut off its BEGIN line.
+  const lines = redactSecrets(output)
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l !== "" && !/^Command exited with code \d+$/.test(l));
-  return redactSecrets(lines.slice(-SUMMARY_LINES).join(" | ")).slice(0, SUMMARY_MAX);
+  return lines.slice(-SUMMARY_LINES).join(" | ").slice(0, SUMMARY_MAX);
 }

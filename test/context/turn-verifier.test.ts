@@ -126,6 +126,11 @@ test("a turn that still calls tools is not judged; evidence may be on its way", 
 test("a message that asks the user a question is never corrected", async () => {
   const t = setup({ claim: 1 });
   assert.equal(await t.turnEnd("The tests pass. Shall I commit?"), undefined);
+  assert.equal(await t.turnEnd("All tests pass. Should I commit? (y/n)"), undefined);
+  assert.equal(
+    await t.turnEnd("All tests pass. Which do you prefer?\n1. squash\n2. keep commits"),
+    undefined,
+  );
   assert.equal(t.asked.length, 0);
 });
 

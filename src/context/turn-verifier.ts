@@ -29,14 +29,19 @@ export function assistantParts(message: AgentMessage): Parts | undefined {
   return { text, callsTools: message.content.some((c) => c.type === "toolCall") };
 }
 
-/** True when the last non-empty line of the message ends with a question mark. */
+const LIST_ITEM = /^(?:\d+[.)]|[-*+])\s/;
+
+/**
+ * True when the message ends by asking the user something: the last non-empty line that is not an
+ * option-list item ends with a question mark, optionally followed by a short parenthetical ("(y/n)").
+ */
 export function asksUser(text: string): boolean {
   const last = text
     .split("\n")
     .map((l) => l.trim())
-    .filter((l) => l !== "")
+    .filter((l) => l !== "" && !LIST_ITEM.test(l))
     .at(-1);
-  return last !== undefined && /\?[\s)"'*_`]*$/.test(last);
+  return last !== undefined && /\?(?:\s*\([^()]{0,40}\))?[\s)"'*_`]*$/.test(last);
 }
 
 const claimMessage = (): string =>

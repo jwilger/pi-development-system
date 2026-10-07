@@ -124,3 +124,16 @@ test("a newline-separated command masks the runner's status like a semicolon", (
     1,
   );
 });
+
+test("a multi-line private key is redacted even when only its tail would be kept", () => {
+  const out = [
+    "-----BEGIN OPENSSH PRIVATE KEY-----",
+    "AAAAC3NzaC1lZDI1NTE5AAAAIPHSECRETSECRETSECRET",
+    "bGluZTJsaW5lMmxpbmUybGluZTJsaW5lMg==",
+    "bGluZTNsaW5lM2xpbmUzbGluZTNsaW5lMw==",
+    "bGluZTRsaW5lNGxpbmU0bGluZTRsaW5lNA==",
+    "-----END OPENSSH PRIVATE KEY-----",
+  ].join("\n");
+  const s = summarizeOutput(out);
+  assert.doesNotMatch(s, /SECRETSECRET|bGluZ/);
+});
