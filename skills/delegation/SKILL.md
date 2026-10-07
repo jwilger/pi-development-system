@@ -34,8 +34,8 @@ agent_spawn({path: "/impl-add-flag", type: "implementer", task: "...",
 
 - Jev judges difficulty and risk; the project's `[routing]` table (slots, never
   model ids) decides. Jev offline means `routine/low`.
-- If the result says the slot is unresolvable, spawning without a pin fails the same
-  way (the agent's own `models:` list is the same candidate set). Run `/devsys-models`
+- If the result says the slot is unresolvable, spawning without a pin usually fails the
+  same way (the agent's own `models:` list defaults to the same candidates). Run `/devsys-models`
   to fix the matrix, or pin a model you know works.
 - A pin is an explicit choice: it bypasses `/scoped-models` and the agent's `models:`
   list, so only pin what the route (or you, with a stated reason) selected.

@@ -130,7 +130,11 @@ test("an unpinned thread has no pinned field", async () => {
   assert.equal(manager.get("/root/plain").pinned, undefined);
 });
 
-test("a pinned model is kept on resume even in use-current mode", () => {
+function resumeContext(model: { provider: string; modelId: string }) {
+  return { model, thinkingLevel: "high" } as never;
+}
+
+test("a pinned model is re-applied on resume, even in use-current mode", () => {
   const type: AgentType = {
     name: "reviewer",
     description: "r",
@@ -148,11 +152,30 @@ test("a pinned model is kept on resume even in use-current mode", () => {
       find: (p: string, i: string) => [sonnet, other].find((m) => m.provider === p && m.id === i),
     },
   };
-  const f = createDriverFactory(
-    () => ctx as never,
-    () => "use-current",
+  for (const mode of ["use-current", "pick-first-scoped"] as const) {
+    const f = createDriverFactory(
+      () => ctx as never,
+      () => mode,
+    );
+    const resumed = f.resolveInitialSettings(
+      type,
+      "/root",
+      resumeContext({ provider: "openai", modelId: "inherited-from-root" }),
+    );
+    assert.equal(`${resumed.provider}/${resumed.id}`, "anthropic/claude-sonnet-5-5", mode);
+    assert.equal(resumed.thinkingLevel, "high", "saved thinking level survives resume");
+  }
+});
+
+test("an unpinned resumed thread keeps its restored model", () => {
+  const type: AgentType = { name: "coder", description: "c", systemPrompt: "c" };
+  const f = factory();
+  const resumed = f.resolveInitialSettings(
+    type,
+    "/root",
+    resumeContext({ provider: "openai", modelId: "kept" }),
   );
-  assert.equal(f.resolveAgentSettings(type, "/root").model, "anthropic/claude-sonnet-5-5");
+  assert.equal(`${resumed.provider}/${resumed.id}`, "openai/kept");
 });
 
 test("an empty /scoped-models scope does not hide every model", () => {

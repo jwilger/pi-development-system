@@ -153,6 +153,11 @@ export function createDriverFactory(
   getInheritedTools: () => InheritedToolSource = () => ({ tools: [], activeNames: [] }),
 ): DriverFactory & {
   resolveAgentSettings(type: AgentType, parentPath: string): ResolvedAgentSettings;
+  resolveInitialSettings(
+    type: AgentType,
+    parentPath?: string | null,
+    restored?: ReturnType<SessionManager["buildSessionContext"]>,
+  ): { provider?: string; id?: string; thinkingLevel: ThinkingLevel };
 } {
   // Keep resolved settings even after disposal: descendants inherit settings, not the caller's history.
   const resolved = new Map<string, { provider: string; id: string; thinking: ThinkingLevel }>();
@@ -800,5 +805,6 @@ export function createDriverFactory(
       },
     };
   };
-  return Object.assign(createDriver, { resolveAgentSettings });
+  // devsys: resolveInitialSettings is exposed so resume behaviour can be tested directly.
+  return Object.assign(createDriver, { resolveAgentSettings, resolveInitialSettings });
 }

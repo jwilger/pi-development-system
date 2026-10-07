@@ -55,7 +55,7 @@ export function recommendRoute(input: {
   if (!resolved.ok) {
     return {
       ...route,
-      note: `${prefix}No model with credentials resolves slot "${route.slot}" (unresolvable); an agent spawned without a pin will fail the same way, so run /devsys-models to fix the matrix or pin a model you know works.`,
+      note: `${prefix}No model with credentials resolves slot "${route.slot}" (unresolvable); an agent spawned without a pin usually fails the same way (its models: list defaults to the same candidates), so run /devsys-models to fix the matrix or pin a model you know works.`,
     };
   }
   return {
