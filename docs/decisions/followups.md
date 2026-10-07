@@ -204,3 +204,8 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 ## From I6 review round 6
 
 - correctness a `git add` run inside a `$(…)` on the commit's own line is ordered after the commit by `resolveGit`; this only causes extra blocks, never a bypass.
+
+## From I6 review round 7
+
+- security the commit gate judges the tree as it is before the command runs: a command that edits files or `git add -f`s an ignored file and commits in the same line lands unreviewed. Inherent to a pre-command hook; not parsed.
+- correctness embedded-repo gitlinks are excluded from the digest, so a moved nested HEAD passes.

@@ -33,7 +33,16 @@ export async function snapshotDiff(
   try {
     // Plain, parseable output whatever the user's git config says: an external diff driver or
     // forced colour removes the `diff --git` headers the per-file digests are cut from.
-    const plain = ["-c", "core.quotePath=false", "diff", "--no-ext-diff", "--no-color"];
+    const plain = [
+      "-c",
+      "core.quotePath=false",
+      "diff",
+      "--no-ext-diff",
+      "--no-color",
+      // diff.mnemonicPrefix / diff.noprefix change the `a/` `b/` header prefixes the file keys are cut from.
+      "--src-prefix=a/",
+      "--dst-prefix=b/",
+    ];
     const [diff, stat, others] = await Promise.all([
       exec("git", [...plain, "--full-index", "--no-renames", range], { cwd, timeout: 15_000 }),
       exec("git", [...plain, "--stat", range], { cwd, timeout: 15_000 }),

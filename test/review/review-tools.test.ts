@@ -232,3 +232,10 @@ test("record without any packet is an error", async () => {
   const t = setup(offline);
   assert.equal((await t.record({ packets: [] })).isError, true);
 });
+
+test("the start reply names a non-default diffRange so record is called with it", async () => {
+  const t = setup(offline);
+  assert.doesNotMatch(text(await t.start()), /diffRange/);
+  const reply = await t.start({ slice: "s1", diffRange: "HEAD~1..HEAD" });
+  assert.match(text(reply), /diffRange "HEAD~1\.\.HEAD"/);
+});

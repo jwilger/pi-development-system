@@ -55,6 +55,20 @@ test("editing a tracked file changes the digest, even with an external diff driv
   assert.notEqual(await digest(dir), before);
 });
 
+test("diff.mnemonicPrefix and diff.noprefix do not stop the diff from being read", async () => {
+  for (const [key, value] of [
+    ["diff.mnemonicPrefix", "true"],
+    ["diff.noprefix", "true"],
+  ] as const) {
+    const dir = repo();
+    git(dir, "config", key, value);
+    writeFileSync(join(dir, "a.txt"), "one\ntwo\n");
+    const snap = await snapshotDiff(exec, dir, "HEAD");
+    assert.ok(snap.ok, snap.ok ? "" : snap.error);
+    assert.deepEqual(Object.keys(snap.value.files), ["a.txt"]);
+  }
+});
+
 test("editing a file with a non-ASCII name changes the digest and keys it by its real path", async () => {
   const dir = repo();
   writeFileSync(join(dir, "naïve.md"), "one\ntwo\n");
