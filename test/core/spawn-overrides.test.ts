@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   applySpawnOverrides,
+  modelSource,
   parseSpawnOverrides,
   THINKING_LEVELS,
 } from "../../src/core/spawn-overrides.ts";
@@ -75,4 +76,25 @@ test("partial overrides leave the other fields alone; none returns the base", ()
     thinkingLevel: "low",
   });
   assert.deepEqual(applySpawnOverrides(base, undefined), base);
+});
+
+test("modelSource: a pin beats the preference list, on resume and on a fresh spawn", () => {
+  const base = { mode: "pick-first-scoped", hasPreferences: true } as const;
+  assert.equal(modelSource({ ...base, pinned: false, hasRestored: false }), "preferences");
+  assert.equal(modelSource({ ...base, pinned: true, hasRestored: true }), "restored");
+  assert.equal(modelSource({ ...base, pinned: true, hasRestored: false }), "inherited");
+});
+
+test("modelSource: use-current ignores preferences, pins and restores", () => {
+  assert.equal(
+    modelSource({ mode: "use-current", pinned: false, hasPreferences: true, hasRestored: true }),
+    "current",
+  );
+});
+
+test("modelSource: an unpinned resumed thread without preferences keeps its restored model", () => {
+  assert.equal(
+    modelSource({ mode: "pick-first", pinned: false, hasPreferences: false, hasRestored: true }),
+    "restored",
+  );
 });

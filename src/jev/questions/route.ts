@@ -56,7 +56,7 @@ export function medianLabel<T extends string>(
     let cumulative = 0;
     for (const level of levels) {
       cumulative += (answer.probabilities[level] ?? 0) / total;
-      if (cumulative >= 0.5) return level;
+      if (cumulative > 0.5) return level;
     }
   }
   return levels.find((level) => level === answer.choice);

@@ -26,7 +26,7 @@ import { selectTools } from "../prefs/config.ts";
 import { TranscriptChannel } from "./transcript.ts";
 import type { InheritedToolSource } from "./inherited-tools.ts";
 import type { ModelSelectionMode, ToolFilteringMode } from "../prefs/settings.ts";
-import { applySpawnOverrides } from "../../core/spawn-overrides.ts";
+import { applySpawnOverrides, modelSource } from "../../core/spawn-overrides.ts";
 import {
   modelIdentity,
   getModelPreferences,
@@ -202,13 +202,19 @@ export function createDriverFactory(
     const mode = getModelSelection();
     // devsys: an explicit per-spawn model pin bypasses preference/scope policy (also on resume).
     const pinned = type.spawnOverrides?.model !== undefined;
-    const preferences = mode === "use-current" || pinned ? undefined : getModelPreferences(type);
+    const preferences = pinned ? undefined : getModelPreferences(type);
+    const source = modelSource({
+      mode,
+      pinned,
+      hasPreferences: preferences !== undefined,
+      hasRestored: restored?.model !== undefined,
+    });
     let provider = parent?.provider ?? ctx.model?.provider;
     let id = parent?.id ?? ctx.model?.id;
-    if (mode === "use-current") {
+    if (source === "current") {
       provider = ctx.model?.provider;
       id = ctx.model?.id;
-    } else if (preferences !== undefined) {
+    } else if (source === "preferences") {
       const filtering = mode === "pick-first-scoped";
       const candidates = filtering
         ? availableScopedModels(normalizeScopedModels(ctx.scopedModels))
@@ -216,7 +222,7 @@ export function createDriverFactory(
       ({ provider, id } = parseModelIdentity(
         selectTypeModelPreference(type, candidates, filtering)!,
       ));
-    } else if (restored?.model) {
+    } else if (source === "restored" && restored?.model) {
       provider = restored.model.provider;
       id = restored.model.modelId;
     }

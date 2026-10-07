@@ -106,9 +106,9 @@ async function main(): Promise<void> {
           changedFiles: published,
           diff,
         });
-        if (j.confidence < MIN_BUMP_CONFIDENCE) {
+        if (!(j.confidence >= MIN_BUMP_CONFIDENCE)) {
           fail(
-            `Jev is not confident about the required bump (${j.bump}, confidence ${j.confidence.toFixed(2)} < ${MIN_BUMP_CONFIDENCE}). ` +
+            `Jev is not confident about the required bump (${j.bump}, confidence ${j.confidence.toFixed(2)} < ${MIN_BUMP_CONFIDENCE}; breaking ${j.evidence.breaking.toFixed(2)}, feature ${j.evidence.feature.toFixed(2)}, observable ${j.evidence.observable.toFixed(2)}). ` +
               "Split the change, or override with JEV_OVERRIDE / a Jev-Override: trailer.",
           );
         }

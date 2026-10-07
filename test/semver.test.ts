@@ -39,40 +39,36 @@ test("decideBump takes the highest level the evidence supports", async () => {
   assert.equal(decideBump({ breaking: 0.02, feature: 0.05, observable: 0.1 }).bump, "none");
 });
 
-test("decideBump confidence is the weakest link, so spread across levels does not hide a clear feature", async () => {
+test("decideBump rounds a possible feature or observable change up", async () => {
   const { decideBump } = await import("../scripts/lib/semver.ts");
-  const r = decideBump({ breaking: 0.1, feature: 0.8, observable: 0.95 });
-  assert.equal(r.bump, "minor");
-  assert.ok(Math.abs(r.confidence - 0.8) < 1e-9);
-  assert.ok(decideBump({ breaking: 0.45, feature: 0.8, observable: 1 }).confidence <= 0.55);
-});
-
-test("decideBump takes the highest supported level and reports the weakest link", async () => {
-  const { decideBump } = await import("../scripts/lib/semver.ts");
-  assert.deepEqual(decideBump({ breaking: 0.9, feature: 0.9, observable: 0.9 }), {
-    bump: "major",
-    confidence: 0.9,
-  });
-  const minor = decideBump({ breaking: 0.1, feature: 0.8, observable: 0.9 });
+  // feature 0.45 is "maybe": over-bumping is free, so call it minor and trust the "no breaking".
+  const minor = decideBump({ breaking: 0.1, feature: 0.45, observable: 0.95 });
   assert.equal(minor.bump, "minor");
-  assert.equal(minor.confidence, 0.8);
-  const patch = decideBump({ breaking: 0.05, feature: 0.2, observable: 0.7 });
+  assert.ok(Math.abs(minor.confidence - 0.9) < 1e-9);
+  const patch = decideBump({ breaking: 0.1, feature: 0.2, observable: 0.35 });
   assert.equal(patch.bump, "patch");
-  assert.equal(patch.confidence, 0.7);
-  const none = decideBump({ breaking: 0.05, feature: 0.1, observable: 0.2 });
-  assert.equal(none.bump, "none");
-  assert.equal(none.confidence, 0.8);
+  assert.ok(Math.abs(patch.confidence - 0.8) < 1e-9);
+  assert.equal(decideBump({ breaking: 0.05, feature: 0.1, observable: 0.2 }).bump, "none");
 });
 
-test("decideBump confidence drops when a link is uncertain", async () => {
+test("decideBump confidence drops only when breaking or a skipped level is uncertain", async () => {
   const { decideBump } = await import("../scripts/lib/semver.ts");
   assert.ok(decideBump({ breaking: 0.45, feature: 0.9, observable: 0.9 }).confidence <= 0.55);
+  // A patch call is shaky when a feature is nearly as likely as not.
+  assert.ok(decideBump({ breaking: 0.05, feature: 0.29, observable: 0.9 }).confidence <= 0.71);
 });
 
 test("decideBump below 1.0.0 folds breaking into the minor decision", async () => {
   const { decideBump } = await import("../scripts/lib/semver.ts");
   const j = decideBump({ breaking: 0.56, feature: 0.95, observable: 0.98 }, { preStable: true });
-  assert.deepEqual(j, { bump: "minor", confidence: 0.95 });
+  assert.deepEqual(j, { bump: "minor", confidence: 1 });
   const k = decideBump({ breaking: 0.7, feature: 0.1, observable: 0.9 }, { preStable: true });
-  assert.deepEqual(k, { bump: "minor", confidence: 0.7 });
+  assert.deepEqual(k, { bump: "minor", confidence: 1 });
+});
+
+test("decideBump reports zero confidence for missing or NaN answers", async () => {
+  const { decideBump } = await import("../scripts/lib/semver.ts");
+  const bad = decideBump({ breaking: Number.NaN, feature: 0.9, observable: 0.9 });
+  assert.equal(bad.confidence, 0);
+  assert.equal(decideBump({ breaking: 0.5, feature: 0, observable: 0 }).confidence, 0.5);
 });

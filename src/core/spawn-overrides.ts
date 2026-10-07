@@ -57,3 +57,21 @@ export function applySpawnOverrides(
     ...(overrides.thinkingLevel === undefined ? {} : { thinkingLevel: overrides.thinkingLevel }),
   };
 }
+
+export type ModelSource = "current" | "preferences" | "restored" | "inherited";
+
+/**
+ * Where a subagent's starting model comes from. A per-spawn pin disqualifies the type's
+ * preference list (the pin itself is applied afterwards for fresh spawns), so a resumed pinned
+ * thread keeps the model it was already running instead of falling back to the preferences.
+ */
+export function modelSource(input: {
+  mode: "use-current" | "pick-first-scoped" | "pick-first";
+  pinned: boolean;
+  hasPreferences: boolean;
+  hasRestored: boolean;
+}): ModelSource {
+  if (input.mode === "use-current") return "current";
+  if (!input.pinned && input.hasPreferences) return "preferences";
+  return input.hasRestored ? "restored" : "inherited";
+}

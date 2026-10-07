@@ -34,8 +34,11 @@ agent_spawn({path: "/impl-add-flag", type: "implementer", task: "...",
 
 - Jev judges difficulty and risk; the project's `[routing]` table (slots, never
   model ids) decides. Jev offline means `routine/low`.
-- If the result says the slot is unresolvable, omit `model`: the agent type's own
-  preference list applies. Run `/devsys-models` to fix the matrix.
+- If the result says the slot is unresolvable, spawning without a pin fails the same
+  way (the agent's own `models:` list is the same candidate set). Run `/devsys-models`
+  to fix the matrix, or pin a model you know works.
+- A pin is an explicit choice: it bypasses `/scoped-models` and the agent's `models:`
+  list, so only pin what the route (or you, with a stated reason) selected.
 - You may override the route. Say why in your reply; overriding downwards for
   risky work is a judgement call worth a line in the decision log.
 

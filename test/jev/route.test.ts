@@ -35,8 +35,8 @@ test("ordinal answers use the weighted median, not the argmax", async () => {
   const spread: ClassifierAnswer = {
     type: "choice",
     choice: "expert",
-    probabilities: { trivial: 0, routine: 0.17, complex: 0.33, expert: 0.5 },
-    confidence: 0.5,
+    probabilities: { trivial: 0.1, routine: 0.2, complex: 0.3, expert: 0.4 },
+    confidence: 0.4,
   };
   const jev = jevWith({ difficulty: spread, risk: choice("low", 0.9) });
   const r = await judgeTaskRouting(jev, { task: "t", filesTouched: [] });
@@ -102,4 +102,15 @@ test("route fixture reaches 0.8 with a real Jev", { skip: !fixturesEnabled() }, 
     else console.log("  miss:", c.state.task, "→", got, "expected", c.expected);
   }
   assert.ok(passed / fixture.cases.length >= 0.8, `${passed}/${fixture.cases.length}`);
+});
+
+test("medianLabel: an exact tie resolves to the higher level", async () => {
+  const { medianLabel } = await import("../../src/jev/questions/route.ts");
+  assert.equal(
+    medianLabel(["low", "medium", "high"], {
+      choice: "low",
+      probabilities: { low: 0.5, medium: 0, high: 0.5 },
+    }),
+    "high",
+  );
 });

@@ -56,16 +56,25 @@ export interface BumpEvidence {
   observable: number;
 }
 
+/** At or above this a feature/observable answer is "possibly yes", and the gate rounds up. */
+const ROUND_UP_AT = 0.3;
+
 /**
- * The required bump is the highest level the evidence supports, so the policy lives here and
- * Jev only answers narrow questions. `confidence` is the weakest answer the decision rests on
- * (a "no" at 0.9 supports 0.9), so one uncertain link lowers it but ordinal spread does not.
+ * The required bump is the highest level the evidence supports, so the policy lives here and Jev
+ * only answers narrow questions. Over-bumping costs nothing but under-bumping misreports a
+ * release, so a feature/observable answer of at least ROUND_UP_AT rounds up to that level.
+ * `confidence` therefore measures only the risk of under-bumping: the weakest "no" the decision
+ * rests on (a "no" at 0.9 supports 0.9). A breaking change is the one level that is costly to
+ * assert wrongly, so it keeps the plain 0.5 threshold and reports its own probability.
  */
 export function decideBump(
   e: BumpEvidence,
   options: { preStable?: boolean } = {},
 ): { bump: Bump; confidence: number } {
-  const support = (p: number, yes: boolean): number => (yes ? p : 1 - p);
+  // A missing or non-numeric answer is no evidence at all: report zero confidence so the gate refuses.
+  if (![e.breaking, e.feature, e.observable].every((p) => Number.isFinite(p))) {
+    return { bump: "none", confidence: 0 };
+  }
   if (options.preStable) {
     // Below 1.0.0 a breaking change needs only a minor bump (semver §4), so "breaking or new
     // feature" is a single question and Jev need not separate the two.
@@ -75,14 +84,11 @@ export function decideBump(
     );
   }
   if (e.breaking >= 0.5) return { bump: "major", confidence: e.breaking };
-  const notBreaking = support(e.breaking, false);
-  if (e.feature >= 0.5) return { bump: "minor", confidence: Math.min(notBreaking, e.feature) };
-  const notFeature = support(e.feature, false);
-  if (e.observable >= 0.5) {
-    return { bump: "patch", confidence: Math.min(notBreaking, notFeature, e.observable) };
+  const noBreaking = 1 - e.breaking;
+  if (e.feature >= ROUND_UP_AT) return { bump: "minor", confidence: noBreaking };
+  const noFeature = 1 - e.feature;
+  if (e.observable >= ROUND_UP_AT) {
+    return { bump: "patch", confidence: Math.min(noBreaking, noFeature) };
   }
-  return {
-    bump: "none",
-    confidence: Math.min(notBreaking, notFeature, support(e.observable, false)),
-  };
+  return { bump: "none", confidence: Math.min(noBreaking, noFeature, 1 - e.observable) };
 }
