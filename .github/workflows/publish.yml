@@ -14,7 +14,6 @@ permissions:
   contents: read
 
 env:
-  TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
   GH_TOKEN: ${{ github.token }}
 
 jobs:
@@ -25,17 +24,24 @@ jobs:
       contents: read
       actions: read # read previous run results and failed-job logs
     steps:
-      - uses: actions/checkout@v4
+      # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          persist-credentials: false
           fetch-depth: 0
-      - uses: cachix/install-nix-action@v31
+      # v31
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
       - name: Install dependencies
         run: nix develop -c npm ci
       - name: Build gate (only fix(ci) commits on a broken build)
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
         run: |
           nix develop -c node scripts/build-gate.ts --ci \
             --before "${{ github.event.before }}" --after "${{ github.sha }}"
       - name: Semantic version gate
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
         run: |
           nix develop -c node scripts/check-version.ts --ci \
             --before "${{ github.event.before }}" --after "${{ github.sha }}"
@@ -44,8 +50,12 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: cachix/install-nix-action@v31
+      # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      # v31
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
       - run: nix develop -c npm ci
       - run: nix develop -c npx tsc --noEmit
       - run: nix develop -c biome check .
@@ -58,13 +68,18 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          persist-credentials: false
           fetch-depth: 0
-      - uses: cachix/install-nix-action@v31
+      # v31
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
       - run: nix develop -c npm ci
       - run: nix develop -c npm test
       - name: Live Jev fixtures (only when Jev-facing paths changed)
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
         run: nix develop -c node scripts/run-jev-fixtures.ts --before ${{ github.event.before }}
 
   release:
@@ -74,7 +89,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
       - name: Create release if this version is new
         run: |
           version="v$(node -p "require('./package.json').version")"
@@ -93,8 +111,12 @@ jobs:
       contents: read
       id-token: write # npm trusted publishing (OIDC)
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           # Node 24 ships npm >= 11.5.1, required for trusted publishing
           node-version: 24
