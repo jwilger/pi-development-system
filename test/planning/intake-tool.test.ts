@@ -108,6 +108,7 @@ test("an empty request is an error", async () => {
 test("a second intake with the same wording gets its own slice, not the old one's state", async () => {
   const { fake, state, run } = setup(online("change"));
   fake.ui.selectResponses.push("change", "change");
+  fake.ui.confirmResponses.push(true);
   await run({ request: "trim the email" });
   assert.equal(state.get().activeSlice, "trim-the-email");
   await run({ request: "trim the email" });
@@ -124,17 +125,40 @@ test("a fix judged by an online Jev with no extra need lists nothing to consider
 test("confirming a fix records a user-approved review departure for that slice only", async () => {
   const { fake, state, run } = setup(online("fix"));
   fake.ui.selectResponses.push("fix");
+  fake.ui.confirmResponses.push(true);
   const r = await run({ request: "trim the email on login" });
   const [dep] = state.get().openDepartures;
   assert.equal(dep?.gate, "review.unsatisfied");
   assert.equal(dep?.approver, "user");
   assert.deepEqual(dep?.scope, { kind: "slice", slice: "trim-the-email-on-login" });
-  assert.match(textOf(r), /no review rounds for this fix/);
+  assert.match(textOf(r), /waived fresh-context review/);
 });
 
 test("sizes other than fix record no departure", async () => {
   const { fake, state, run } = setup(online("change"));
   fake.ui.selectResponses.push("change");
   await run({ request: "make retry configurable" });
+  assert.deepEqual(state.get().openDepartures, []);
+});
+
+test("declining the waiver keeps the review gate for that fix", async () => {
+  const { fake, state, run } = setup(online("fix"));
+  fake.ui.selectResponses.push("fix");
+  fake.ui.confirmResponses.push(false);
+  const r = await run({ request: "trim the email on login" });
+  assert.deepEqual(state.get().openDepartures, []);
+  assert.match(textOf(r), /Review is NOT waived/);
+  assert.match(JSON.stringify(fake.ui.calls), /Skip fresh-context review/);
+});
+
+test("intake in the middle of a slice asks first and leaves the slice alone when declined", async () => {
+  const { fake, state, run } = setup(online("fix"));
+  fake.ui.selectResponses.push("change");
+  await run({ request: "make retry configurable" });
+  fake.ui.selectResponses.push("fix");
+  fake.ui.confirmResponses.push(false);
+  const r = await run({ request: "typo in help text" });
+  assert.equal(state.get().activeSlice, "make-retry-configurable");
+  assert.match(textOf(r), /unchanged/);
   assert.deepEqual(state.get().openDepartures, []);
 });

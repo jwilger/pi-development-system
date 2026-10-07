@@ -43,9 +43,44 @@ const slicesInUse = (state: DevsysState): Set<string> =>
     ...state.openDepartures.flatMap((d) => (d.scope.kind === "slice" ? [d.scope.slice] : [])),
   ]);
 
+/** The waiver is its own question, naming the request and what the review gate actually covers. */
+const askToWaiveReview = (
+  ctx: ExtensionContext,
+  request: string,
+  slice: SliceRef,
+): Promise<boolean> =>
+  ctx.ui.confirm(
+    "Skip fresh-context review for this fix?",
+    `"${request.slice(0, 120)}"\nThe review gate checks the whole uncommitted diff, so yes waives review for everything committed under slice "${slice}". The waiver is logged in docs/decisions.`,
+  );
+
+/** Starting new work replaces the active slice; while it is in flight that needs the user's yes. */
+async function declinedToReplace(
+  ctx: ExtensionContext,
+  before: DevsysState,
+): Promise<string | undefined> {
+  const { activeSlice, phase } = before;
+  if (activeSlice === undefined || (phase !== "implementing" && phase !== "reviewing")) {
+    return undefined;
+  }
+  const go = await ctx.ui.confirm(
+    "Slice already in flight",
+    `Slice "${activeSlice}" is still ${phase}. Its uncommitted changes would be committed under the new slice's rules. Start new work anyway?`,
+  );
+  return go ? undefined : `Intake cancelled; slice "${activeSlice}" is unchanged.`;
+}
+
+const waiverNote = (sizing: Sizing, departed: string | undefined): string => {
+  if (departed !== undefined)
+    return `\nRecorded in ${departed}: you waived fresh-context review for this fix.`;
+  return sizing === "fix"
+    ? "\nReview is NOT waived: this slice still needs its review rounds before commit."
+    : "";
+};
+
 /**
- * I8.1 sizes a fix without a review artifact, but the commit gate reviews every slice (I6.4). The user choosing
- * "fix" is the explicit agreement, so it is recorded as a user-approved departure for this slice only.
+ * I8.1 sizes a fix without a review artifact, but the commit gate reviews every slice (I6.4). Only the user's
+ * explicit yes to the waiver question is recorded, as a user-approved departure for this slice alone.
  */
 async function fixWithoutReview(
   deps: { pi: ExtensionAPI; state: SessionState },
@@ -60,7 +95,7 @@ async function fixWithoutReview(
     tier: "soft",
     default: info?.default ?? "finish the fresh-context review before release",
     chosen: "no review rounds for this slice",
-    why: "the user confirmed this work as a fix, which the sizing table plans without a review artifact",
+    why: "the user was asked and agreed: this is a fix, which the sizing table plans without a review artifact",
     costIfWrong: "a defect in a small change ships without a fresh-context look",
     approver: "user",
     scope: { kind: "slice", slice },
@@ -112,19 +147,20 @@ export function createIntakeTool(deps: {
       if (picked === undefined) return reply(`${proposal}\nIntake cancelled; nothing changed.`);
       const sizing = parseSizing(picked);
       if (isParseError(sizing)) return reply(sizing.message, true);
-      const slice = uniqueSlice(sliceSlug(request), slicesInUse(deps.state.get())) as SliceRef;
+      const before = deps.state.get();
+      const keep = await declinedToReplace(ctx, before);
+      if (keep !== undefined) return reply(`${proposal}\n${keep}`);
+      const slice = uniqueSlice(sliceSlug(request), slicesInUse(before)) as SliceRef;
       deps.state.update((s) => ({
         ...s,
         phase: phaseFor(sizing),
         sizing,
         activeSlice: slice,
       }));
-      const departed = sizing === "fix" ? await fixWithoutReview(deps, ctx, slice) : undefined;
+      const waived = sizing === "fix" ? await askToWaiveReview(ctx, request, slice) : false;
+      const departed = waived ? await fixWithoutReview(deps, ctx, slice) : undefined;
       const final = renderProposal({ sizing, basis, proposal: proposalFor(sizing) });
-      const note =
-        departed === undefined
-          ? ""
-          : `\nRecorded in ${departed}: no review rounds for this fix (you sized it fix).`;
+      const note = waiverNote(sizing, departed);
       return reply(`${final}\nPhase: ${phaseFor(sizing)}. Active slice: ${slice}.${note}`);
     },
   };

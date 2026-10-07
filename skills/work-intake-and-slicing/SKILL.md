@@ -20,7 +20,7 @@ Ask these in order and stop at the first yes:
 
 ## Artifacts follow size
 
-- `fix`: a task record.
+- `fix`: a task record. The user is asked separately whether to waive fresh-context review for it; a yes is logged as a user-approved `review.unsatisfied` departure for that slice, a no keeps the review gate.
 - `change`: task record, review, an ADR if a decision is hard to reverse.
 - `capability`: add a brief-lite, journeys, an event model, and optionally lens review.
 - `product`: the full set, including brief, decision register and architecture.

@@ -121,20 +121,6 @@ test("in-progress makes sure the label exists before editing, and never reopens 
   );
 });
 
-test("a failed label creation changes nothing about the issue", async () => {
-  const { exec, calls } = fakeExec((args) =>
-    args[0] === "label"
-      ? { code: 1, stderr: "no permission" }
-      : { stdout: JSON.stringify(issue({ state: "CLOSED" })) },
-  );
-  const r = await createGithubTracker({ exec, cwd: "/r" }).update("7", { status: "in-progress" });
-  assert.equal(r.ok, false);
-  assert.deepEqual(
-    lines(calls).filter((j) => /^issue (edit|reopen|close)/.test(j)),
-    [],
-  );
-});
-
 test("a closed issue moved to open is reopened after the edit", async () => {
   const { exec, calls } = fakeExec(() => ({ stdout: JSON.stringify(issue({ state: "CLOSED" })) }));
   await createGithubTracker({ exec, cwd: "/r" }).update("7", { status: "open" });
@@ -166,6 +152,17 @@ test("a gh failure is an error carrying its message; unparseable output is an er
   if (!r.ok) assert.match(r.error.message, /not authenticated/);
   const junk = fakeExec(() => ({ stdout: "not json" }));
   assert.equal((await createGithubTracker({ exec: junk.exec, cwd: "/r" }).get("7")).ok, false);
+});
+
+test("a label that cannot be created is not fatal: the edit decides", async () => {
+  const { exec, calls } = fakeExec((args) =>
+    args[0] === "label"
+      ? { code: 1, stderr: "HTTP 403: Must have push access to create labels" }
+      : { stdout: JSON.stringify(issue()) },
+  );
+  const r = await createGithubTracker({ exec, cwd: "/r" }).update("7", { status: "in-progress" });
+  assert.equal(r.ok, true);
+  assert.ok(lines(calls).some((j) => j.includes("--add-label in-progress")));
 });
 
 test("the marker label is created without --force, and an existing label is fine", async () => {

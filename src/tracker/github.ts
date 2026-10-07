@@ -226,9 +226,10 @@ const updateIssue = async (
   const current = toItem(raw.value);
   const hadMarker = (raw.value.labels ?? []).some((l) => isMarker(l.name));
   if (patch.status === "in-progress") {
-    // No --force: that would recolour the team's existing label. "Already exists" is success.
-    const made = await gh(["label", "create", IN_PROGRESS]);
-    if (!(made.ok || /already exists/i.test(made.error.message))) return made;
+    // No --force: that would recolour the team's existing label. Creating needs push rights, which someone who can
+    // only triage lacks even when the label exists, so a failed create is not fatal: the edit below fails if the
+    // label is really missing, and says so.
+    await gh(["label", "create", IN_PROGRESS]);
   }
   const flags = editFlags(current, hadMarker, patch);
   if (flags.length > 0) {
