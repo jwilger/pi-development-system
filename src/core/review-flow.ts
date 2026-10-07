@@ -177,6 +177,6 @@ export function reviewerTask(input: {
     "### Verdict",
     "no-blocking | blocking",
     "",
-    "Severity: blocking = demonstrable defect or broken non-negotiable; should-fix = real defect or missing test with a realistic trigger; nit = style or report-only. The verdict is `blocking` when any finding is blocking or should-fix, otherwise `no-blocking`. With zero findings (a valid result) write `- none` under Findings.",
+    "Severity: blocking = demonstrable defect or broken non-negotiable; should-fix = real defect or missing test with a realistic trigger; nit = style or report-only. The verdict is `blocking` when any finding is blocking or should-fix, otherwise `no-blocking`. With zero findings (a valid result) write `- none` under Findings. Findings holds only finding lines: put what you checked and refuted under Sources inspected or after the verdict.",
   ].join("\n");
 }

@@ -20,13 +20,16 @@ const FINDING = /^-\s*\[([^\]]+)\]\s+(\S+)\s+(?:`([^`]+)`[^—–]*?\s+)?[—–
 // An indented line under a finding is its detail (trigger, fix), unless it is itself a finding.
 const isDetail = (line: string): boolean => /^\s+/.test(line) && !/^\s*-\s*\[/.test(line);
 
-const section = (text: string, name: string): string | undefined => {
+// `until` ends a section; by default any heading does. Findings ends only at a known section so a stray
+// heading inside it (### Nits) makes its lines errors instead of silently cutting the findings off.
+const section = (text: string, name: string, until = /^###?\s/m): string | undefined => {
   const match = new RegExp(`^###\\s+${name}\\s*$`, "im").exec(text);
   if (match === null) return undefined;
   const rest = text.slice(match.index + match[0].length);
-  const next = /^###?\s/m.exec(rest);
+  const next = until.exec(rest);
   return next === null ? rest : rest.slice(0, next.index);
 };
+const AFTER_FINDINGS = /^###?\s+(?:Verdict|Sources inspected|Not verified)\b/im;
 
 const isSeverity = (value: string): value is Severity =>
   (SEVERITIES as readonly string[]).includes(value);
@@ -82,7 +85,13 @@ export function parseReviewPacket(text: string): ReviewPacket | ParseError {
     );
   }
   const findings: Finding[] = [];
-  const lines = (section(text, "Findings") ?? "")
+  const findingsText = section(text, "Findings", AFTER_FINDINGS);
+  if (findingsText === undefined) {
+    return parseError(
+      'missing "### Findings" section: write "- none" under it when there are no findings',
+    );
+  }
+  const lines = findingsText
     .split("\n")
     .filter((l) => !isDetail(l))
     .map((l) => l.trim())

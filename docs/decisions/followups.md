@@ -237,3 +237,7 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 ## From I6 review round 15
 
 - api-contract a packet whose verdict is `no-blocking` but lists only should-fix findings is still rejected (findings decide; the verdict is redundant). The round-14 prompt text now states the rule, so it is kept as a consistency check.
+
+## From I6 review round 16
+
+- api-contract recorded packets that put prose lists of refuted checks inside Findings are rejected with an error (never silently); the reviewer task and agents/reviewer.md now say to put them under Sources inspected.

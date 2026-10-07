@@ -123,3 +123,19 @@ test("an indented line that is itself a finding is still counted", () => {
   assert.ok(!isParseError(p));
   assert.equal(p.findings.length, 1);
 });
+
+test("a missing Findings section is an error, never an empty round", () => {
+  for (const heading of ["### Findings:", "## Findings", "**Findings**", ""]) {
+    const p = parseReviewPacket(
+      `## Review — s1 — round 1 — lenses: types\n### Sources inspected\n- a.ts\n${heading}\n- [should-fix] types \`a.ts:1\` — x — y\n### Verdict\nno-blocking\n`,
+    );
+    assert.ok(isParseError(p), heading);
+  }
+});
+
+test("a stray heading inside Findings is an error, not a silent cut", () => {
+  const p = parseReviewPacket(
+    "## Review — s1 — round 1 — lenses: types\n### Findings\n- none\n### Nits\n- [nit] types `a.ts:1` — x\n### Verdict\nno-blocking\n",
+  );
+  assert.ok(isParseError(p));
+});
