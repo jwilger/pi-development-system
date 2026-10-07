@@ -13,7 +13,7 @@ const reply = (text: string, isError = false) => ({
 /**
  * `devsys_begin_work`: the planning → implementing transition. Intake leaves capability and product work in
  * `planning`; the review and red-first gates only run while implementing, so without this step the largest work
- * would get the fewest gates. Call it once the user has approved the plan.
+ * would get the fewest gates. Call it once the user has approved the plan; when already implementing it is a harmless no-op.
  */
 export function createBeginWorkTool(deps: {
   state: SessionState;
@@ -28,6 +28,13 @@ export function createBeginWorkTool(deps: {
     exposure: "direct",
     execute(_id, _params: Static<typeof Parameters>) {
       const { phase, activeSlice } = deps.state.get();
+      if (phase === "implementing" && activeSlice !== undefined) {
+        return Promise.resolve(
+          reply(
+            `Already implementing slice ${activeSlice}; the review and red-first gates are on.`,
+          ),
+        );
+      }
       if (phase !== "planning" || activeSlice === undefined) {
         return Promise.resolve(
           reply(

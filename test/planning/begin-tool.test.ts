@@ -32,3 +32,11 @@ test("outside planning, or with no slice, begin changes nothing and says to size
   assert.equal((await run()).isError, true);
   assert.equal(state.get().phase, "reviewing");
 });
+
+test("begin while already implementing is a harmless success, so prompts can call it at the approval point", async () => {
+  const { state, run } = setup();
+  state.update((s) => ({ ...s, phase: "implementing", activeSlice: "s1" as SliceRef }));
+  const r = await run();
+  assert.notEqual(r.isError, true);
+  assert.equal(state.get().phase, "implementing");
+});
