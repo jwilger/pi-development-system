@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { cadenceLine, DEFAULT_PUSH_MINUTES } from "../src/context/cadence.ts";
-import { registerCompactionResync } from "../src/context/compaction.ts";
 import { appendContextTail, renderContextTail } from "../src/context/context-tail.ts";
 import { registerModelAdvice } from "../src/context/model-advice.ts";
 import { renderStatus, renderStatusLine, STATUS_KEY } from "../src/context/status.ts";
@@ -114,7 +113,6 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   });
   registerTestGuard({ pi, state, approvals, jev: (ctx) => jevHolder.forContext(ctx) });
   registerTestEvidence({ pi, state });
-  registerCompactionResync({ pi, state });
   registerModelAdvice({
     pi,
     state,
