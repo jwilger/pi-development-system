@@ -7,5 +7,5 @@
   ],
   "project": ["extensions/**/*.ts", "src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"],
   "ignoreDependencies": ["@types/shell-quote"],
-  "ignoreBinaries": ["biome"]
+  "ignoreBinaries": ["biome", "markdownlint-cli2"]
 }

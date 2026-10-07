@@ -27,6 +27,7 @@
             lefthook
             biome
             actionlint
+            markdownlint-cli2
             nixfmt
           ];
 

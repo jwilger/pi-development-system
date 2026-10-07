@@ -18,7 +18,7 @@ pre-commit:
       run: npx knip
     markdown:
       glob: "*.md"
-      run: npx markdownlint-cli2 {staged_files}
+      run: markdownlint-cli2 {staged_files}
     test:
       run: npm test
     jev-fixtures:
