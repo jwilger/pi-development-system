@@ -1,9 +1,9 @@
-// @ts-nocheck: vendored upstream pi-subagent-manager 0.14.0 compiled under looser options; see src/subagents/VENDORED.md
-import fuzzysort, { type SnapshotKeys } from "fuzzysort";
+// biome-ignore-all lint/suspicious/noControlCharactersInRegex: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/suspicious/useAwait: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
 import type { Api, Model } from "@earendil-works/pi-ai";
 import {
-  getSelectListTheme,
   type ExtensionCommandContext,
+  getSelectListTheme,
   type ScopedModel,
   type Theme,
 } from "@earendil-works/pi-coding-agent";
@@ -13,14 +13,15 @@ import {
   Input,
   Key,
   matchesKey,
+  type SelectItem,
   SelectList,
   stripTerminalSequences,
-  truncateToWidth,
   Text,
-  type SelectItem,
+  truncateToWidth,
 } from "@earendil-works/pi-tui";
+import fuzzysort, { type SnapshotKeys } from "fuzzysort";
 import { modelIdentity } from "../prefs/models.ts";
-import { dialogHeight, frameDialog, DIALOG_OPTIONS } from "./dialog.ts";
+import { DIALOG_OPTIONS, dialogHeight, frameDialog } from "./dialog.ts";
 
 const MODEL_EDITOR_LAYOUT = {
   minPrimaryColumnWidth: 24,
@@ -44,8 +45,8 @@ interface OrderedModelEditorComponentOptions {
   theme: Theme;
   availableModels: readonly AvailableModel[];
   scopedModels: readonly ScopedModel[];
-  initialModels?: readonly string[];
-  modelSuggestions?: readonly string[];
+  initialModels?: readonly string[] | undefined;
+  modelSuggestions?: readonly string[] | undefined;
   onDone(models: string[]): void;
   onCancel(): void;
 }
@@ -133,7 +134,7 @@ class OrderedModelEditorComponent extends Container {
       this.theme.fg(
         "muted",
         this.withScopeWarning(
-          this.suggestedScores.size
+          this.suggestedScores.size > 0
             ? "Selected first; suggested matches scoped first, then other models; the rest A–Z. Type to search."
             : "Selected first. Search by provider/id or model name; other models A–Z.",
         ),
@@ -244,7 +245,12 @@ class OrderedModelEditorComponent extends Container {
       const next = index + (earlier ? -1 : 1);
       // Consume reorder keys even on unselected models or at a list boundary.
       if (index >= 0 && next >= 0 && next < this.draft.length) {
-        [this.draft[index], this.draft[next]] = [this.draft[next], this.draft[index]];
+        const moved = this.draft[index];
+        const other = this.draft[next];
+        if (moved !== undefined && other !== undefined) {
+          this.draft[index] = other;
+          this.draft[next] = moved;
+        }
         this.refreshPickerList(selected);
         this.tui.requestRender();
       }
@@ -269,6 +275,11 @@ class OrderedModelEditorComponent extends Container {
       }
     }
     this.tui.requestRender();
+  }
+
+  private fallbackIndex(focusSearchResult: boolean, previousIndex: number): number {
+    if (focusSearchResult) return 0;
+    return Math.max(0, Math.min(previousIndex, this.currentItems.length - 1));
   }
 
   private refreshPickerList(selectedValue?: string, focusSearchResult = false): void {
@@ -314,11 +325,7 @@ class OrderedModelEditorComponent extends Container {
         )
       : this.currentItems.findIndex((item) => item.value === selectedValue);
     list.setSelectedIndex(
-      preferredIndex >= 0
-        ? preferredIndex
-        : focusSearchResult
-          ? 0
-          : Math.max(0, Math.min(previousIndex, this.currentItems.length - 1)),
+      preferredIndex >= 0 ? preferredIndex : this.fallbackIndex(focusSearchResult, previousIndex),
     );
     list.onSelect = (item) => {
       if (this.currentItems.find((row) => row.value === item.value)?.group === ACTIONS_GROUP) {
@@ -380,7 +387,8 @@ class OrderedModelEditorComponent extends Container {
       }
     }
     const bySuggestionScore = (a: AvailableModel, b: AvailableModel) =>
-      this.suggestedScores.get(modelIdentity(b))! - this.suggestedScores.get(modelIdentity(a))!;
+      (this.suggestedScores.get(modelIdentity(b)) ?? 0) -
+      (this.suggestedScores.get(modelIdentity(a)) ?? 0);
     // Stable score sorting preserves alphabetical order for ties. The last
     // tier retains the registry's alphabetical order, irrespective of scope.
     scoped.sort(bySuggestionScore);
@@ -397,7 +405,8 @@ class OrderedModelEditorComponent extends Container {
       ...items(other, "Suggested matches · other models"),
       ...items(
         remaining,
-        scoped.length || other.length ? "All other models · A–Z" : "All models · A–Z",
+
+        scoped.length > 0 || other.length > 0 ? "All other models · A–Z" : "All models · A–Z",
       ),
     ];
   }

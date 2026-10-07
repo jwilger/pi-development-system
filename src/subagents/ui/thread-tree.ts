@@ -25,11 +25,7 @@ function comparePath(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-function chainHas(
-  parentOf: Map<string, string | null>,
-  start: string,
-  target: string,
-): boolean {
+function chainHas(parentOf: Map<string, string | null>, start: string, target: string): boolean {
   const seen = new Set<string>();
   let current: string | null = start;
   while (current) {
@@ -50,8 +46,7 @@ export function buildStatusTree(
 ): StatusRow[] {
   const threadsByPath = new Map<string, ThreadView>();
   for (const thread of threads) {
-    if (thread?.path && !threadsByPath.has(thread.path))
-      threadsByPath.set(thread.path, thread);
+    if (thread?.path && !threadsByPath.has(thread.path)) threadsByPath.set(thread.path, thread);
   }
   const nodes = new Map<string, StatusNode>();
   const parentOf = new Map<string, string | null>();
@@ -66,8 +61,7 @@ export function buildStatusTree(
   const declaredParent = (path: string): string | null => {
     if (path === ROOT) return null;
     const thread = threadsByPath.get(path);
-    if (thread)
-      return thread.parent && thread.parent !== path ? thread.parent : null;
+    if (thread) return thread.parent && thread.parent !== path ? thread.parent : null;
     return lexicalParent(path);
   };
   const ensure = (path: string, seen = new Set<string>()): void => {

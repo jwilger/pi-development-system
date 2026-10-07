@@ -1,5 +1,5 @@
 // @ts-nocheck: vendored upstream pi-subagent-manager 0.14.0 compiled under looser options; see src/subagents/VENDORED.md
-import { lstatSync, readdirSync, readFileSync, type Dirent, type Stats } from "node:fs";
+import { type Dirent, lstatSync, readdirSync, readFileSync, type Stats } from "node:fs";
 import { homedir } from "node:os";
 import { delimiter, dirname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import { parseDocument } from "yaml";
@@ -17,8 +17,8 @@ export interface DiscoverImportOptions {
   cwd: string;
   agentDir: string;
   includeProject: boolean;
-  homeDir?: string;
-  extraAgentDirs?: string;
+  homeDir?: string | undefined;
+  extraAgentDirs?: string | undefined;
 }
 
 const EXTRA_AGENT_DIRS_ENV = "PI_SUBAGENT_EXTRA_AGENT_DIRS";
@@ -227,7 +227,7 @@ function walk(
         continue;
       }
       if (isSkillMarkdownName(entry.name)) continue;
-      if (!entry.isFile() || !entry.name.endsWith(".md") || entry.name.endsWith(".chain.md")) {
+      if (!(entry.isFile() && entry.name.endsWith(".md")) || entry.name.endsWith(".chain.md")) {
         continue;
       }
       if (isExcluded(child, excludes) || isManagerOwned(child, managerDirs)) continue;
@@ -270,7 +270,7 @@ function considerFile(
   const rawName = fields.name?.trim() ?? "";
   const name = rawName || (permissive ? filenameName(resolved) : "");
   const description = fields.description ?? (permissive ? "" : undefined);
-  if (!name || description === undefined || (!permissive && !description.trim())) return;
+  if (!name || description === undefined || !(permissive || description.trim())) return;
   const packageName = fields.packageName?.trim() ?? "";
   candidates.push({
     id: resolved,
@@ -303,7 +303,7 @@ function looseDisplayFields(content: string): DisplayFields | undefined {
       /* Ambiguous display metadata is not selectable. */
     }
   }
-  if (!fields.name || !fields.description) return undefined;
+  if (!(fields.name && fields.description)) return undefined;
   return { name: fields.name, description: fields.description, packageName: fields.package };
 }
 

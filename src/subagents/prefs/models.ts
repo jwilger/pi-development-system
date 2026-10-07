@@ -1,4 +1,3 @@
-// @ts-nocheck: vendored upstream pi-subagent-manager 0.14.0 compiled under looser options; see src/subagents/VENDORED.md
 import { resolveCandidate } from "../../core/models.ts";
 
 const MODEL_IDENTITY = /^[^\s/]+\/[^\s]+$/;
@@ -15,15 +14,12 @@ export function getModelPreferences(type: {
 }): string[] | undefined {
   const hasModels = type.models !== undefined;
   const hasModel = type.model !== undefined;
-  if (hasModels && hasModel)
-    throw new Error("Specify either models or model, not both");
+  if (hasModels && hasModel) throw new Error("Specify either models or model, not both");
   if (hasModels) {
     if (!Array.isArray(type.models))
       throw new Error("models must be an array of provider/model-id strings");
     if (type.models.length === 0)
-      throw new Error(
-        "models must not be empty; omit models to inherit the parent/default model",
-      );
+      throw new Error("models must not be empty; omit models to inherit the parent/default model");
     const models = type.models.map((value, index) =>
       validateModelPreference(value, `models[${index}]`),
     );
@@ -40,11 +36,11 @@ export function modelIdentity(model: { provider: string; id: string }): string {
 }
 
 export class ModelPreferenceError extends Error {
-  constructor(
-    message: string,
-    readonly scopedModelFiltering: boolean,
-  ) {
+  readonly scopedModelFiltering: boolean;
+
+  constructor(message: string, scopedModelFiltering: boolean) {
     super(message);
+    this.scopedModelFiltering = scopedModelFiltering;
   }
 
   get summary(): string {

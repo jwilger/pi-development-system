@@ -1,13 +1,12 @@
-// @ts-nocheck: vendored upstream pi-subagent-manager 0.14.0 compiled under looser options; see src/subagents/VENDORED.md
-import { constants, lstatSync, mkdirSync, openSync, closeSync, writeFileSync } from "node:fs";
+import { closeSync, constants, lstatSync, mkdirSync, openSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { dialogText } from "../ui/dialog.ts";
+import { selectImportAgents } from "../ui/import-picker.ts";
 import { AGENT_COLORS, type ConfigStore } from "./config.ts";
 import { discoverImportCandidates, type ImportCandidate } from "./import-discovery.ts";
-import { selectImportAgents } from "../ui/import-picker.ts";
 import { MIGRATION_INSTRUCTIONS } from "./import-instructions.ts";
-import { dialogText } from "../ui/dialog.ts";
 
 export const IMPORT_REQUEST_PREFIX =
   "Import ONLY the agents I selected in the pi-subagent-manager migration picker.";
@@ -70,7 +69,8 @@ function importWasOffered(agentDir: string): boolean {
 }
 
 export function markImportOffered(agentDir: string): void {
-  const directory = stateDirectory(agentDir, true)!;
+  const directory = stateDirectory(agentDir, true);
+  if (directory === undefined) throw new Error("Import-state directory could not be created");
   const file = join(directory, OFFER_MARKER);
   const stat = statIfPresent(file);
   if (stat) {
@@ -94,11 +94,11 @@ function buildImportPrompt(options: {
   agentDir: string;
   cwd: string;
   includeProject: boolean;
-  existingTypes: { name: string; source?: string; filePath?: string }[];
+  existingTypes: { name: string; source?: string | undefined; filePath?: string | undefined }[];
   scopedModels: readonly string[];
-  scopedModelDetails?: readonly { identity: string; api: string; virtual: boolean }[];
-  parentModel?: string;
-  parentModelApi?: string;
+  scopedModelDetails?: readonly { identity: string; api: string; virtual: boolean }[] | undefined;
+  parentModel?: string | undefined;
+  parentModelApi?: string | undefined;
 }): string {
   return [
     IMPORT_REQUEST_PREFIX,
@@ -162,7 +162,7 @@ export async function offerAgentImport(
       homeDir: options.homeDir,
       extraAgentDirs: options.extraAgentDirs,
     });
-    if (found.diagnostics.length)
+    if (found.diagnostics.length > 0)
       ctx.ui.notify(dialogText(found.diagnostics.join("\n")), "warning");
     const remember = () => {
       try {
@@ -174,9 +174,9 @@ export async function offerAgentImport(
         );
       }
     };
-    if (!found.candidates.length) {
+    if (found.candidates.length === 0) {
       // Retry an incomplete scan next startup, rather than permanently hiding unreadable definitions.
-      if (!found.diagnostics.length) remember();
+      if (found.diagnostics.length === 0) remember();
       if (!firstRun)
         ctx.ui.notify(
           "No external agent definitions found. Package-provided defaults are not scanned.",
@@ -208,7 +208,7 @@ export async function offerAgentImport(
     }
     const selected = new Set(ids);
     const candidates = found.candidates.filter((candidate) => selected.has(candidate.id));
-    if (!candidates.length) return false;
+    if (candidates.length === 0) return false;
     options.store.reload();
     const prompt = buildImportPrompt({
       candidates,

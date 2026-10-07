@@ -1,20 +1,38 @@
-// @ts-nocheck: vendored upstream pi-subagent-manager 0.14.0 compiled under looser options; see src/subagents/VENDORED.md
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+import { existsSync } from "node:fs";
+import { mkdir, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import { clampThinkingLevel } from "@earendil-works/pi-ai/compat";
-import { existsSync } from "node:fs";
-import { mkdir, readFile, realpath } from "node:fs/promises";
 import {
   createAgentSession,
   createCodemodeExtension,
   createToolSearchExtension,
   DefaultResourceLoader,
+  type ExtensionContext,
   getAgentDir,
   ModelRuntime,
   SessionManager,
   SettingsManager,
-  type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
+import { applySpawnOverrides, modelSource } from "../../core/spawn-overrides.ts";
+import { selectTools } from "../prefs/config.ts";
+import {
+  getModelPreferences,
+  ModelPreferenceError,
+  modelIdentity,
+  selectPreferredModel,
+} from "../prefs/models.ts";
+import type { ModelSelectionMode, ToolFilteringMode } from "../prefs/settings.ts";
+import {
+  type AgentType,
+  type DriverFactory,
+  type DriverOptions,
+  type ResolvedAgentSettings,
+  THINKING_LEVELS,
+  type ThinkingLevel,
+} from "../types.ts";
+import type { InheritedToolSource } from "./inherited-tools.ts";
 import {
   BOOTSTRAP_MESSAGE,
   buildBootstrapMessage,
@@ -22,25 +40,7 @@ import {
   buildUpdateDetails,
   DurableMailbox,
 } from "./mailbox.ts";
-import { selectTools } from "../prefs/config.ts";
 import { TranscriptChannel } from "./transcript.ts";
-import type { InheritedToolSource } from "./inherited-tools.ts";
-import type { ModelSelectionMode, ToolFilteringMode } from "../prefs/settings.ts";
-import { applySpawnOverrides, modelSource } from "../../core/spawn-overrides.ts";
-import {
-  modelIdentity,
-  getModelPreferences,
-  selectPreferredModel,
-  ModelPreferenceError,
-} from "../prefs/models.ts";
-import {
-  THINKING_LEVELS,
-  type AgentType,
-  type ResolvedAgentSettings,
-  type DriverFactory,
-  type DriverOptions,
-  type ThinkingLevel,
-} from "../types.ts";
 
 const BUILTINS = ["read", "bash", "powershell", "edit", "write", "grep", "find", "ls"];
 /** Persisted before transcript messages so older-leaf restores still carry ownership. */
@@ -157,7 +157,7 @@ export function createDriverFactory(
     type: AgentType,
     parentPath?: string | null,
     restored?: ReturnType<SessionManager["buildSessionContext"]>,
-  ): { provider?: string; id?: string; thinkingLevel: ThinkingLevel };
+  ): { provider?: string | undefined; id?: string | undefined; thinkingLevel: ThinkingLevel };
 } {
   // Keep resolved settings even after disposal: descendants inherit settings, not the caller's history.
   const resolved = new Map<string, { provider: string; id: string; thinking: ThinkingLevel }>();
@@ -226,9 +226,9 @@ export function createDriverFactory(
       const candidates = filtering
         ? availableScopedModels(normalizeScopedModels(ctx.scopedModels))
         : availableModelCandidates();
-      ({ provider, id } = parseModelIdentity(
-        selectTypeModelPreference(type, candidates, filtering)!,
-      ));
+      const preferred = selectTypeModelPreference(type, candidates, filtering);
+      if (preferred === undefined) throw new Error("No preferred model is available");
+      ({ provider, id } = parseModelIdentity(preferred));
     } else if (source === "restored" && restored?.model) {
       provider = restored.model.provider;
       id = restored.model.modelId;
@@ -252,7 +252,7 @@ export function createDriverFactory(
     const { provider, id, thinkingLevel } = resolveInitialSettings(type, parentPath);
     const model =
       normalizeScopedModels(ctx.scopedModels).find(
-        ({ model }) => model.provider === provider && model.id === id,
+        (scoped) => scoped.model.provider === provider && scoped.model.id === id,
       )?.model ?? (provider && id ? ctx.modelRegistry.find(provider, id) : undefined);
     if (!model)
       throw new Error(
@@ -381,14 +381,15 @@ export function createDriverFactory(
       modelId: string | undefined,
       scopedModels: readonly ScopedModel[],
     ) => {
-      if (!providerId || !modelId)
+      if (!(providerId && modelId))
         throw new Error(
           `Subagent model ${providerId ?? "(unset)"}/${modelId ?? "(unset)"} is unavailable; select a physical model in the root or agent type`,
         );
       await mirrorRuntimeAuth(providerId);
       const sourceModel =
-        scopedModels.find(({ model }) => model.provider === providerId && model.id === modelId)
-          ?.model ?? ctx.modelRegistry.find(providerId, modelId);
+        scopedModels.find(
+          (scoped) => scoped.model.provider === providerId && scoped.model.id === modelId,
+        )?.model ?? ctx.modelRegistry.find(providerId, modelId);
       if (sourceModel?.api === "pi-virtual") {
         throw new Error(
           `Virtual model ${providerId}/${modelId} cannot be reproduced through the public registry API. Set this agent type's model to a physical provider/model-id.`,
@@ -414,13 +415,16 @@ export function createDriverFactory(
     const rootActive = new Set(inherited.activeNames);
     // Preserve deferred/codemode exposure rather than flooding model declarations with MCP tools.
     const activeToolNames = toolNames.filter(
-      (name) => localNames.has(name) || rootActive.has(name) || options.type.tools?.allow?.includes(name) && toolFiltering === "allowed",
+      (name) =>
+        localNames.has(name) ||
+        rootActive.has(name) ||
+        (options.type.tools?.allow?.includes(name) && toolFiltering === "allowed"),
     );
     const customTools = [...options.tools, ...externalTools].filter(
       (tool) => allowed.has(tool.name) && tool.name !== "codemode" && tool.name !== "tool_search",
     );
     const settingsManager = SettingsManager.inMemory({ cacheWarming: "off" });
-    let parkQueue = () => {};
+    let parkQueue: () => void = () => undefined;
     const pauseBoundary = () => {
       if (!options.shouldPause()) return undefined;
       parkQueue();
@@ -558,7 +562,7 @@ export function createDriverFactory(
       throw error;
     }
     const streamFunction = session.agent.streamFunction;
-    session.agent.streamFunction = async (requestModel, context, streamOptions) => {
+    session.agent.streamFunction = (requestModel, context, streamOptions) => {
       assertScopedRequestAuthorized(
         modelIdentity(requestModel),
         normalizeScopedModels(getRootContext().scopedModels),
@@ -579,7 +583,7 @@ export function createDriverFactory(
       sessionManager.appendMessage(buildBootstrapMessage());
       emit("activity", BOOTSTRAP_MESSAGE);
     };
-    const queueAccepted = async (kind: "steer" | "followUp", content: string) => {
+    const queueAccepted = (kind: "steer" | "followUp", content: string): Promise<void> => {
       assertCurrentModelAuthorized();
       ensurePersistedSession();
       const accepted = mailbox.accept(kind, content);
@@ -587,6 +591,7 @@ export function createDriverFactory(
       if (kind === "followUp") session.agent.followUp(buildQueuedUserMessage(accepted));
       else session.agent.steer(buildQueuedUserMessage(accepted));
       mailbox.markEnqueued(accepted.id);
+      return Promise.resolve();
     };
     const resumePending = async () => {
       for (const accepted of mailbox.replayablePending()) {
@@ -641,7 +646,7 @@ export function createDriverFactory(
       const usage = message.usage;
       const input = usage.input + usage.cacheRead + usage.cacheWrite;
       const output = usage.output;
-      if (!Number.isFinite(input) || !Number.isFinite(output)) return;
+      if (!(Number.isFinite(input) && Number.isFinite(output))) return;
       return { input, output, reported: input + output + usage.totalTokens > 0 };
     };
 
@@ -650,7 +655,7 @@ export function createDriverFactory(
       .find((entry) => entry.type === "custom" && entry.customType === THREAD_OWNERSHIP_TYPE);
     const inheritedMetadata =
       ownership?.type === "custom"
-        ? (ownership.data as { inheritedCount?: unknown })?.inheritedCount
+        ? (ownership.data as { inheritedCount?: unknown }).inheritedCount
         : undefined;
     const inheritedCount =
       typeof inheritedMetadata === "number" &&

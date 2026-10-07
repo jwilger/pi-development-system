@@ -1,9 +1,8 @@
-// @ts-nocheck: vendored upstream pi-subagent-manager 0.14.0 compiled under looser options; see src/subagents/VENDORED.md
-import { Type } from "typebox";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
-import type { ThreadManager } from "./manager.ts";
+import { Type } from "typebox";
 import { ModelPreferenceError } from "../prefs/models.ts";
 import type { AgentType, ResolvedAgentSettings, ThreadView } from "../types.ts";
+import type { ThreadManager } from "./manager.ts";
 
 const path = Type.String({ description: "Absolute agent path, or name relative to the caller" });
 const text = Type.String({ minLength: 1 });
@@ -30,8 +29,10 @@ export function agentTools(
   const make = (
     name: string,
     description: string,
+    // biome-ignore-start lint/suspicious/noExplicitAny: the host validates params against the TypeBox schema before execute runs, and each handler reads only fields that schema declares
     parameters: any,
     execute: (params: any, signal?: AbortSignal) => Promise<any> | any,
+    // biome-ignore-end lint/suspicious/noExplicitAny: end of the schema-validated boundary
   ): ToolDefinition => ({
     name,
     label: name,
@@ -53,12 +54,7 @@ export function agentTools(
             return {
               name,
               description,
-              error:
-                error instanceof ModelPreferenceError
-                  ? error.summary
-                  : error instanceof Error
-                    ? error.message
-                    : String(error),
+              error: describeError(error),
             };
           }
         });
@@ -99,7 +95,8 @@ export function agentTools(
         ),
         thinkingLevel: Type.Optional(
           Type.String({
-            description: "Pin this child's thinking level: off, minimal, low, medium, high, xhigh or max.",
+            description:
+              "Pin this child's thinking level: off, minimal, low, medium, high, xhigh or max.",
           }),
         ),
       }),
@@ -174,4 +171,9 @@ export function agentTools(
       },
     ),
   ];
+}
+
+function describeError(error: unknown): string {
+  if (error instanceof ModelPreferenceError) return error.summary;
+  return error instanceof Error ? error.message : String(error);
 }

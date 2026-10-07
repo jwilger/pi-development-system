@@ -1,10 +1,15 @@
-// @ts-nocheck: vendored upstream pi-subagent-manager 0.14.0 compiled under looser options; see src/subagents/VENDORED.md
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/style/noNestedTernary: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/suspicious/noControlCharactersInRegex: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/suspicious/noEmptyBlockStatements: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/suspicious/noShadow: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/suspicious/noUnnecessaryConditions: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/suspicious/useAwait: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { parse as parseShell } from "shell-quote";
 import {
   type ExtensionCommandContext,
   type ExtensionContext,
@@ -14,40 +19,36 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import {
   Container,
-  SelectList,
-  Text,
   colorToRgb,
   rgbColor,
+  SelectList,
   stripTerminalSequences,
+  Text,
   truncateToWidth,
   visibleWidth,
 } from "@earendil-works/pi-tui";
+import { parse as parseShell } from "shell-quote";
 import {
   AGENT_COLORS,
-  ConfigStore,
+  type ConfigStore,
   diffAgentSettings,
   parseAgentType,
   serializeAgentType,
 } from "../prefs/config.ts";
-import { editModelPreferences, MODEL_EDITOR_CANCEL } from "./model-picker.ts";
-import {
-  canOpenDialog,
-  dialogEditor,
-  dialogMenu,
-  dialogHeight,
-  frameDialog,
-  DIALOG_OPTIONS,
-  withDialogSession,
-} from "./dialog.ts";
 import { getModelPreferences } from "../prefs/models.ts";
 import type { WidgetMode } from "../prefs/settings.ts";
-import { buildStatusTree, type StatusRow } from "./thread-tree.ts";
+import { type AgentType, THINKING_LEVELS, type ThreadService, type ThreadView } from "../types.ts";
 import {
-  THINKING_LEVELS,
-  type AgentType,
-  type ThreadService,
-  type ThreadView,
-} from "../types.ts";
+  canOpenDialog,
+  DIALOG_OPTIONS,
+  dialogEditor,
+  dialogHeight,
+  dialogMenu,
+  frameDialog,
+  withDialogSession,
+} from "./dialog.ts";
+import { editModelPreferences, MODEL_EDITOR_CANCEL } from "./model-picker.ts";
+import { buildStatusTree, type StatusRow } from "./thread-tree.ts";
 
 export type ThreadController = Pick<
   ThreadService,
@@ -69,19 +70,14 @@ function agentColorToken(color: string | undefined): ThemeColor {
 }
 
 /** Background pill with bold contrasting text and padding. Label is sanitized. */
-function contrastPill(
-  label: string,
-  color: string | undefined,
-  theme: AgentBadgeTheme,
-): string {
+function contrastPill(label: string, color: string | undefined, theme: AgentBadgeTheme): string {
   const background = theme.colors[agentColorToken(color)];
   const { r, g, b } = colorToRgb(background);
   const linear = (channel: number) => {
     const value = channel / 255;
     return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
   };
-  const luminance =
-    0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+  const luminance = 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
   // Pick whichever of black/white has the higher WCAG contrast ratio.
   const foreground = luminance > Math.sqrt(0.0525) - 0.05 ? 0 : 255;
   return theme.style(` ${sanitizeText(label)} `, {
@@ -93,8 +89,8 @@ function contrastPill(
 
 /** Invalid/untrusted saved icons never reach the terminal. Names remain readable. */
 export function agentTypeLabel(type: string, icon?: string, nerdFontIcons = false): string {
-  const prefix = nerdFontIcons && typeof icon === "string" && /^\p{Co}$/u.test(icon)
-    ? `${icon} ` : "";
+  const prefix =
+    nerdFontIcons && typeof icon === "string" && /^\p{Co}$/u.test(icon) ? `${icon} ` : "";
   return `${prefix}${sanitizeText(type)}`;
 }
 
@@ -115,7 +111,8 @@ export function agentProgressIcon(
 ): string | undefined {
   if (!nerdFontIcons) return undefined;
   if (animate && (thread.state === "starting" || thread.state === "running")) {
-    const frame = Math.floor(Math.max(0, now) / AGENT_PROGRESS_INTERVAL) % AGENT_PROGRESS_FRAMES.length;
+    const frame =
+      Math.floor(Math.max(0, now) / AGENT_PROGRESS_INTERVAL) % AGENT_PROGRESS_FRAMES.length;
     return AGENT_PROGRESS_FRAMES[frame];
   }
   return thread.icon;
@@ -131,18 +128,12 @@ export function agentTypeBadge(
   return contrastPill(agentTypeLabel(type, icon, nerdFontIcons), color, theme);
 }
 
-function agentPath(
-  path: string,
-  color: string | undefined,
-  theme: AgentBadgeTheme,
-): string {
+function agentPath(path: string, color: string | undefined, theme: AgentBadgeTheme): string {
   return theme.fg(agentColorToken(color), sanitizeText(path));
 }
 
 function metricCount(value: number | undefined): number {
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.max(0, Math.floor(value))
-    : 0;
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
 }
 
 /** Settled active time plus the current live run, only while starting or running. */
@@ -194,13 +185,10 @@ function fitLine(left: string, right: string, width: number): string {
 }
 
 function isLive(thread: ThreadView): boolean {
-  return (
-    thread.path !== "/root" &&
-    (thread.state === "starting" || thread.state === "running")
-  );
+  return thread.path !== "/root" && (thread.state === "starting" || thread.state === "running");
 }
 
-function renderThreads(
+function _renderThreads(
   threads: ThreadView[],
   width: number,
   theme: AgentBadgeTheme,
@@ -215,38 +203,28 @@ function renderThreads(
   const visible = threads
     .filter((thread) => thread.path !== "/root")
     .sort(
-      (a, b) =>
-        priority(a) - priority(b) ||
-        b.updatedAt - a.updatedAt ||
-        b.createdAt - a.createdAt,
+      (a, b) => priority(a) - priority(b) || b.updatedAt - a.updatedAt || b.createdAt - a.createdAt,
     );
   const limit = visible.length > 8 ? 7 : 8;
   const lines = visible.slice(0, limit).map((thread) => {
     const stateColor =
-      thread.state === "failed"
-        ? "error"
-        : thread.state === "paused"
-          ? "warning"
-          : "accent";
+      thread.state === "failed" ? "error" : thread.state === "paused" ? "warning" : "accent";
     const badge = agentTypeBadge(
-      thread.type, thread.color, theme, agentProgressIcon(thread, nerdFontIcons), nerdFontIcons,
+      thread.type,
+      thread.color,
+      theme,
+      agentProgressIcon(thread, nerdFontIcons),
+      nerdFontIcons,
     );
     const path = agentPath(thread.path, thread.color, theme);
     const state = theme.fg(stateColor, `[${sanitizeText(thread.state)}]`);
     const left = `${badge} ${path} ${state} ${sanitizeText(thread.status || thread.task)}`;
-    return fitLine(
-      left,
-      theme.fg("muted", threadMetrics(thread)),
-      Math.max(0, width),
-    );
+    return fitLine(left, theme.fg("muted", threadMetrics(thread)), Math.max(0, width));
   });
   if (visible.length > limit) {
     lines.push(
       truncateToWidth(
-        theme.fg(
-          "muted",
-          `+${visible.length - limit} more threads · /agents tree`,
-        ),
+        theme.fg("muted", `+${visible.length - limit} more threads · /agents tree`),
         Math.max(0, width),
       ),
     );
@@ -281,7 +259,7 @@ function agentWidgetStatus(
   ].filter(Boolean);
   return truncateToWidth(
     theme.fg("accent", `${running} running`) +
-      (details.length ? theme.fg("muted", ` · ${details.join(" · ")}`) : ""),
+      (details.length > 0 ? theme.fg("muted", ` · ${details.join(" · ")}`) : ""),
     width,
     "",
   );
@@ -293,26 +271,19 @@ function statePriority(state: ThreadView["state"] | undefined): number {
   return 2;
 }
 
-function explicitParent(
-  path: string,
-  threadsByPath: Map<string, ThreadView>,
-): string | null {
+function explicitParent(path: string, threadsByPath: Map<string, ThreadView>): string | null {
   if (path === WIDGET_ROOT) return null;
   const thread = threadsByPath.get(path);
-  if (thread)
-    return thread.parent && thread.parent !== path ? thread.parent : null;
+  if (thread) return thread.parent && thread.parent !== path ? thread.parent : null;
   const index = path.lastIndexOf("/");
   return index > 0 ? path.slice(0, index) : null;
 }
 
 /** Lowest state in the branch. Parent links define ancestry; cycles are guarded. */
-function branchPriorityComparator(
-  threads: ThreadView[],
-): (a: string, b: string) => number {
+function branchPriorityComparator(threads: ThreadView[]): (a: string, b: string) => number {
   const threadsByPath = new Map<string, ThreadView>();
   for (const thread of threads) {
-    if (thread?.path && !threadsByPath.has(thread.path))
-      threadsByPath.set(thread.path, thread);
+    if (thread?.path && !threadsByPath.has(thread.path)) threadsByPath.set(thread.path, thread);
   }
   const children = new Map<string, string[]>();
   const link = (path: string, seen: Set<string>) => {
@@ -337,8 +308,7 @@ function branchPriorityComparator(
     if (stack.has(path)) return own;
     stack.add(path);
     let best = own;
-    for (const child of children.get(path) ?? [])
-      best = Math.min(best, subtreeOf(child, stack));
+    for (const child of children.get(path) ?? []) best = Math.min(best, subtreeOf(child, stack));
     stack.delete(path);
     subtree.set(path, best);
     return best;
@@ -363,14 +333,8 @@ function branchPriorityComparator(
     (a < b ? -1 : a > b ? 1 : 0);
 }
 
-function agentStateColor(
-  state: ThreadView["state"],
-): "error" | "warning" | "accent" {
-  return state === "failed"
-    ? "error"
-    : state === "paused"
-      ? "warning"
-      : "accent";
+function agentStateColor(state: ThreadView["state"]): "error" | "warning" | "accent" {
+  return state === "failed" ? "error" : state === "paused" ? "warning" : "accent";
 }
 
 function agentLine(
@@ -380,20 +344,20 @@ function agentLine(
   nerdFontIcons: boolean,
   animate: boolean,
 ): string {
-  const thread = row.thread!;
+  const { thread } = row;
+  if (thread === undefined) return "";
   const badge = agentTypeBadge(
-    thread.type, thread.color, theme,
-    agentProgressIcon(thread, nerdFontIcons, Date.now(), animate), nerdFontIcons,
+    thread.type,
+    thread.color,
+    theme,
+    agentProgressIcon(thread, nerdFontIcons, Date.now(), animate),
+    nerdFontIcons,
   );
   const left = `${row.prefix}${badge} ${agentPath(thread.path, thread.color, theme)} ${theme.fg(agentStateColor(thread.state), `[${sanitizeText(thread.state)}]`)} ${sanitizeText(thread.task)}`;
   return fitLine(left, theme.fg("muted", threadMetrics(thread)), width);
 }
 
-function placeholderLine(
-  row: StatusRow,
-  width: number,
-  theme: AgentBadgeTheme,
-): string {
+function placeholderLine(row: StatusRow, width: number, theme: AgentBadgeTheme): string {
   return truncateToWidth(
     `${row.prefix}${theme.fg("muted", `${sanitizeText(row.path)}  missing parent`)}`,
     width,
@@ -405,33 +369,29 @@ function takeWidgetRows(rows: StatusRow[], budget: number): StatusRow[] {
   const parents = new Map<number, number[]>();
   const stack: number[] = [];
   for (const [index, row] of rows.entries()) {
-    while (
-      stack.length &&
-      rows[stack[stack.length - 1]!]!.prefix.length >= row.prefix.length
-    )
+    while (stack.length > 0 && (rows[stack.at(-1) ?? -1]?.prefix.length ?? 0) >= row.prefix.length)
       stack.pop();
     parents.set(index, [...stack]);
     stack.push(index);
   }
-  const rowCost = (row: StatusRow) =>
-    row.path === WIDGET_ROOT ? 0 : 1;
+  const rowCost = (row: StatusRow) => (row.path === WIDGET_ROOT ? 0 : 1);
   const candidates = rows
     .map((row, index) => ({ row, index }))
     .filter(({ row }) => row.thread && row.path !== WIDGET_ROOT)
     .sort(
       (a, b) =>
-        statePriority(a.row.thread!.state) -
-          statePriority(b.row.thread!.state) ||
-        b.row.thread!.createdAt - a.row.thread!.createdAt || a.index - b.index,
+        statePriority(a.row.thread?.state) - statePriority(b.row.thread?.state) ||
+        (b.row.thread?.createdAt ?? 0) - (a.row.thread?.createdAt ?? 0) ||
+        a.index - b.index,
     );
   const chosen = new Set<number>();
   let used = 0;
   for (const { index } of candidates) {
-    const needed = [...parents.get(index)!, index].filter(
+    const needed = [...(parents.get(index) ?? []), index].filter(
       (ancestor) => !chosen.has(ancestor),
     );
     const cost = needed.reduce(
-      (total, ancestor) => total + rowCost(rows[ancestor]!),
+      (total, ancestor) => total + (rows[ancestor] ? rowCost(rows[ancestor]) : 0),
       0,
     );
     if (used + cost > budget) continue;
@@ -439,7 +399,7 @@ function takeWidgetRows(rows: StatusRow[], budget: number): StatusRow[] {
     used += cost;
   }
   // If a missing-parent chain cannot fit its agent, retain a useful tree prefix.
-  if (!chosen.size) {
+  if (chosen.size === 0) {
     for (const [index, row] of rows.entries()) {
       const cost = rowCost(row);
       if (used + cost > budget) break;
@@ -447,9 +407,7 @@ function takeWidgetRows(rows: StatusRow[], budget: number): StatusRow[] {
       used += cost;
     }
   }
-  return rows.filter(
-    (row, index) => row.path !== WIDGET_ROOT && chosen.has(index),
-  );
+  return rows.filter((row, index) => row.path !== WIDGET_ROOT && chosen.has(index));
 }
 
 /** Themed agent tree above the editor. Synthetic /root is the main conversation and is omitted. */
@@ -460,18 +418,13 @@ function renderAgentTree(
   { showBrowserHint = true, nerdFontIcons = false, animate = true }: AgentWidgetRenderOptions = {},
 ): string[] {
   const columns = Math.max(0, width);
-  const rows = buildStatusTree(
-    threads,
-    new Set(),
-    branchPriorityComparator(threads),
-  );
+  const rows = buildStatusTree(threads, new Set(), branchPriorityComparator(threads));
   const agents = rows.filter((row) => row.thread && row.path !== WIDGET_ROOT);
-  if (!agents.length) return [];
+  if (agents.length === 0) return [];
   const live = agents.filter(
-    (row) =>
-      row.thread!.state === "starting" || row.thread!.state === "running",
+    (row) => row.thread?.state === "starting" || row.thread?.state === "running",
   ).length;
-  const paused = agents.filter((row) => row.thread!.state === "paused").length;
+  const paused = agents.filter((row) => row.thread?.state === "paused").length;
   const heading = fitLine(
     theme.fg("accent", "Agents"),
     theme.fg("muted", `${live} live · ${paused} paused`),
@@ -504,7 +457,7 @@ function renderAgentSummary(
     if (thread?.path && thread.path !== WIDGET_ROOT && !agents.has(thread.path))
       agents.set(thread.path, thread);
   }
-  if (!agents.size) return [];
+  if (agents.size === 0) return [];
 
   const counts: Record<Exclude<ThreadView["state"], "starting">, number> = {
     running: 0,
@@ -529,14 +482,20 @@ function renderAgentSummary(
     ["paused", "warning"],
     ["completed", "success"],
   ];
-  const progress = counts.running > 0
-    ? agentProgressIcon({ state: "running" }, nerdFontIcons, Date.now(), animate)
-    : undefined;
-  const left = statuses
-    .filter(([state]) => state === "running" || counts[state] > 0)
-    .map(([state, color]) => theme.fg(color,
-      `${state === "running" && progress ? `${progress} ` : ""}${counts[state]} ${state}`))
-    .join(theme.fg("muted", ", ")) +
+  const progress =
+    counts.running > 0
+      ? agentProgressIcon({ state: "running" }, nerdFontIcons, Date.now(), animate)
+      : undefined;
+  const left =
+    statuses
+      .filter(([state]) => state === "running" || counts[state] > 0)
+      .map(([state, color]) =>
+        theme.fg(
+          color,
+          `${state === "running" && progress ? `${progress} ` : ""}${counts[state]} ${state}`,
+        ),
+      )
+      .join(theme.fg("muted", ", ")) +
     (showBrowserHint && counts.running > 0 ? theme.fg("muted", " · ← browser") : "");
   const right = theme.fg("muted", `↑${formatCount(input)} ↓${formatCount(output)}`);
   return [fitLine(left, right, Math.max(0, width))];
@@ -572,14 +531,18 @@ export function updateWidget(
     (tui) => {
       let timer: ReturnType<typeof setInterval> | undefined;
       if (snapshot.some(isLive) && (mode === "full" || nerdFontIcons)) {
-        timer = setInterval(() => tui.requestRender(), nerdFontIcons ? AGENT_PROGRESS_INTERVAL : 1000);
+        timer = setInterval(
+          () => tui.requestRender(),
+          nerdFontIcons ? AGENT_PROGRESS_INTERVAL : 1000,
+        );
         timer.unref();
       }
       return {
-        render: (width) => render(snapshot, width, ctx.ui.theme, {
-          showBrowserHint: !settled,
-          nerdFontIcons,
-        }),
+        render: (width) =>
+          render(snapshot, width, ctx.ui.theme, {
+            showBrowserHint: !settled,
+            nerdFontIcons,
+          }),
         invalidate: () => {},
         dispose: () => {
           if (timer) clearInterval(timer);
@@ -601,10 +564,8 @@ export async function showThreads(
   while (true) {
     try {
       if (!selectedPath) {
-        const threads = controller
-          .list()
-          .filter((thread) => thread.path !== "/root");
-        if (!threads.length) {
+        const threads = controller.list().filter((thread) => thread.path !== "/root");
+        if (threads.length === 0) {
           ctx.ui.notify("No subagent threads.", "info");
           return;
         }
@@ -620,16 +581,14 @@ export async function showThreads(
       if (selectedPath === "/root")
         throw new Error("/root is the current Pi thread, not a subagent.");
       const thread = controller.get(selectedPath);
-      const children = controller
-        .list()
-        .filter((child) => child.parent === selectedPath);
+      const children = controller.list().filter((child) => child.parent === selectedPath);
       const title = `${sanitizeText(thread.path)} [${sanitizeText(thread.state)}] ${sanitizeText(thread.status)}`;
       const action = await ctx.ui.select(title, [
         "View output",
         "View transcript",
         "Send input / resume",
         "Stop",
-        ...(children.length ? ["Children"] : []),
+        ...(children.length > 0 ? ["Children"] : []),
         "Back",
       ]);
       if (!action || action === "Back") {
@@ -648,10 +607,7 @@ export async function showThreads(
           text.split("\n").map(sanitizeText).join("\n"),
         );
       } else if (action === "Send input / resume") {
-        const message = await ctx.ui.editor(
-          "Send input / resume retained session",
-          "",
-        );
+        const message = await ctx.ui.editor("Send input / resume retained session", "");
         if (message?.trim()) await controller.steer(selectedPath, message);
       } else if (action === "Stop") {
         if (
@@ -668,14 +624,10 @@ export async function showThreads(
         );
         const selected = await ctx.ui.select("Children", labels);
         if (selected !== undefined)
-          selectedPath =
-            children[labels.indexOf(selected)]?.path ?? selectedPath;
+          selectedPath = children[labels.indexOf(selected)]?.path ?? selectedPath;
       }
     } catch (error) {
-      ctx.ui.notify(
-        sanitizeText(error instanceof Error ? error.message : String(error)),
-        "error",
-      );
+      ctx.ui.notify(sanitizeText(error instanceof Error ? error.message : String(error)), "error");
       return;
     }
   }
@@ -684,7 +636,7 @@ export async function showThreads(
 /** Parse editor argv, rejecting shell operators instead of evaluating a shell command. */
 function editorArguments(command: string): string[] {
   const args = parseShell(command, process.env);
-  if (!args.length || args.some((arg) => typeof arg !== "string") || !args[0]) {
+  if (args.length === 0 || args.some((arg) => typeof arg !== "string") || !args[0]) {
     throw new Error(
       "VISUAL/EDITOR must be an executable and arguments, without shell operators or globs.",
     );
@@ -692,15 +644,10 @@ function editorArguments(command: string): string[] {
   return args as string[];
 }
 
-async function externalEdit(
-  ctx: ExtensionCommandContext,
-  text: string,
-): Promise<string> {
-  if (ctx.mode !== "tui")
-    throw new Error("External editing requires interactive TUI mode.");
-  const [command, ...args] = editorArguments(
-    process.env.VISUAL || process.env.EDITOR || "vi",
-  );
+async function externalEdit(ctx: ExtensionCommandContext, text: string): Promise<string> {
+  if (ctx.mode !== "tui") throw new Error("External editing requires interactive TUI mode.");
+  const [command, ...args] = editorArguments(process.env.VISUAL || process.env.EDITOR || "vi");
+  if (command === undefined) throw new Error("No editor command is configured.");
   const directory = await mkdtemp(join(tmpdir(), "pi-subagent-"));
   const file = join(directory, "agent.md");
   try {
@@ -708,15 +655,13 @@ async function externalEdit(
     await ctx.ui.custom<void>((tui, _theme, _keys, done) => {
       tui.stop();
       try {
-        const result = spawnSync(command!, [...args, file], {
+        const result = spawnSync(command, [...args, file], {
           stdio: "inherit",
           env: process.env,
         });
         if (result.error) throw result.error;
         if (result.status !== 0)
-          throw new Error(
-            `Editor exited with status ${result.status ?? result.signal}.`,
-          );
+          throw new Error(`Editor exited with status ${result.status ?? result.signal}.`);
       } finally {
         tui.start();
         tui.requestRender(true);
@@ -735,23 +680,14 @@ async function editToolList(
   type: AgentType,
   field: "allow" | "block",
 ): Promise<void> {
-  const modes = [
-    "Unset (use default policy)",
-    "Empty list",
-    "Enter exact tool names",
-  ];
+  const modes = ["Unset (use default policy)", "Empty list", "Enter exact tool names"];
   const current = type.tools?.[field];
   const mode = await dialogMenu(
     ctx,
     `tools.${field} (${sanitizeText(toolListMenuValue(current))})`,
     modes.map((label) => ({ id: label, label })),
     {
-      selectedId:
-        current === undefined
-          ? modes[0]
-          : current.length === 0
-            ? modes[1]
-            : modes[2],
+      selectedId: current === undefined ? modes[0] : current.length === 0 ? modes[1] : modes[2],
     },
   );
   if (!mode) return;
@@ -773,7 +709,7 @@ async function editToolList(
       .map((name) => name.trim())
       .filter(Boolean);
   }
-  if (type.tools && !Object.keys(type.tools).length) delete type.tools;
+  if (type.tools && Object.keys(type.tools).length === 0) type.tools = undefined;
 }
 
 const AGENT_COLOR_DEFAULT = "__default__";
@@ -789,18 +725,29 @@ class AgentColorPickerComponent extends Container {
   private readonly theme: Theme;
   readonly selectList: SelectList;
 
+  private readonly tui: {
+    requestRender(force?: boolean): void;
+    terminal?: { rows: number };
+  };
+
+  private readonly agentName: string;
+
   constructor(
-    private readonly tui: {
+    tui: {
       requestRender(force?: boolean): void;
       terminal?: { rows: number };
     },
     theme: Theme,
     currentColor: AgentType["color"] | undefined,
-    private readonly agentName: string,
+    agentName: string,
     onSelect: (color: AgentType["color"] | undefined) => void,
     onCancel: () => void,
   ) {
     super();
+
+    this.tui = tui;
+
+    this.agentName = agentName;
     this.theme = theme;
     this.items = [
       {
@@ -827,17 +774,11 @@ class AgentColorPickerComponent extends Container {
       this.updatePreview(tui, item.value);
     };
     this.selectList.onSelect = (item) => {
-      onSelect(
-        item.value === AGENT_COLOR_DEFAULT
-          ? undefined
-          : (item.value as AgentType["color"]),
-      );
+      onSelect(item.value === AGENT_COLOR_DEFAULT ? undefined : (item.value as AgentType["color"]));
     };
     this.selectList.onCancel = onCancel;
-    this.updatePreview(
-      tui,
-      this.items[selectedIndex >= 0 ? selectedIndex : 0]!.value,
-    );
+    const initial = this.items[selectedIndex >= 0 ? selectedIndex : 0];
+    if (initial !== undefined) this.updatePreview(tui, initial.value);
   }
 
   getItems(): readonly {
@@ -854,10 +795,7 @@ class AgentColorPickerComponent extends Container {
     const selected = this.items.findIndex(
       (item) => item.value === this.selectList.getSelectedItem()?.value,
     );
-    const start = Math.max(
-      0,
-      Math.min(selected - budget + 1, this.items.length - budget),
-    );
+    const start = Math.max(0, Math.min(selected - budget + 1, this.items.length - budget));
     const body = [
       ` ${truncateToWidth(
         this.preview
@@ -898,10 +836,7 @@ class AgentColorPickerComponent extends Container {
     this.selectList.handleInput(keyData);
   }
 
-  private updatePreview(
-    tui: { requestRender(force?: boolean): void },
-    value: string,
-  ): void {
+  private updatePreview(tui: { requestRender(force?: boolean): void }, value: string): void {
     const color = value === AGENT_COLOR_DEFAULT ? undefined : value;
     const badge = agentTypeBadge(this.agentName, color, this.theme);
     const path = agentPath("/root/example-task", color, this.theme);
@@ -956,13 +891,8 @@ async function editDocument(
         source: type.source,
       };
     } catch (error) {
-      const diagnostic = sanitizeText(
-        error instanceof Error ? error.message : String(error),
-      );
-      ctx.ui.notify(
-        `Edit not accepted: ${diagnostic}. Original definition is unchanged.`,
-        "error",
-      );
+      const diagnostic = sanitizeText(error instanceof Error ? error.message : String(error));
+      ctx.ui.notify(`Edit not accepted: ${diagnostic}. Original definition is unchanged.`, "error");
       const action = await dialogMenu(ctx, "Invalid edit — retry?", [
         {
           id: "Retry",
@@ -991,16 +921,12 @@ function assertSaveDestination(
   kind: AgentEditMode = "fork",
 ): void {
   if (kind === "override" && original && type.name !== original.name) {
-    throw new Error(
-      "Settings overrides cannot rename the agent; fork it instead.",
-    );
+    throw new Error("Settings overrides cannot rename the agent; fork it instead.");
   }
   const entries = store.list();
   const sameName = entries.find((entry) => entry.name === type.name);
   if (sameName && (!original || type.name !== original.name)) {
-    throw new Error(
-      `Agent type ${type.name} already exists; choose a different name.`,
-    );
+    throw new Error(`Agent type ${type.name} already exists; choose a different name.`);
   }
   const destination = store.destination(type.name, scope, original, kind);
   if (
@@ -1080,19 +1006,15 @@ const EDIT_FIELD_HELP: Record<EditMenuAction, string> = {
   modelSuggestions:
     "Advisory display names to help pick a model. Not provider/model pins; never selected or required. One name per line; empty clears.",
   thinkingLevel: "Reasoning effort. Default follows the parent session.",
-  "tools.allow":
-    "Unset uses default policy; an empty list explicitly allows no tools.",
+  "tools.allow": "Unset uses default policy; an empty list explicitly allows no tools.",
   "tools.block": "Exact tool names to remove from the allowed set.",
   color: "Thread widget color with live preview.",
   icon: "Paste a single Nerd Font glyph from nerdfonts.com/cheat-sheet (not its name or codepoint).\nLeave blank to remove. Display requires [labs] Nerd Font icons in settings and a Nerd Font in your terminal.",
   systemPrompt: "Edit the Markdown prompt body in a multiline dialog.",
-  "Save scope":
-    "Project definitions override global definitions with the same name.",
-  Source:
-    "Read-only source. Bundled definitions are copied, never overwritten.",
+  "Save scope": "Project definitions override global definitions with the same name.",
+  Source: "Read-only source. Bundled definitions are copied, never overwritten.",
   "Edit frontmatter YAML": "Edit metadata as YAML, preserving the prompt body.",
-  "External editor (entire Markdown)":
-    "Edit the complete definition using $VISUAL / $EDITOR.",
+  "External editor (entire Markdown)": "Edit the complete definition using $VISUAL / $EDITOR.",
   Save: "Validate and save. Existing sessions keep their original configuration.",
   Cancel: "Close without saving any edits.",
 };
@@ -1102,10 +1024,7 @@ async function chooseSaveScope(
   store: ConfigStore,
   current: "user" | "project",
 ): Promise<"user" | "project" | undefined> {
-  const choices = [
-    "Global",
-    ...(store.canSaveProject() ? ["Trusted project"] : []),
-  ];
+  const choices = ["Global", ...(store.canSaveProject() ? ["Trusted project"] : [])];
   const value = await dialogMenu(
     ctx,
     "Save scope",
@@ -1131,10 +1050,7 @@ function modelSuggestionPrefill(suggestions: string[] | undefined): string {
   return (suggestions ?? []).map((name) => sanitizeText(name)).join("\n");
 }
 
-function customizationMenuValue(
-  editMode: AgentEditMode | undefined,
-  isNew: boolean,
-): string {
+function customizationMenuValue(editMode: AgentEditMode | undefined, isNew: boolean): string {
   if (isNew) return "New full definition (.md)";
   if (editMode === "override") return "Settings override (.yml)";
   if (editMode === "fork") return "Full copy (.md)";
@@ -1228,14 +1144,14 @@ async function editAgentTypesDialog(
       ...types.map((type) => ({
         id: type.name,
         label: type.name,
-        renderLabel: (label: string, theme: Theme) => agentTypeBadge(label, type.color, theme, type.icon, nerdFontIcons),
+        renderLabel: (label: string, theme: Theme) =>
+          agentTypeBadge(label, type.color, theme, type.icon, nerdFontIcons),
         value: type.description,
         help: `${type.source ?? "user"} · ${type.filePath ?? ""}`,
       })),
     ]);
     if (selection === undefined) return;
-    const original =
-      selection === "Create new type" ? undefined : store.get(selection);
+    const original = selection === "Create new type" ? undefined : store.get(selection);
     const isNew = !original;
     let draft: AgentType = original
       ? structuredClone(original)
@@ -1243,9 +1159,7 @@ async function editAgentTypesDialog(
     const originalContent = serializeAgentType(draft);
     let selectedId: string | undefined;
     let saveScope: "user" | "project" =
-      original?.source === "project" && store.canSaveProject()
-        ? "project"
-        : "user";
+      original?.source === "project" && store.canSaveProject() ? "project" : "user";
     // Bundled definitions stay read-only until the user picks how to own them.
     let editMode: AgentEditMode | undefined = isNew
       ? "fork"
@@ -1273,16 +1187,16 @@ async function editAgentTypesDialog(
           return {
             id: action,
             label: EDIT_FIELD_LABELS[action],
-            valueColor: action === "Save" && dirty ? "warning" as const : undefined,
+            valueColor: action === "Save" && dirty ? ("warning" as const) : undefined,
             value:
               action === "Customization"
                 ? customizationMenuValue(editMode, isNew)
                 : action === "Save" && dirty
                   ? "(changes)"
                   : action === "Source"
-                    ? (original?.customization
+                    ? original?.customization
                       ? `${original.customization.scope} ${original.customization.kind} over ${original.baseSource ?? "bundled"}`
-                      : (original?.source ?? "New draft"))
+                      : (original?.source ?? "New draft")
                     : action === "Save scope"
                       ? saveScope === "user"
                         ? "Global"
@@ -1294,10 +1208,10 @@ async function editAgentTypesDialog(
                           : "",
             help:
               action === "Source"
-                ? (original?.customization
+                ? original?.customization
                   ? `Settings file: ${original.customization.filePath}. Base prompt: ${original.baseFilePath ?? "(bundled)"}.`
                   : (original?.filePath ??
-                    "Not saved yet. Bundled definitions are copied, never overwritten."))
+                    "Not saved yet. Bundled definitions are copied, never overwritten.")
                 : EDIT_FIELD_HELP[action],
           };
         }),
@@ -1329,7 +1243,7 @@ async function editAgentTypesDialog(
           editMode = mode;
           continue;
         }
-        if (!isNew && !editMode) {
+        if (!(isNew || editMode)) {
           ctx.ui.notify(
             "Pick Customization first: tweak settings (.yml) or fork the agent (.md).",
             "error",
@@ -1391,16 +1305,10 @@ async function editAgentTypesDialog(
           continue;
         }
         if (field === "Source") {
-          ctx.ui.notify(
-            original?.filePath ?? "This definition has not been saved yet.",
-            "info",
-          );
+          ctx.ui.notify(original?.filePath ?? "This definition has not been saved yet.", "info");
           continue;
         }
-        if (
-          field === "External editor (entire Markdown)" ||
-          field === "Edit frontmatter YAML"
-        ) {
+        if (field === "External editor (entire Markdown)" || field === "Edit frontmatter YAML") {
           const edited = await editDocument(
             ctx,
             draft,
@@ -1410,11 +1318,7 @@ async function editAgentTypesDialog(
           continue;
         }
         const candidate = structuredClone(draft);
-        if (
-          field === "name" ||
-          field === "description" ||
-          field === "systemPrompt"
-        ) {
+        if (field === "name" || field === "description" || field === "systemPrompt") {
           const originalValue = candidate[field] ?? "";
           // Editor prefill must not carry terminal controls. An unmodified or
           // SDK-trimmed submit keeps the original, including whitespace and CRLF.
@@ -1426,15 +1330,16 @@ async function editAgentTypesDialog(
             .join("\n");
           const value = await dialogEditor(ctx, `Agent ${field}`, prefill);
           if (value === undefined) continue;
-          candidate[field] =
-            value === prefill || value === prefill.trim()
-              ? originalValue
-              : value;
+          candidate[field] = value === prefill || value === prefill.trim() ? originalValue : value;
         } else if (field === "icon") {
-          const value = await dialogEditor(ctx, "Agent icon (Nerd Font glyph; blank to remove)", candidate.icon ?? "");
+          const value = await dialogEditor(
+            ctx,
+            "Agent icon (Nerd Font glyph; blank to remove)",
+            candidate.icon ?? "",
+          );
           if (value === undefined) continue;
           const icon = value.trim();
-          if (!icon) delete candidate.icon;
+          if (!icon) candidate.icon = undefined;
           else candidate.icon = icon;
         } else if (field === "models") {
           const value = await editModelPreferences(
@@ -1444,11 +1349,11 @@ async function editAgentTypesDialog(
           );
           if (value === MODEL_EDITOR_CANCEL) continue;
           if (value.length === 0) {
-            delete candidate.models;
-            delete candidate.model;
+            candidate.models = undefined;
+            candidate.model = undefined;
           } else {
             candidate.models = [...value];
-            delete candidate.model;
+            candidate.model = undefined;
           }
         } else if (field === "modelSuggestions") {
           const prefill = modelSuggestionPrefill(candidate.modelSuggestions);
@@ -1463,7 +1368,7 @@ async function editAgentTypesDialog(
             .split("\n")
             .map((line) => line.trim())
             .filter((line) => line.length > 0);
-          if (names.length === 0) delete candidate.modelSuggestions;
+          if (names.length === 0) candidate.modelSuggestions = undefined;
           else candidate.modelSuggestions = [...names];
         } else if (field === "thinkingLevel") {
           const value = await dialogMenu(
@@ -1476,23 +1381,15 @@ async function editAgentTypesDialog(
             { selectedId: candidate.thinkingLevel ?? "Default (inherit)" },
           );
           if (!value) continue;
-          if (value === "Default (inherit)") delete candidate.thinkingLevel;
+          if (value === "Default (inherit)") candidate.thinkingLevel = undefined;
           else candidate.thinkingLevel = value as AgentType["thinkingLevel"];
         } else if (field === "color") {
-          const value = await selectAgentColor(
-            ctx,
-            candidate.color,
-            candidate.name,
-          );
+          const value = await selectAgentColor(ctx, candidate.color, candidate.name);
           if (value === AGENT_COLOR_CANCEL) continue;
-          if (value === undefined) delete candidate.color;
+          if (value === undefined) candidate.color = undefined;
           else candidate.color = value;
         } else if (field === "tools.allow" || field === "tools.block") {
-          await editToolList(
-            ctx,
-            candidate,
-            field === "tools.allow" ? "allow" : "block",
-          );
+          await editToolList(ctx, candidate, field === "tools.allow" ? "allow" : "block");
         }
         parseAgentType(serializeAgentType(candidate));
         draft = candidate;

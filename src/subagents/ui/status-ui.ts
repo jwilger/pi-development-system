@@ -1,4 +1,7 @@
-// @ts-nocheck: vendored upstream pi-subagent-manager 0.14.0 compiled under looser options; see src/subagents/VENDORED.md
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/complexity/noVoid: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/suspicious/noShadow: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/suspicious/noUnnecessaryConditions: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
 import type {
   ExtensionCommandContext,
   ExtensionContext,
@@ -7,30 +10,34 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import {
   getKeybindings,
-  setKeybindings,
   Key,
-  matchesKey,
   type Keybinding,
+  matchesKey,
+  setKeybindings,
 } from "@earendil-works/pi-tui";
+import type { ThreadService } from "../types.ts";
 import {
   canOpenDialog,
   DIALOG_OPTIONS,
   type DialogHost,
   DialogSession,
-  scopeDialogContext,
-  dialogMenu,
   dialogEditor,
   dialogHeight,
+  dialogMenu,
   dialogText,
   frameDialog,
+  scopeDialogContext,
 } from "./dialog.ts";
-import type { ThreadService } from "../types.ts";
+import { type AgentViewportState, fillViewport, LiveAgentView } from "./live-agent-view.ts";
 import { buildStatusTree, type StatusRow } from "./thread-tree.ts";
 import {
-  AGENT_PROGRESS_INTERVAL, agentProgressIcon, agentTypeBadge, agentTypeLabel, showThreads, threadMetrics,
+  AGENT_PROGRESS_INTERVAL,
+  agentProgressIcon,
+  agentTypeBadge,
+  agentTypeLabel,
+  showThreads,
+  threadMetrics,
 } from "./ui.ts";
-import { LiveAgentView, fillViewport, type AgentViewportState } from "./live-agent-view.ts";
-
 
 const ROOT = "/root";
 const INACTIVE_STATES = new Set(["paused", "stopped", "failed", "completed"]);
@@ -55,7 +62,7 @@ function lexicalParent(path: string): string | null {
 function treeParent(rows: StatusRow[], index: number): StatusRow | undefined {
   const depth = rows[index]?.prefix.length ?? 0;
   for (let cursor = index - 1; cursor >= 0; cursor--) {
-    if (rows[cursor]!.prefix.length < depth) return rows[cursor];
+    if ((rows[cursor]?.prefix.length ?? 0) < depth) return rows[cursor];
   }
   return undefined;
 }
@@ -96,24 +103,59 @@ class StatusDialog {
   private refreshDelay = 0;
   private refreshing = false;
 
+  private host: DialogHost;
+
+  private theme: Theme;
+
+  private service: ThreadService;
+
+  private done: (path: string | undefined) => void;
+
+  private title: string;
+
+  private navigation:
+    | {
+        state: AgentTreeState;
+        actions(path: string): void;
+        fullscreen?: boolean;
+      }
+    | undefined;
+
+  private nerdFontIcons: boolean;
+
   constructor(
-    private host: DialogHost,
-    private theme: Theme,
-    private service: ThreadService,
-    private done: (path: string | undefined) => void,
+    host: DialogHost,
+    theme: Theme,
+    service: ThreadService,
+    done: (path: string | undefined) => void,
     selected?: string,
-    private title = TITLE,
-    private navigation?: {
+    title: string = TITLE,
+    navigation?: {
       state: AgentTreeState;
       actions(path: string): void;
       fullscreen?: boolean;
     },
-    private nerdFontIcons = false,
+    nerdFontIcons: boolean = false,
   ) {
+    this.host = host;
+
+    this.theme = theme;
+
+    this.service = service;
+
+    this.done = done;
+
+    this.title = title;
+
+    this.navigation = navigation;
+
+    this.nerdFontIcons = nerdFontIcons;
     this.state = navigation?.state ?? { selectedPath: selected || ROOT, collapsed: new Set() };
   }
 
-  invalidate(): void {}
+  invalidate(): void {
+    // Nothing is cached, so there is nothing to invalidate.
+  }
 
   /** Poll retained status, accelerating the existing timer only for animated live agents. */
   startRefresh(): void {
@@ -130,9 +172,15 @@ class StatusDialog {
 
   private syncRefresh(): void {
     if (!this.refreshing) return;
-    const delay = this.nerdFontIcons && this.service.list().some((thread) =>
-      thread.path !== ROOT && (thread.state === "starting" || thread.state === "running"))
-      ? AGENT_PROGRESS_INTERVAL : 1000;
+    const animated =
+      this.nerdFontIcons &&
+      this.service
+        .list()
+        .some(
+          (thread) =>
+            thread.path !== ROOT && (thread.state === "starting" || thread.state === "running"),
+        );
+    const delay = animated ? AGENT_PROGRESS_INTERVAL : 1000;
     if (this.timer !== undefined && this.refreshDelay === delay) return;
     this.stopRefresh();
     this.refreshDelay = delay;
@@ -154,14 +202,18 @@ class StatusDialog {
   private stopAll(): void {
     const live = this.service
       .list()
-      .filter((thread) => thread.path !== ROOT && (thread.state === "starting" || thread.state === "running"))
+      .filter(
+        (thread) =>
+          thread.path !== ROOT && (thread.state === "starting" || thread.state === "running"),
+      )
       .map((thread) => thread.path);
     const tops = live.filter((path) => !live.some((other) => path.startsWith(`${other}/`)));
     for (const path of tops) {
-      void this.service
+      this.service
         .stop(path)
-        .catch(() => {})
-        .finally(() => this.host.requestRender());
+        .catch(() => undefined)
+        .finally(() => this.host.requestRender())
+        .catch(() => undefined);
     }
     this.host.requestRender();
   }
@@ -241,8 +293,18 @@ class StatusDialog {
     this.host.requestRender();
   }
 
+  private markerFor(row: StatusRow): string {
+    if (!row.hasChildren) return "";
+    return this.collapsed.has(row.path) ? "▸ " : "▾ ";
+  }
+
+  private missingThreadText(row: StatusRow | undefined): string {
+    if (row?.path !== ROOT) return "Missing parent";
+    return agentCount(this.service.list()) ? "Main Pi session" : "Main Pi session — No agents yet";
+  }
+
   private line(row: StatusRow, selected: boolean): string {
-    const marker = row.hasChildren ? (this.collapsed.has(row.path) ? "▸ " : "▾ ") : "";
+    const marker = this.markerFor(row);
     const head = ` ${row.prefix}${selected ? "›" : " "} ${marker}`;
     const thread = row.thread;
     if (!thread) {
@@ -253,14 +315,16 @@ class StatusDialog {
     if (inactive) {
       // Completed fades furthest (dim); the state word keeps a theme hint for done/failed.
       const base = thread.state === "completed" ? "dim" : "muted";
-      const hint =
-        thread.state === "completed" ? "success" : thread.state === "failed" ? "error" : base;
+      const hint = hintFor(thread.state, base);
       const state = dialogText(thread.state);
       const path = dialogText(thread.path);
       const status = dialogText(thread.status);
       return [
         this.theme.fg(selected ? "accent" : base, head),
-        this.theme.fg(base, `${agentTypeLabel(thread.type, thread.icon, this.nerdFontIcons)}  ${path}  `),
+        this.theme.fg(
+          base,
+          `${agentTypeLabel(thread.type, thread.icon, this.nerdFontIcons)}  ${path}  `,
+        ),
         this.theme.fg(hint, state),
         this.theme.fg(base, `  ${status}`),
       ].join("");
@@ -268,8 +332,13 @@ class StatusDialog {
     const rest = [thread.path, thread.state, thread.status]
       .map((part) => dialogText(part))
       .join("  ");
-    const badge = agentTypeBadge(thread.type, thread.color, this.theme,
-      agentProgressIcon(thread, this.nerdFontIcons), this.nerdFontIcons);
+    const badge = agentTypeBadge(
+      thread.type,
+      thread.color,
+      this.theme,
+      agentProgressIcon(thread, this.nerdFontIcons),
+      this.nerdFontIcons,
+    );
     if (selected)
       return `${this.theme.fg("accent", head)}${badge} ${this.theme.fg("accent", rest)}`;
     return `${head}${badge} ${rest}`;
@@ -277,10 +346,7 @@ class StatusDialog {
 
   private detail(row: StatusRow | undefined): string[] {
     if (!row?.thread) {
-      return [
-        ` ${row?.path === ROOT ? (agentCount(this.service.list()) ? "Main Pi session" : "Main Pi session — No agents yet") : "Missing parent"}`,
-        "",
-      ];
+      return [` ${this.missingThreadText(row)}`, ""];
     }
     return [` task ${dialogText(row.thread.task)}`, ` ${threadMetrics(row.thread)}`];
   }
@@ -312,9 +378,7 @@ class StatusDialog {
       height,
       this.heading(rows, start, treeCount),
       body,
-      this.navigation
-        ? "Esc main · ↑↓ select · ←→ fold · i Actions · Ctrl+C stop all"
-        : FOOTER,
+      this.navigation ? "Esc main · ↑↓ select · ←→ fold · i Actions · Ctrl+C stop all" : FOOTER,
     );
   }
 
@@ -333,10 +397,10 @@ async function showAgentDialog(
   ctx: ExtensionCommandContext,
   service: ThreadService,
   options: {
-    title?: string;
-    selected?: string;
-    inspect?: (path: string) => Promise<void>;
-    nerdFontIcons?: boolean;
+    title?: string | undefined;
+    selected?: string | undefined;
+    inspect?: ((path: string) => Promise<void>) | undefined;
+    nerdFontIcons?: boolean | undefined;
   } = {},
 ): Promise<void> {
   const open = options.inspect ?? ((path: string) => showThreads(ctx, service, path));
@@ -347,7 +411,16 @@ async function showAgentDialog(
     let dialog: StatusDialog | undefined;
     try {
       const chosen = await ctx.ui.custom<string | undefined>((host, theme, _keys, done) => {
-        dialog = new StatusDialog(host, theme, service, done, selected, options.title, undefined, options.nerdFontIcons);
+        dialog = new StatusDialog(
+          host,
+          theme,
+          service,
+          done,
+          selected,
+          options.title,
+          undefined,
+          options.nerdFontIcons,
+        );
         dialog.startRefresh();
         return dialog;
       }, DIALOG_OPTIONS);
@@ -390,7 +463,12 @@ export class AgentNavigationController {
     this.session = undefined;
   }
 
-  open(ctx: ExtensionContext, service: ThreadService, selectedPath?: string, nerdFontIcons = false): Promise<void> {
+  open(
+    ctx: ExtensionContext,
+    service: ThreadService,
+    selectedPath?: string,
+    nerdFontIcons = false,
+  ): Promise<void> {
     if (this.opening) return this.opening;
     if (!canOpenDialog(ctx)) return Promise.resolve();
     if (selectedPath) this.tree.selectedPath = selectedPath;
@@ -481,14 +559,20 @@ export class AgentNavigationController {
                 await showThreads(scoped, service, chosen.path);
                 continue;
               }
-              let viewport = this.viewports.get(chosen.path);
-              if (!viewport) {
-                viewport = { scrollTop: 0, follow: true };
-                this.viewports.set(chosen.path, viewport);
-              }
+              const existing = this.viewports.get(chosen.path);
+              const viewport: AgentViewportState = existing ?? { scrollTop: 0, follow: true };
+              if (existing === undefined) this.viewports.set(chosen.path, viewport);
               const result = await session.mount<"back" | "main">(
                 (tui, activeTheme, _keys, finish) =>
-                  new LiveAgentView(tui, activeTheme, service, chosen.path, viewport!, finish, nerdFontIcons),
+                  new LiveAgentView(
+                    tui,
+                    activeTheme,
+                    service,
+                    chosen.path,
+                    viewport,
+                    finish,
+                    nerdFontIcons,
+                  ),
               );
               if (result !== "back") break;
             }
@@ -529,7 +613,7 @@ export class AgentNavigationController {
 
 const navigationByService = new WeakMap<ThreadService, AgentNavigationController>();
 
-async function showAgentTree(
+async function _showAgentTree(
   ctx: ExtensionContext,
   service: ThreadService,
   selectedPath?: string,
@@ -541,4 +625,9 @@ async function showAgentTree(
     navigationByService.set(service, navigation);
   }
   await navigation.open(ctx, service, selectedPath, nerdFontIcons);
+}
+
+function hintFor<T extends string>(state: string, base: T): T | "success" | "error" {
+  if (state === "completed") return "success";
+  return state === "failed" ? "error" : base;
 }

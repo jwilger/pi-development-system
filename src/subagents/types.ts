@@ -1,4 +1,3 @@
-// @ts-nocheck: vendored upstream pi-subagent-manager 0.14.0 compiled under looser options; see src/subagents/VENDORED.md
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 
@@ -11,22 +10,24 @@ export interface ResolvedAgentSettings {
 export interface AgentType {
   name: string;
   description: string;
-  models?: string[];
+  models?: string[] | undefined;
   /** @deprecated Use ordered models instead. */
-  model?: string;
+  model?: string | undefined;
   /** Advisory display names. Not provider/model pins and never used for selection. */
-  modelSuggestions?: string[];
-  thinkingLevel?: ThinkingLevel;
+  modelSuggestions?: string[] | undefined;
+  thinkingLevel?: ThinkingLevel | undefined;
   /** devsys: per-spawn pin set by the coordinator via agent_spawn; beats preferences and inheritance. */
-  spawnOverrides?: { model?: string; thinkingLevel?: ThinkingLevel };
+  spawnOverrides?:
+    | { model?: string | undefined; thinkingLevel?: ThinkingLevel | undefined }
+    | undefined;
   /** Pi semantic token for the type pill background and task path foreground. */
-  color?: string | undefined;
+  color?: string | undefined | undefined;
   /** Optional literal Nerd Font glyph; displayed only when the labs setting is enabled. */
-  icon?: string | undefined;
-  tools?: { allow?: string[]; block?: string[] };
+  icon?: string | undefined | undefined;
+  tools?: { allow?: string[] | undefined; block?: string[] | undefined } | undefined;
   systemPrompt: string;
-  filePath?: string;
-  source?: "bundled" | "user" | "project";
+  filePath?: string | undefined;
+  source?: "bundled" | "user" | "project" | undefined;
   /**
    * How this definition is customized relative to its base.
    * - fork: a full `<name>.md` copy (owns the system prompt).
@@ -34,15 +35,17 @@ export interface AgentType {
    *   (no Markdown body; unset fields follow the base).
    * Absent for pure bundled definitions and brand-new drafts.
    */
-  customization?: {
-    kind: "fork" | "override";
-    scope: "user" | "project";
-    filePath: string;
-  };
+  customization?:
+    | {
+        kind: "fork" | "override";
+        scope: "user" | "project";
+        filePath: string;
+      }
+    | undefined;
   /** Source of the base definition under the customization, if any. */
-  baseSource?: "bundled" | "user" | "project";
+  baseSource?: "bundled" | "user" | "project" | undefined;
   /** File path of the base definition under the customization, if any. */
-  baseFilePath?: string;
+  baseFilePath?: string | undefined;
 }
 type ThreadState = "starting" | "running" | "paused" | "completed" | "failed" | "stopped";
 export interface ThreadView {
@@ -69,7 +72,7 @@ export interface ThreadView {
   /** Cumulative output tokens. Live views include the in-progress message. */
   outputTokens?: number;
   /** devsys: per-spawn model/thinkingLevel pin requested through agent_spawn, when any. */
-  pinned?: { model?: string; thinkingLevel?: ThinkingLevel };
+  pinned?: { model?: string | undefined; thinkingLevel?: ThinkingLevel | undefined };
 }
 type DriverEvent =
   | { kind: "activity" | "error"; text: string }

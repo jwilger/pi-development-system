@@ -11,6 +11,8 @@ const walk = (dir: string): string[] =>
     return e.name.endsWith(".ts") ? [path] : [];
   });
 
+const byName = (a: string, b: string): number => a.localeCompare(b);
+
 const exempt = (file: string): boolean =>
   /^\s*\/\/\s*@ts-nocheck/m.test(readFileSync(file, "utf8"));
 
@@ -33,4 +35,15 @@ test("the exempt list holds no file that has since been cleaned or removed", () 
     [],
     "drop these lines: the files are type-clean or gone (the list may only shrink)",
   );
+});
+
+test("biome skips exactly the files on the exempt list", () => {
+  const config = JSON.parse(readFileSync("biome.json", "utf8")) as {
+    files: { includes: string[] };
+  };
+  const excluded = config.files.includes
+    .filter((entry) => entry.startsWith("!src/subagents/"))
+    .map((entry) => entry.slice(1))
+    .sort(byName);
+  assert.deepEqual(excluded, [...NOCHECK_FILES].sort(byName));
 });

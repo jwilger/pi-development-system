@@ -1,4 +1,3 @@
-// @ts-nocheck: vendored upstream pi-subagent-manager 0.14.0 compiled under looser options; see src/subagents/VENDORED.md
 import { randomUUID } from "node:crypto";
 import type { SessionEntry, SessionManager } from "@earendil-works/pi-coding-agent";
 
@@ -94,10 +93,12 @@ const normalizeLegacyQueue = (
   const steering = value.steering;
   const followUp = value.followUp;
   if (
-    !Array.isArray(steering) ||
-    !steering.every((text) => typeof text === "string") ||
-    !Array.isArray(followUp) ||
-    !followUp.every((text) => typeof text === "string")
+    !(
+      Array.isArray(steering) &&
+      steering.every((text) => typeof text === "string") &&
+      Array.isArray(followUp) &&
+      followUp.every((text) => typeof text === "string")
+    )
   ) {
     return undefined;
   }
@@ -137,7 +138,10 @@ export class DurableMailbox {
   private readonly consumed = new Set<string>();
   private readonly enqueued = new Set<string>();
 
-  constructor(private readonly sessionManager: SessionManager) {
+  private readonly sessionManager: SessionManager;
+
+  constructor(sessionManager: SessionManager) {
+    this.sessionManager = sessionManager;
     this.migrateLegacyQueue();
     this.restore();
   }
@@ -166,7 +170,7 @@ export class DurableMailbox {
 
   private consumeAppended(messageEntryId: string, markerSource: unknown): void {
     const id = getMailboxMarker(markerSource)?.id;
-    if (!id || !this.accepted.has(id) || this.consumed.has(id)) return;
+    if (!(id && this.accepted.has(id)) || this.consumed.has(id)) return;
     this.sessionManager.appendCustomEntry(CONSUMED_TYPE, { id, messageEntryId });
     this.consumed.add(id);
     this.enqueued.delete(id);

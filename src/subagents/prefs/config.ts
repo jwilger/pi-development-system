@@ -1,19 +1,19 @@
-// @ts-nocheck: vendored upstream pi-subagent-manager 0.14.0 compiled under looser options; see src/subagents/VENDORED.md
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+import { randomUUID } from "node:crypto";
 import {
   lstatSync,
   mkdirSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   renameSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { randomUUID } from "node:crypto";
 import { isMap, isScalar, parseDocument, stringify } from "yaml";
+import { type AgentType, THINKING_LEVELS } from "../types.ts";
 import { getModelPreferences } from "./models.ts";
-import { THINKING_LEVELS, type AgentType } from "../types.ts";
 import type { ToolFilteringMode } from "./settings.ts";
 
 // Pi semantic color tokens, resolved as concrete colors for agent name backgrounds.
@@ -94,9 +94,7 @@ function errorCode(error: unknown): string | undefined {
     : undefined;
 }
 
-function lstatIfPresent(
-  path: string,
-): ReturnType<typeof lstatSync> | undefined {
+function lstatIfPresent(path: string): ReturnType<typeof lstatSync> | undefined {
   try {
     return lstatSync(path);
   } catch (error) {
@@ -105,9 +103,7 @@ function lstatIfPresent(
   }
 }
 
-function assertNotSymlinkPath(
-  path: string,
-): ReturnType<typeof lstatSync> | undefined {
+function assertNotSymlinkPath(path: string): ReturnType<typeof lstatSync> | undefined {
   const stat = lstatIfPresent(path);
   if (stat?.isSymbolicLink()) throw new Error(`Unsafe symlink path: ${path}`);
   return stat;
@@ -130,12 +126,9 @@ function validatePreservedDestination(
 }
 
 function frontmatter(content: string): { yaml: string; body: string } {
-  const match = /^(?:\uFEFF)?---\r?\n([\s\S]*?)^---[ \t]*(?:\r?\n|$)/m.exec(
-    content,
-  );
-  if (!match || match.index !== 0)
-    throw new Error("Expected YAML frontmatter enclosed by --- lines");
-  return { yaml: match[1], body: content.slice(match[0].length) };
+  const match = /^(?:\uFEFF)?---\r?\n([\s\S]*?)^---[ \t]*(?:\r?\n|$)/m.exec(content);
+  if (match?.index !== 0) throw new Error("Expected YAML frontmatter enclosed by --- lines");
+  return { yaml: match[1] ?? "", body: content.slice(match[0].length) };
 }
 
 function record(value: unknown, label: string): Record<string, unknown> {
@@ -161,13 +154,8 @@ function modelSuggestionNames(value: unknown): string[] {
 }
 
 function toolNames(value: unknown, label: string): string[] {
-  if (
-    !Array.isArray(value) ||
-    value.some((name) => typeof name !== "string" || !TOOL.test(name))
-  ) {
-    throw new Error(
-      `${label} must be an array of exact tool names (no wildcards or patterns)`,
-    );
+  if (!Array.isArray(value) || value.some((name) => typeof name !== "string" || !TOOL.test(name))) {
+    throw new Error(`${label} must be an array of exact tool names (no wildcards or patterns)`);
   }
   if (new Set(value).size !== value.length)
     throw new Error(`${label} contains duplicate tool names`);
@@ -177,13 +165,10 @@ function toolNames(value: unknown, label: string): string[] {
 function toolPolicy(value: unknown): NonNullable<AgentType["tools"]> {
   const mapping = record(value, "tools");
   for (const key of Object.keys(mapping))
-    if (key !== "allow" && key !== "block")
-      throw new Error(`Unknown tools field: ${key}`);
+    if (key !== "allow" && key !== "block") throw new Error(`Unknown tools field: ${key}`);
   const result: NonNullable<AgentType["tools"]> = {};
-  if (Object.hasOwn(mapping, "allow"))
-    result.allow = toolNames(mapping.allow, "tools.allow");
-  if (Object.hasOwn(mapping, "block"))
-    result.block = toolNames(mapping.block, "tools.block");
+  if (Object.hasOwn(mapping, "allow")) result.allow = toolNames(mapping.allow, "tools.allow");
+  if (Object.hasOwn(mapping, "block")) result.block = toolNames(mapping.block, "tools.block");
   return result;
 }
 
@@ -191,12 +176,10 @@ export function parseAgentType(content: string, filePath?: string): AgentType {
   try {
     const { yaml, body } = frontmatter(content);
     const doc = parseDocument(yaml, { uniqueKeys: true });
-    if (doc.errors.length)
-      throw new Error(doc.errors.map((error) => error.message).join("; "));
+    if (doc.errors.length > 0) throw new Error(doc.errors.map((error) => error.message).join("; "));
     const data = record(doc.toJS({ maxAliasCount: 0 }), "Frontmatter");
     for (const key of Object.keys(data))
-      if (!FIELDS.has(key))
-        throw new Error(`Unknown frontmatter field: ${key}`);
+      if (!FIELDS.has(key)) throw new Error(`Unknown frontmatter field: ${key}`);
     if (typeof data.name !== "string" || !NAME.test(data.name))
       throw new Error(
         "name must be a safe identifier using letters, numbers, underscores or hyphens",
@@ -216,26 +199,20 @@ export function parseAgentType(content: string, filePath?: string): AgentType {
     if (Object.hasOwn(data, "modelSuggestions"))
       result.modelSuggestions = modelSuggestionNames(data.modelSuggestions);
     if (Object.hasOwn(data, "thinkingLevel")) {
-      if (
-        !THINKING_LEVELS.includes(
-          data.thinkingLevel as AgentType["thinkingLevel"] & string,
-        )
-      )
-        throw new Error(
-          `thinkingLevel must be one of: ${THINKING_LEVELS.join(", ")}`,
-        );
+      if (!THINKING_LEVELS.includes(data.thinkingLevel as AgentType["thinkingLevel"] & string))
+        throw new Error(`thinkingLevel must be one of: ${THINKING_LEVELS.join(", ")}`);
       result.thinkingLevel = data.thinkingLevel as AgentType["thinkingLevel"];
     }
     if (Object.hasOwn(data, "color")) {
       if (!AGENT_COLORS.includes(data.color as (typeof AGENT_COLORS)[number]))
-        throw new Error(
-          `color must be a Pi foreground token: ${AGENT_COLORS.join(", ")}`,
-        );
+        throw new Error(`color must be a Pi foreground token: ${AGENT_COLORS.join(", ")}`);
       result.color = data.color as string;
     }
     if (Object.hasOwn(data, "icon")) {
       if (typeof data.icon !== "string" || !/^\p{Co}$/u.test(data.icon))
-        throw new Error("icon must be a single literal Nerd Font glyph (Unicode private-use character)");
+        throw new Error(
+          "icon must be a single literal Nerd Font glyph (Unicode private-use character)",
+        );
       result.icon = data.icon;
     }
     if (Object.hasOwn(data, "tools")) result.tools = toolPolicy(data.tools);
@@ -244,13 +221,13 @@ export function parseAgentType(content: string, filePath?: string): AgentType {
   } catch (error) {
     throw new Error(
       `${filePath ?? "Agent definition"}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
     );
   }
 }
 
 export function serializeAgentType(type: AgentType): string {
-  if (typeof type.systemPrompt !== "string")
-    throw new Error("systemPrompt must be a string");
+  if (typeof type.systemPrompt !== "string") throw new Error("systemPrompt must be a string");
   const data: Record<string, unknown> = {
     name: type.name,
     description: type.description,
@@ -317,12 +294,9 @@ export function parseAgentSettings(
   const label = filePath ?? "Agent settings override";
   try {
     if (/^\uFEFF?---[ \t]*\r?\n/m.test(content) || content.includes("\n---"))
-      throw new Error(
-        "Settings overrides are plain YAML with no frontmatter and no Markdown body",
-      );
+      throw new Error("Settings overrides are plain YAML with no frontmatter and no Markdown body");
     const doc = parseDocument(content, { uniqueKeys: true });
-    if (doc.errors.length)
-      throw new Error(doc.errors.map((error) => error.message).join("; "));
+    if (doc.errors.length > 0) throw new Error(doc.errors.map((error) => error.message).join("; "));
     const data = record(doc.toJS({ maxAliasCount: 0 }) ?? {}, "Settings override");
     for (const key of Object.keys(data)) {
       if (key === "systemPrompt" || key === "prompt" || key === "body")
@@ -350,16 +324,14 @@ export function parseAgentSettings(
     }
     const hasModels = Object.hasOwn(data, "models");
     const hasModel = Object.hasOwn(data, "model");
-    if (hasModels && hasModel)
-      throw new Error("Specify either models or model, not both");
+    if (hasModels && hasModel) throw new Error("Specify either models or model, not both");
     if (hasModels)
       result.models = nullableField(data.models, (value) =>
         getModelPreferences({ models: value }),
-      ) as string[] | null | undefined;
+      ) as string[] | null;
     if (hasModel) {
       if (data.model === null) result.model = null;
-      else
-        result.models = getModelPreferences({ model: data.model }) as string[];
+      else result.models = getModelPreferences({ model: data.model }) as string[];
     }
     if (Object.hasOwn(data, "modelSuggestions"))
       result.modelSuggestions = nullableField(data.modelSuggestions, (value) =>
@@ -368,17 +340,13 @@ export function parseAgentSettings(
     if (Object.hasOwn(data, "thinkingLevel"))
       result.thinkingLevel = nullableField(data.thinkingLevel, (value) => {
         if (!THINKING_LEVELS.includes(value as AgentType["thinkingLevel"] & string))
-          throw new Error(
-            `thinkingLevel must be one of: ${THINKING_LEVELS.join(", ")}`,
-          );
+          throw new Error(`thinkingLevel must be one of: ${THINKING_LEVELS.join(", ")}`);
         return value as AgentType["thinkingLevel"];
       });
     if (Object.hasOwn(data, "color"))
       result.color = nullableField(data.color, (value) => {
         if (!AGENT_COLORS.includes(value as (typeof AGENT_COLORS)[number]))
-          throw new Error(
-            `color must be a Pi foreground token: ${AGENT_COLORS.join(", ")}`,
-          );
+          throw new Error(`color must be a Pi foreground token: ${AGENT_COLORS.join(", ")}`);
         return value as string;
       });
     if (Object.hasOwn(data, "icon"))
@@ -393,9 +361,9 @@ export function parseAgentSettings(
       result.tools = data.tools === null ? null : toolPolicy(data.tools);
     return result;
   } catch (error) {
-    throw new Error(
-      `${label}: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    throw new Error(`${label}: ${error instanceof Error ? error.message : String(error)}`, {
+      cause: error,
+    });
   }
 }
 
@@ -411,9 +379,7 @@ export function serializeAgentSettings(override: AgentSettingsOverride): string 
   else if (models !== undefined) data.models = models;
   if (override.modelSuggestions !== undefined)
     data.modelSuggestions =
-      override.modelSuggestions === null
-        ? null
-        : modelSuggestionNames(override.modelSuggestions);
+      override.modelSuggestions === null ? null : modelSuggestionNames(override.modelSuggestions);
   for (const key of ["thinkingLevel", "color", "icon", "tools"] as const)
     if (override[key] !== undefined) data[key] = override[key];
   const content = `${stringify(data)}`;
@@ -421,25 +387,12 @@ export function serializeAgentSettings(override: AgentSettingsOverride): string 
   return content;
 }
 
-/** Fields an override may clear back to the base/inherit state with null. */
-const CLEARABLE_OVERRIDE_FIELDS = new Set([
-  "models",
-  "modelSuggestions",
-  "thinkingLevel",
-  "color",
-  "icon",
-  "tools",
-]);
-
 /**
  * Merge a sparse settings override on top of a base definition. Unset fields
  * follow the base; explicit null clears the field. The prompt body always
  * comes from the base.
  */
-export function mergeAgentSettings(
-  base: AgentType,
-  override: AgentSettingsOverride,
-): AgentType {
+export function mergeAgentSettings(base: AgentType, override: AgentSettingsOverride): AgentType {
   const merged: AgentType = structuredClone(base);
   if (override.description !== undefined) merged.description = override.description;
   const models = getModelPreferences({
@@ -447,19 +400,13 @@ export function mergeAgentSettings(
     model: override.model ?? undefined,
   } as { models?: unknown; model?: unknown });
   if (override.models === null || override.model === null) {
-    delete merged.models;
-    delete merged.model;
+    merged.models = undefined;
+    merged.model = undefined;
   } else if (models !== undefined) {
     merged.models = [...models];
-    delete merged.model;
+    merged.model = undefined;
   }
-  for (const key of [
-    "modelSuggestions",
-    "thinkingLevel",
-    "color",
-    "icon",
-    "tools",
-  ] as const) {
+  for (const key of ["modelSuggestions", "thinkingLevel", "color", "icon", "tools"] as const) {
     const value = override[key];
     if (value === undefined) continue;
     if (value === null) delete merged[key];
@@ -489,20 +436,13 @@ export function diffAgentSettings(base: AgentType, draft: AgentType): AgentSetti
     if (draftModels === undefined) override.models = null;
     else override.models = [...draftModels];
   }
-  for (const key of [
-    "modelSuggestions",
-    "thinkingLevel",
-    "color",
-    "icon",
-    "tools",
-  ] as const) {
+  for (const key of ["modelSuggestions", "thinkingLevel", "color", "icon", "tools"] as const) {
     const before = base[key];
     const after = draft[key];
     if (JSON.stringify(before ?? null) === JSON.stringify(after ?? null)) continue;
     if (after === undefined) override[key] = null as never;
     else Object.assign(override, { [key]: structuredClone(after) });
   }
-  void CLEARABLE_OVERRIDE_FIELDS;
   return override;
 }
 
@@ -514,12 +454,7 @@ export function selectTools(
   const names = new Set(available);
   if (mode === "all") return [...names];
   // Ignored lists do not participate in validation or tool selection.
-  const relevantPolicy =
-    mode === "all-except-blocked"
-      ? policy?.block === undefined
-        ? {}
-        : { block: policy.block }
-      : policy;
+  const relevantPolicy = blockedOnly(mode, policy);
   const validated = relevantPolicy === undefined ? {} : toolPolicy(relevantPolicy);
   for (const name of [...(validated.allow ?? []), ...(validated.block ?? [])]) {
     if (!names.has(name)) throw new Error(`Unavailable tool name: ${name}`);
@@ -553,24 +488,17 @@ export class ConfigStore {
     this.diagnostics = [];
     const layers: [string, NonNullable<AgentType["source"]>][] = [
       [
-        this.options.bundledDir ??
-          fileURLToPath(new URL("../../../agents/", import.meta.url)),
+        this.options.bundledDir ?? fileURLToPath(new URL("../../../agents/", import.meta.url)),
         "bundled",
       ],
       ...this.scopeDirectories("user").map(
-        (directory): [string, NonNullable<AgentType["source"]>] => [
-          directory,
-          "user",
-        ],
+        (directory): [string, NonNullable<AgentType["source"]>] => [directory, "user"],
       ),
     ];
     if (this.options.includeProject)
       layers.push(
         ...this.scopeDirectories("project").map(
-          (directory): [string, NonNullable<AgentType["source"]>] => [
-            directory,
-            "project",
-          ],
+          (directory): [string, NonNullable<AgentType["source"]>] => [directory, "project"],
         ),
       );
     for (const [directory, source] of layers) {
@@ -581,9 +509,7 @@ export class ConfigStore {
         if (!stat.isDirectory())
           throw new Error(`Agent directory must be a directory: ${directory}`);
         files = readdirSync(directory)
-          .filter(
-            (file) => file.endsWith(".md") || isAgentOverrideFile(file),
-          )
+          .filter((file) => file.endsWith(".md") || isAgentOverrideFile(file))
           .sort();
       } catch (error) {
         this.diagnostics.push(`${directory}: ${String(error)}`);
@@ -607,7 +533,8 @@ export class ConfigStore {
     for (const file of files) {
       const filePath = join(directory, file);
       if (isAgentOverrideFile(file)) {
-        blocked.add(overrideBaseName(file)!);
+        const base = overrideBaseName(file);
+        if (base !== undefined) blocked.add(base);
         this.diagnostics.push(
           `${filePath}: Settings overrides (<name>.yml) are not allowed in the bundled layer`,
         );
@@ -616,16 +543,12 @@ export class ConfigStore {
       let content = "";
       try {
         if (!lstatSync(filePath).isFile())
-          throw new Error(
-            "Agent definition must be a regular file, not a symlink",
-          );
+          throw new Error("Agent definition must be a regular file, not a symlink");
         content = readFileSync(filePath, "utf8");
         const type = parseAgentType(content, filePath);
         if (seenNames.has(type.name)) {
           blocked.add(type.name);
-          this.diagnostics.push(
-            `${filePath}: Duplicate agent name in bundled layer: ${type.name}`,
-          );
+          this.diagnostics.push(`${filePath}: Duplicate agent name in bundled layer: ${type.name}`);
           continue;
         }
         seenNames.add(type.name);
@@ -663,17 +586,10 @@ export class ConfigStore {
    * Having both for one name, duplicate declarations, malformed files, or an
    * override without a base fails closed for that agent name.
    */
-  private applyScopeLayer(
-    directory: string,
-    scope: AgentSettingsScope,
-    files: string[],
-  ): void {
+  private applyScopeLayer(directory: string, scope: AgentSettingsScope, files: string[]): void {
     const blocked = new Set<string>();
     const forks = new Map<string, { type: AgentType; file: string }>();
-    const overrides = new Map<
-      string,
-      { override: AgentSettingsOverride; file: string }
-    >();
+    const overrides = new Map<string, { override: AgentSettingsOverride; file: string }>();
     const forkNames = new Set<string>();
     const declareBlocked = (name: string) => {
       blocked.add(name);
@@ -690,9 +606,7 @@ export class ConfigStore {
         let content = "";
         try {
           if (!lstatSync(filePath).isFile())
-            throw new Error(
-              "Agent settings override must be a regular file, not a symlink",
-            );
+            throw new Error("Agent settings override must be a regular file, not a symlink");
           content = readFileSync(filePath, "utf8");
           const override = parseAgentSettings(content, filePath, overrideName);
           const key = override.name ?? overrideName;
@@ -735,9 +649,7 @@ export class ConfigStore {
       let content = "";
       try {
         if (!lstatSync(filePath).isFile())
-          throw new Error(
-            "Agent definition must be a regular file, not a symlink",
-          );
+          throw new Error("Agent definition must be a regular file, not a symlink");
         content = readFileSync(filePath, "utf8");
         const type = parseAgentType(content, filePath);
         if (overrides.has(type.name)) {
@@ -776,10 +688,13 @@ export class ConfigStore {
         this.diagnostics.push(`${filePath}: ${String(error)}`);
       }
     }
-    for (const name of [...forks.keys()].filter((name) => overrides.has(name))) {
+    for (const name of [...forks.keys()].filter((key) => overrides.has(key))) {
       declareBlocked(name);
+      const fork = forks.get(name);
+      const override = overrides.get(name);
+      if (fork === undefined || override === undefined) continue;
       this.diagnostics.push(
-        `${join(directory, forks.get(name)!.file)} and ${join(directory, overrides.get(name)!.file)}: ` +
+        `${join(directory, fork.file)} and ${join(directory, override.file)}: ` +
           `Use either ${name}.md (full fork) or ${name}.yml (settings override), not both`,
       );
     }
@@ -834,9 +749,7 @@ export class ConfigStore {
   }
 
   list(): AgentType[] {
-    return structuredClone(
-      [...this.types.values()].sort((a, b) => a.name.localeCompare(b.name)),
-    );
+    return structuredClone([...this.types.values()].sort((a, b) => a.name.localeCompare(b.name)));
   }
 
   get(name: string): AgentType {
@@ -850,19 +763,12 @@ export class ConfigStore {
   }
 
   private preferredScopeDirectory(scope: AgentScope): string {
-    if (scope !== "user" && scope !== "project")
-      throw new Error("Invalid agent scope");
+    if (scope !== "user" && scope !== "project") throw new Error("Invalid agent scope");
     if (scope === "project" && !this.options.includeProject)
       throw new Error("Project agents are not enabled/trusted");
     return scope === "user"
       ? resolve(this.options.agentDir, SUBAGENT_MANAGER_DIR, AGENTS_DIR)
-      : resolve(
-          this.options.cwd,
-          ".pi",
-          "agent",
-          SUBAGENT_MANAGER_DIR,
-          AGENTS_DIR,
-        );
+      : resolve(this.options.cwd, ".pi", "agent", SUBAGENT_MANAGER_DIR, AGENTS_DIR);
   }
 
   // Manager-owned storage only. Do not scan legacy Pi agent packages.
@@ -878,13 +784,7 @@ export class ConfigStore {
     const base = resolve(this.options.cwd);
     const projectPi = join(base, ".pi");
     const projectAgent = join(projectPi, "agent");
-    return [
-      base,
-      projectPi,
-      projectAgent,
-      join(projectAgent, SUBAGENT_MANAGER_DIR),
-      directory,
-    ];
+    return [base, projectPi, projectAgent, join(projectAgent, SUBAGENT_MANAGER_DIR), directory];
   }
 
   /** Base definition under the top customization, for diffing and read-only display. */
@@ -903,15 +803,12 @@ export class ConfigStore {
       original?.name !== name ||
       original.source !== scope ||
       typeof original.filePath !== "string" ||
-      dirname(resolve(original.filePath)) !==
-        this.preferredScopeDirectory(scope)
+      dirname(resolve(original.filePath)) !== this.preferredScopeDirectory(scope)
     )
       return false;
     const preserved = resolve(original.filePath);
     if (kind === "fork") return preserved.endsWith(".md");
-    return AGENT_OVERRIDE_EXTENSIONS.some((extension) =>
-      preserved.endsWith(extension),
-    );
+    return AGENT_OVERRIDE_EXTENSIONS.some((extension) => preserved.endsWith(extension));
   }
 
   destination(
@@ -938,10 +835,7 @@ export class ConfigStore {
   private writeContent(filePath: string, name: string, content: string): void {
     const directory = dirname(filePath);
     mkdirSync(directory, { recursive: true });
-    const temporary = join(
-      dirname(filePath),
-      `.${name}.${randomUUID()}.tmp`,
-    );
+    const temporary = join(dirname(filePath), `.${name}.${randomUUID()}.tmp`);
     try {
       writeFileSync(temporary, content, { flag: "wx", mode: 0o600 });
       renameSync(temporary, filePath);
@@ -953,10 +847,7 @@ export class ConfigStore {
   private assertWritableDestination(filePath: string, scope: AgentScope): void {
     const directory = dirname(filePath);
     // Reject redirected destination directories and files before writing.
-    for (const path of [
-      ...this.destinationBasePaths(scope, directory),
-      filePath,
-    ]) {
+    for (const path of [...this.destinationBasePaths(scope, directory), filePath]) {
       const stat = assertNotSymlinkPath(path);
       if (path === filePath && stat && !stat.isFile())
         throw new Error(`Unsafe agent destination: ${filePath}`);
@@ -988,13 +879,15 @@ export class ConfigStore {
     if (!NAME.test(name)) throw new Error("Unsafe agent name");
     if (draft.name !== name)
       throw new Error("Settings overrides cannot rename the agent; fork it instead");
-    const base = this.getBase(name) ?? (() => {
-      try {
-        return this.get(name);
-      } catch {
-        return undefined;
-      }
-    })();
+    const base =
+      this.getBase(name) ??
+      (() => {
+        try {
+          return this.get(name);
+        } catch {
+          return undefined;
+        }
+      })();
     if (!base) throw new Error(`Settings override has no base agent named ${JSON.stringify(name)}`);
     if (base.name !== name)
       throw new Error(`Settings override has no base agent named ${JSON.stringify(name)}`);
@@ -1017,8 +910,10 @@ export class ConfigStore {
     const resolved = resolve(customization.filePath);
     if (
       dirname(resolved) !== this.preferredScopeDirectory(scope) ||
-      (!resolved.endsWith(".md") &&
-        !AGENT_OVERRIDE_EXTENSIONS.some((extension) => resolved.endsWith(extension)))
+      !(
+        resolved.endsWith(".md") ||
+        AGENT_OVERRIDE_EXTENSIONS.some((extension) => resolved.endsWith(extension))
+      )
     )
       throw new Error(`Unsafe agent destination: ${resolved}`);
     const stat = lstatIfPresent(resolved);
@@ -1026,4 +921,9 @@ export class ConfigStore {
     unlinkSync(resolved);
     this.reload();
   }
+}
+
+function blockedOnly(mode: ToolFilteringMode, policy: AgentType["tools"]): AgentType["tools"] {
+  if (mode !== "all-except-blocked") return policy;
+  return policy?.block === undefined ? {} : { block: policy.block };
 }

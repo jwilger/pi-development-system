@@ -1,23 +1,19 @@
-// @ts-nocheck: vendored upstream pi-subagent-manager 0.14.0 compiled under looser options; see src/subagents/VENDORED.md
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/suspicious/noUnnecessaryConditions: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import type { ConfigStore } from "../prefs/config.ts";
 import {
-  canOpenDialog,
-  dialogInput,
-  dialogMenu,
-  withDialogSession,
-} from "./dialog.ts";
-import {
   DEFAULT_MANAGER_SETTINGS,
   loadManagerSaveScope,
-  saveManagerSaveScope,
-  saveManagerSettings,
   type ManagerSettings,
   type ModelSelectionMode,
   type SubagentMode,
+  saveManagerSaveScope,
+  saveManagerSettings,
   type ToolFilteringMode,
   type WidgetMode,
 } from "../prefs/settings.ts";
+import { canOpenDialog, dialogInput, dialogMenu, withDialogSession } from "./dialog.ts";
 import { editAgentTypes } from "./ui.ts";
 
 const FIELDS = [
@@ -138,9 +134,7 @@ export async function configureAgents(
   },
 ): Promise<void> {
   if (!canOpenDialog(ctx)) return;
-  await withDialogSession(ctx, (scoped) =>
-    configureAgentsDialog(scoped, options),
-  );
+  await withDialogSession(ctx, (scoped) => configureAgentsDialog(scoped, options));
 }
 
 async function configureAgentsDialog(
@@ -167,13 +161,13 @@ async function configureAgentsDialog(
         {
           id: "subagentMode",
           label: "Subagent Mode",
-          value: MODE_OPTIONS.find((mode) => mode.id === draft.subagentMode)!.label,
+          value: MODE_OPTIONS.find((mode) => mode.id === draft.subagentMode)?.label,
           help: MODE_HELP,
         },
         {
           id: "toolFiltering",
           label: "Tool Filtering",
-          value: TOOL_FILTERING_OPTIONS.find((mode) => mode.id === draft.toolFiltering)!.label,
+          value: TOOL_FILTERING_OPTIONS.find((mode) => mode.id === draft.toolFiltering)?.label,
           help: TOOL_FILTERING_HELP,
         },
         ...FIELDS.map((field) => ({
@@ -183,13 +177,13 @@ async function configureAgentsDialog(
         {
           id: "modelSelection",
           label: "Model Picking",
-          value: MODEL_SELECTION_OPTIONS.find((mode) => mode.id === draft.modelSelection)!.label,
+          value: MODEL_SELECTION_OPTIONS.find((mode) => mode.id === draft.modelSelection)?.label,
           help: MODEL_SELECTION_HELP,
         },
         {
           id: "widgetMode",
           label: "Status Widget",
-          value: WIDGET_MODE_OPTIONS.find((mode) => mode.id === draft.widgetMode)!.label,
+          value: WIDGET_MODE_OPTIONS.find((mode) => mode.id === draft.widgetMode)?.label,
           help: WIDGET_MODE_HELP,
         },
         {
@@ -225,7 +219,7 @@ async function configureAgentsDialog(
           id: "save",
           label: "Save and apply",
           value: dirty ? "(changes)" : undefined,
-          valueColor: dirty ? "warning" as const : undefined,
+          valueColor: dirty ? ("warning" as const) : undefined,
           help: "Save all values to the selected scope and reload settings now.\nProject overrides still take precedence.\nRunning agents and retained sessions are kept.",
         },
         {
@@ -243,19 +237,13 @@ async function configureAgentsDialog(
     if (!action || action === "cancel") return;
     selectedId = action;
     try {
-      const field = FIELDS.find((field) => field.id === action);
+      const field = FIELDS.find((candidate) => candidate.id === action);
       if (field) {
-        const value = await dialogInput(
-          ctx,
-          field.label,
-          String(draft[field.id]),
-          field.help,
-        );
+        const value = await dialogInput(ctx, field.label, String(draft[field.id]), field.help);
         if (value === undefined) continue;
         const number = Number(value.trim());
         if (
-          !/^\d+$/.test(value.trim()) ||
-          !Number.isSafeInteger(number) ||
+          !(/^\d+$/.test(value.trim()) && Number.isSafeInteger(number)) ||
           number < 1 ||
           (field.id === "maxLevels" && number > 32)
         )
@@ -291,10 +279,7 @@ async function configureAgentsDialog(
         draft.finalRecap = !draft.finalRecap;
       } else if (action === "scope") {
         if (!ctx.isProjectTrusted())
-          ctx.ui.notify(
-            "Project settings require a trusted project; saving globally.",
-            "warning",
-          );
+          ctx.ui.notify("Project settings require a trusted project; saving globally.", "warning");
         else {
           const nextScope = scope === "user" ? "project" : "user";
           saveManagerSaveScope(options.agentDir, nextScope);
@@ -320,10 +305,7 @@ async function configureAgentsDialog(
         return;
       }
     } catch (error) {
-      ctx.ui.notify(
-        error instanceof Error ? error.message : String(error),
-        "error",
-      );
+      ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
     }
   }
 }

@@ -6,8 +6,8 @@ export type ThinkingLevel = (typeof THINKING_LEVELS)[number];
 
 /** Per-spawn choices the coordinator makes; they beat agent-type preferences and inheritance. */
 export type SpawnOverrides = {
-  readonly model?: string;
-  readonly thinkingLevel?: ThinkingLevel;
+  readonly model?: string | undefined;
+  readonly thinkingLevel?: ThinkingLevel | undefined;
 };
 
 export type Settings = {

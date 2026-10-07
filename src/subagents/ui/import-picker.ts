@@ -1,4 +1,3 @@
-// @ts-nocheck: vendored upstream pi-subagent-manager 0.14.0 compiled under looser options; see src/subagents/VENDORED.md
 import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import {
   CURSOR_MARKER,
@@ -10,10 +9,10 @@ import {
 } from "@earendil-works/pi-tui";
 import {
   DIALOG_OPTIONS,
+  type DialogHost,
   dialogHeight,
   dialogText,
   frameDialog,
-  type DialogHost,
 } from "./dialog.ts";
 
 export interface ImportPickerItem {
@@ -76,12 +75,28 @@ class ImportPicker {
   private viewport = 1;
   private readonly checked = new Set<string>();
 
+  private host: DialogHost;
+
+  private theme: Theme;
+
+  private readonly items: readonly ImportPickerItem[];
+
+  private done: (ids: string[] | undefined) => void;
+
   constructor(
-    private host: DialogHost,
-    private theme: Theme,
-    private readonly items: readonly ImportPickerItem[],
-    private done: (ids: string[] | undefined) => void,
-  ) {}
+    host: DialogHost,
+    theme: Theme,
+    items: readonly ImportPickerItem[],
+    done: (ids: string[] | undefined) => void,
+  ) {
+    this.host = host;
+
+    this.theme = theme;
+
+    this.items = items;
+
+    this.done = done;
+  }
 
   /** Selected ids in source order. Empty until the user toggles a row. */
   getSelectedIds(): string[] {
@@ -99,7 +114,9 @@ class ImportPicker {
     return this.cursor;
   }
 
-  invalidate(): void {}
+  invalidate(): void {
+    // Nothing is cached, so there is nothing to invalidate.
+  }
 
   handleInput(data: string): void {
     const keys = getKeybindings();
@@ -155,8 +172,8 @@ class ImportPicker {
       if (listCount > 0) body.push(this.theme.fg("muted", " No external agents to import"));
     } else {
       const rows = this.items.slice(start, start + listCount);
-      for (let offset = 0; offset < rows.length; offset++)
-        body.push(this.row(rows[offset]!, start + offset === this.cursor));
+      for (const [offset, row] of rows.entries())
+        body.push(this.row(row, start + offset === this.cursor));
     }
     if (gap) body.push("");
     for (const line of detail.slice(0, detailCount)) body.push(this.theme.fg("muted", ` ${line}`));
@@ -164,7 +181,7 @@ class ImportPicker {
   }
 
   private countLine(start: number, shown: number): string {
-    const position = this.items.length ? this.cursor + 1 : 0;
+    const position = this.items.length > 0 ? this.cursor + 1 : 0;
     return this.theme.fg(
       "dim",
       ` ${this.scrollHint(start, shown)}${this.checked.size} selected · ${position}/${this.items.length}`,

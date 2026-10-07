@@ -1,4 +1,9 @@
-// @ts-nocheck: vendored upstream pi-subagent-manager 0.14.0 compiled under looser options; see src/subagents/VENDORED.md
+// biome-ignore-all lint/complexity/noVoid: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/correctness/noVoidTypeReturn: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/suspicious/noControlCharactersInRegex: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/suspicious/noEmptyBlockStatements: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/suspicious/noUnnecessaryConditions: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/suspicious/useAwait: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
 import type {
   ExtensionContext,
   ExtensionUIContext,
@@ -6,6 +11,7 @@ import type {
   Theme,
 } from "@earendil-works/pi-coding-agent";
 import {
+  type Component,
   CURSOR_MARKER,
   Editor,
   getKeybindings,
@@ -13,11 +19,10 @@ import {
   Key,
   matchesKey,
   stripTerminalSequences,
+  type TUI,
   truncateToWidth,
   visibleWidth,
   wrapTextWithAnsi,
-  type Component,
-  type TUI,
 } from "@earendil-works/pi-tui";
 
 export interface DialogHost {
@@ -31,10 +36,10 @@ export interface DialogRow {
   id: string;
   label: string;
   /** Trusted formatter receives sanitized text; generated ANSI styling is kept when clipping. */
-  renderLabel?: (label: string, theme: Theme) => string;
-  value?: string;
-  valueColor?: Parameters<Theme["fg"]>[0];
-  help?: string;
+  renderLabel?: ((label: string, theme: Theme) => string) | undefined;
+  value?: string | undefined;
+  valueColor?: Parameters<Theme["fg"]>[0] | undefined;
+  help?: string | undefined;
 }
 export const DIALOG_OPTIONS = {
   overlay: true,
@@ -69,18 +74,14 @@ export function frameDialog(
     const clipped = truncateToWidth(text, Math.max(0, columns), "", true);
     return clipped + " ".repeat(Math.max(0, columns - visibleWidth(clipped)));
   };
-  if (width < 4 || height < 4)
-    return [fit(theme.fg("muted", dialogText(title)), width)];
+  if (width < 4 || height < 4) return [fit(theme.fg("muted", dialogText(title)), width)];
   const inner = width - 2;
   const line = (text: string) =>
     theme.fg("border", "│") + fit(text, inner) + theme.fg("border", "│");
   const heading = truncateToWidth(` ${dialogText(title)} `, inner, "");
   const top = theme.fg(
     "border",
-    "╭" +
-      heading +
-      "─".repeat(Math.max(0, inner - visibleWidth(heading))) +
-      "╮",
+    `╭${heading}${"─".repeat(Math.max(0, inner - visibleWidth(heading)))}╮`,
   );
   // Pad to the full frame so centered overlays keep the same bounds between views.
   const budget = height - 4;
@@ -90,9 +91,9 @@ export function frameDialog(
   return [
     top,
     ...content,
-    theme.fg("border", "├" + "─".repeat(inner) + "┤"),
+    theme.fg("border", `├${"─".repeat(inner)}┤`),
     line(theme.fg("dim", dialogText(footer))),
-    theme.fg("border", "╰" + "─".repeat(inner) + "╯"),
+    theme.fg("border", `╰${"─".repeat(inner)}╯`),
   ];
 }
 
@@ -100,13 +101,24 @@ export function frameDialog(
 class DialogEditor {
   private editor: Editor;
   private initialText: string;
+  private host: DialogEditorHost;
+  private theme: Theme;
+  readonly title: string;
+  readonly prefill: string;
+  private done: (value: string | undefined) => void;
+
   constructor(
-    private host: DialogEditorHost,
-    private theme: Theme,
-    readonly title: string,
-    readonly prefill: string,
-    private done: (value: string | undefined) => void,
+    host: DialogEditorHost,
+    theme: Theme,
+    title: string,
+    prefill: string,
+    done: (value: string | undefined) => void,
   ) {
+    this.host = host;
+    this.theme = theme;
+    this.title = title;
+    this.prefill = prefill;
+    this.done = done;
     this.editor = new Editor(
       host as ConstructorParameters<typeof Editor>[0],
       {
@@ -173,8 +185,7 @@ export function dialogEditor(
   prefill: string,
 ): Promise<string | undefined> {
   return ctx.ui.custom(
-    (host, theme, _keys, done) =>
-      new DialogEditor(host, theme, title, prefill, done),
+    (host, theme, _keys, done) => new DialogEditor(host, theme, title, prefill, done),
     DIALOG_OPTIONS,
   );
 }
@@ -183,16 +194,31 @@ export function dialogEditor(
 class DialogMenu {
   private selected = 0;
   private viewport = 1;
+  private host: DialogHost;
+  private theme: Theme;
+  readonly title: string;
+  readonly rows: DialogRow[];
+  private done: (id: string | undefined) => void;
+  readonly footer: string;
+  private saveId: string | undefined;
+
   constructor(
-    private host: DialogHost,
-    private theme: Theme,
-    readonly title: string,
-    readonly rows: DialogRow[],
-    private done: (id: string | undefined) => void,
+    host: DialogHost,
+    theme: Theme,
+    title: string,
+    rows: DialogRow[],
+    done: (id: string | undefined) => void,
     selectedId?: string,
-    readonly footer = "↑↓ navigate · Enter select · Esc close",
-    private saveId?: string,
+    footer: string = "↑↓ navigate · Enter select · Esc close",
+    saveId?: string,
   ) {
+    this.host = host;
+    this.theme = theme;
+    this.title = title;
+    this.rows = rows;
+    this.done = done;
+    this.footer = footer;
+    this.saveId = saveId;
     const index = rows.findIndex((row) => row.id === selectedId);
     if (index >= 0) this.selected = index;
   }
@@ -202,23 +228,16 @@ class DialogMenu {
   handleInput(data: string): void {
     const keys = getKeybindings();
     if (keys.matches(data, "tui.select.cancel")) return this.done(undefined);
-    if (keys.matches(data, "tui.select.confirm"))
-      return this.done(this.getSelectedId());
-    if (this.saveId && matchesKey(data, Key.ctrl("s")))
-      return this.done(this.saveId);
+    if (keys.matches(data, "tui.select.confirm")) return this.done(this.getSelectedId());
+    if (this.saveId && matchesKey(data, Key.ctrl("s"))) return this.done(this.saveId);
     let offset = 0;
     if (keys.matches(data, "tui.select.up")) offset = -1;
-    else if (keys.matches(data, "tui.select.down") || matchesKey(data, Key.tab))
-      offset = 1;
+    else if (keys.matches(data, "tui.select.down") || matchesKey(data, Key.tab)) offset = 1;
     else if (matchesKey(data, Key.pageUp)) offset = -this.viewport;
     else if (matchesKey(data, Key.pageDown)) offset = this.viewport;
     else if (matchesKey(data, Key.home)) this.selected = 0;
-    else if (matchesKey(data, Key.end))
-      this.selected = Math.max(0, this.rows.length - 1);
-    this.selected = Math.max(
-      0,
-      Math.min(this.rows.length - 1, this.selected + offset),
-    );
+    else if (matchesKey(data, Key.end)) this.selected = Math.max(0, this.rows.length - 1);
+    this.selected = Math.max(0, Math.min(this.rows.length - 1, this.selected + offset));
     this.host.requestRender();
   }
   invalidate(): void {}
@@ -232,20 +251,17 @@ class DialogMenu {
     this.viewport = Math.max(1, height - 6 - help.length);
     const start = Math.max(
       0,
-      Math.min(
-        this.selected - this.viewport + 1,
-        this.rows.length - this.viewport,
-      ),
+      Math.min(this.selected - this.viewport + 1, this.rows.length - this.viewport),
     );
     const labelWidth = Math.min(28, Math.max(8, Math.floor(inner * 0.35)));
     const body = [
       this.theme.fg(
         "dim",
-        ` ${this.rows.length ? this.selected + 1 : 0}/${this.rows.length} · Field / Value`,
+        ` ${this.rows.length > 0 ? this.selected + 1 : 0}/${this.rows.length} · Field / Value`,
       ),
       ...this.rows.slice(start, start + this.viewport).map((row, i) => {
         const selected = start + i === this.selected;
-        const color = (text: string) => selected ? this.theme.fg("accent", text) : text;
+        const color = (text: string) => (selected ? this.theme.fg("accent", text) : text);
         const plainLabel = dialogText(row.label);
         const label = truncateToWidth(
           row.renderLabel ? row.renderLabel(plainLabel, this.theme) : plainLabel,
@@ -255,22 +271,17 @@ class DialogMenu {
         );
         const padding = " ".repeat(Math.max(0, labelWidth - visibleWidth(label)));
         const value = dialogText(row.value ?? "");
-        return color(`${selected ? "›" : " "} `)
-          + (row.renderLabel ? label : color(label))
-          + color(`${padding} │ `)
-          + (row.valueColor ? this.theme.fg(row.valueColor, value) : color(value));
+        return (
+          color(`${selected ? "›" : " "} `) +
+          (row.renderLabel ? label : color(label)) +
+          color(`${padding} │ `) +
+          (row.valueColor ? this.theme.fg(row.valueColor, value) : color(value))
+        );
       }),
       "",
       ...help.map((line) => this.theme.fg("muted", ` ${line}`)),
     ];
-    return frameDialog(
-      this.theme,
-      width,
-      height,
-      this.title,
-      body,
-      this.footer,
-    );
+    return frameDialog(this.theme, width, height, this.title, body, this.footer);
   }
 }
 
@@ -287,7 +298,11 @@ export async function dialogMenu(
   ctx: ExtensionContext,
   title: string,
   rows: DialogRow[],
-  options: { selectedId?: string; footer?: string; saveId?: string } = {},
+  options: {
+    selectedId?: string | undefined;
+    footer?: string | undefined;
+    saveId?: string | undefined;
+  } = {},
 ): Promise<string | undefined> {
   return ctx.ui.custom(
     (host, theme, _keys, done) =>
@@ -371,9 +386,7 @@ const dialogScopes = new WeakSet<ExtensionContext>();
 
 function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
   return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as Promise<T>).then === "function"
+    typeof value === "object" && value !== null && typeof (value as Promise<T>).then === "function"
   );
 }
 
@@ -395,14 +408,25 @@ export class DialogSession {
   private disposed = false;
   private generation = 0;
   private pending: PendingView | undefined;
-  private outerDone: ((result?: void) => void) | undefined;
+  private outerDone: ((result?: undefined) => void) | undefined;
+
+  private host: TUI;
+
+  private theme: Theme;
+
+  private keys: KeybindingsManager;
 
   constructor(
-    private host: TUI,
-    private theme: Theme,
-    private keys: KeybindingsManager,
-    done: (result?: void) => void,
+    host: TUI,
+    theme: Theme,
+    keys: KeybindingsManager,
+    done: (result?: undefined) => void,
   ) {
+    this.host = host;
+
+    this.theme = theme;
+
+    this.keys = keys;
     this.outerDone = done;
   }
 
@@ -442,16 +466,14 @@ export class DialogSession {
       const resolveOnce = (value: T) => {
         if (settled) return;
         settled = true;
-        if (this.pending?.generation === generation)
-          this.pending.settled = true;
+        if (this.pending?.generation === generation) this.pending.settled = true;
         resolve(value);
       };
       const rejectOnce = (error: unknown) => {
         if (settled) return;
         settled = true;
         this.inputLocked = true;
-        if (this.pending?.generation === generation)
-          this.pending.settled = true;
+        if (this.pending?.generation === generation) this.pending.settled = true;
         reject(error);
       };
       this.pending = {
@@ -480,8 +502,7 @@ export class DialogSession {
           void produced.then(
             (component) => adopt(component),
             (error: unknown) => {
-              if (settled || this.closed || generation !== this.generation)
-                return;
+              if (settled || this.closed || generation !== this.generation) return;
               rejectOnce(error);
             },
           );
@@ -540,8 +561,7 @@ export class DialogSession {
       return;
     }
     this.replaceChild(component);
-    this.inputLocked =
-      this.pending?.generation === generation ? this.pending.settled : true;
+    this.inputLocked = this.pending?.generation === generation ? this.pending.settled : true;
     this.host.requestRender();
   }
 
@@ -556,7 +576,7 @@ export class DialogSession {
 
   private forwardFocus(): void {
     const child = this.child;
-    if (!child || !("focused" in child)) return;
+    if (!(child && "focused" in child)) return;
     // Read the setter's latest value; the first view can mount before showOverlay focuses us.
     child.focused = this.focused;
   }
@@ -569,18 +589,13 @@ export class DialogSession {
   }
 }
 
-export function scopeDialogContext<T extends ExtensionContext>(
-  ctx: T,
-  session: DialogSession,
-): T {
+export function scopeDialogContext<T extends ExtensionContext>(ctx: T, session: DialogSession): T {
   const source = ctx.ui;
   const originalCustom = source.custom.bind(source);
   const ui = Object.create(source) as ExtensionUIContext;
   ui.custom = ((factory, options) => {
     if (options?.overlay) return session.mount(factory);
-    return originalCustom(factory, options).finally(() =>
-      session.restoreFocus(),
-    );
+    return originalCustom(factory, options).finally(() => session.restoreFocus());
   }) as ExtensionUIContext["custom"];
   // Pi exposes ctx.ui as a getter; assignment cannot shadow an inherited accessor.
   // Define an own property while keeping the remaining context getters live.
