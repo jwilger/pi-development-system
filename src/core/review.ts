@@ -21,6 +21,8 @@ export type ReviewRound = {
   readonly reviewedAt: string;
   /** Digest of the diff the round reviewed (see `digestOf` in src/review/digest.ts). */
   readonly diffDigest: string;
+  /** Per-file digests of the reviewed diff, so a commit of part of it is still covered. */
+  readonly files?: Readonly<Record<string, string>>;
 };
 
 export type ReviewState = {
@@ -118,6 +120,17 @@ function parseFinding(input: unknown): Finding | ParseError {
   };
 }
 
+function parseFiles(input: unknown): Record<string, string> | undefined | null {
+  if (input === undefined) return undefined;
+  if (!isRecord(input)) return null;
+  const out: Record<string, string> = {};
+  for (const [path, digest] of Object.entries(input)) {
+    if (typeof digest !== "string") return null;
+    out[path] = digest;
+  }
+  return out;
+}
+
 function parseRound(input: unknown): ReviewRound | ParseError {
   if (!isRecord(input)) return parseError("round must be an object");
   const { n, lenses, findings, reviewedAt, diffDigest } = input;
@@ -134,7 +147,16 @@ function parseRound(input: unknown): ReviewRound | ParseError {
     if ("kind" in finding) return finding;
     parsed.push(finding);
   }
-  return { n, lenses: lenses as string[], findings: parsed, reviewedAt, diffDigest };
+  const files = parseFiles(input.files);
+  if (files === null) return parseError("round files must map paths to digest strings");
+  return {
+    n,
+    lenses: lenses as string[],
+    findings: parsed,
+    reviewedAt,
+    diffDigest,
+    ...(files === undefined ? {} : { files }),
+  };
 }
 
 /** Boundary parse for a persisted review (one slice's rounds). */

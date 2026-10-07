@@ -25,25 +25,56 @@ export const reviewLabel = (review: ReviewState): string =>
  * Why a commit on this slice lacks a satisfied review, or `undefined` when the review is complete
  * on the diff as it is now (the `review.unsatisfied` soft gate is raised from this).
  */
-export function reviewGap(
-  state: DevsysState,
-  slice: SliceRef,
-  digestNow: string,
-): string | undefined {
+export type DiffNow = {
+  readonly digest: string;
+  readonly files?: Readonly<Record<string, string>>;
+};
+
+/** Every file in the current diff was in the last round's diff, byte for byte: a part of what was reviewed. */
+const coveredByLastRound = (review: ReviewState, now: DiffNow): boolean => {
+  const reviewed = review.rounds.at(-1)?.files;
+  if (reviewed === undefined || now.files === undefined) return false;
+  return Object.entries(now.files).every(([path, digest]) => reviewed[path] === digest);
+};
+
+export function reviewGap(state: DevsysState, slice: SliceRef, now: DiffNow): string | undefined {
   const review = reviewOf(state, slice);
   if (review === undefined || review.rounds.length === 0) {
     return `no review has been recorded for slice ${slice}`;
   }
-  switch (nextAction(review, digestNow)) {
+  switch (nextAction(review, now.digest)) {
     case "done":
       return undefined;
     case "fix-findings":
       return `the last review round of slice ${slice} has blocking or should-fix findings still to fix`;
     case "stale-diff":
+      // Committing a reviewed change in parts leaves a smaller diff made only of reviewed files.
+      if (coveredByLastRound(review, now)) return undefined;
       return `the diff has changed since slice ${slice} was last reviewed; review it again`;
     case "review":
       return `slice ${slice} has ${cleanStreak(review)}/${review.required} clean review rounds`;
   }
+}
+
+/** A unified diff cut into one text per file, keyed by the file's new path. */
+export function splitDiffByFile(diff: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  let path: string | undefined;
+  let lines: string[] = [];
+  const flush = () => {
+    if (path !== undefined) out[path] = lines.join("\n");
+  };
+  for (const line of diff.split("\n")) {
+    const header = /^diff --git a\/.* b\/(.*)$/.exec(line);
+    if (header !== null) {
+      flush();
+      path = header[1] ?? line;
+      lines = [];
+    }
+    lines.push(line);
+  }
+  flush();
+  return out;
 }
 
 /** Packets from several lens reviewers in one round become one round of findings. */
@@ -61,7 +92,14 @@ export function combinePackets(packets: readonly ReviewPacket[]): {
 /** Jev confidence needed before its severity replaces the reviewer's. */
 export const SEVERITY_ADOPT_CONFIDENCE = 0.8;
 
-/** Take Jev's severity only when it is confident and different; say what moved so it is never silent. */
+const counts = (severity: Severity): boolean =>
+  severity === "blocking" || severity === "should-fix";
+
+/**
+ * Take Jev's severity only when it is confident and different, and never to lower a finding that
+ * counts (blocking/should-fix) to one that does not: Jev reads a clipped diff, the reviewer read
+ * the code. That disagreement is reported as a suggestion and the reviewer's severity stands.
+ */
 export function adoptSeverity(
   finding: Finding,
   judged: { severity: Severity; confidence: number } | undefined,
@@ -73,9 +111,16 @@ export function adoptSeverity(
   ) {
     return { finding };
   }
+  const confidence = judged.confidence.toFixed(2);
+  if (counts(finding.severity) && !counts(judged.severity)) {
+    return {
+      finding,
+      note: `${finding.id}: Jev suggests ${judged.severity} instead of ${finding.severity} (confidence ${confidence}); the reviewer's severity stands, re-check the finding yourself`,
+    };
+  }
   return {
     finding: { ...finding, severity: judged.severity },
-    note: `${finding.id}: Jev moved severity ${finding.severity} → ${judged.severity} (confidence ${judged.confidence.toFixed(2)})`,
+    note: `${finding.id}: Jev moved severity ${finding.severity} → ${judged.severity} (confidence ${confidence})`,
   };
 }
 
@@ -104,9 +149,9 @@ export function reviewerTask(input: {
   const lenses = input.lenses.join(", ");
   return [
     `Review slice ${input.slice}, round ${input.round}, through these lenses: ${lenses}.`,
-    `See the change with \`git diff ${input.diffRange}\` (and \`git diff --stat ${input.diffRange}\`). Read the callers, callees and tests it depends on, no more.`,
+    `See the change with \`git diff ${input.diffRange}\` (and \`git diff --stat ${input.diffRange}\`), plus any untracked files listed by \`git status --short\` (git diff does not show them; read them directly). Read the callers, callees and tests it depends on, no more.`,
     "Do not modify files; report demonstrable defects with a realistic trigger and the smallest local repair.",
-    "Return exactly the review packet from your instructions:",
+    "Return exactly the review packet from your instructions, with exactly this header (slice and round must not change):",
     "",
     `## Review — ${input.slice} — round ${input.round} — lenses: ${lenses}`,
     "### Sources inspected",

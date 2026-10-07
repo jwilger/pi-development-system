@@ -9,6 +9,7 @@ import {
   reviewGap,
   reviewLabel,
   reviewOf,
+  splitDiffByFile,
   upsertReview,
 } from "../../src/core/review-flow.ts";
 import { parseReviewPacket } from "../../src/core/review-packet.ts";
@@ -49,19 +50,19 @@ test("reviewLabel counts clean rounds against the requirement", () => {
 });
 
 test("reviewGap names what is missing, and is silent when satisfied on this diff", () => {
-  const none = reviewGap(initialState(), s1, "d1");
+  const none = reviewGap(initialState(), s1, { digest: "d1" });
   assert.match(none ?? "", /no review/i);
   const done = [1, 2, 3].reduce((r) => addRound(r, round([])), startReview(s1, 3));
   const state = upsertReview(initialState(), done);
-  assert.equal(reviewGap(state, s1, "d1"), undefined);
-  assert.match(reviewGap(state, s1, "d2") ?? "", /changed since/i);
+  assert.equal(reviewGap(state, s1, { digest: "d1" }), undefined);
+  assert.match(reviewGap(state, s1, { digest: "d2" }) ?? "", /changed since/i);
   const partial = upsertReview(initialState(), addRound(startReview(s1, 3), round([])));
-  assert.match(reviewGap(partial, s1, "d1") ?? "", /1\/3/);
+  assert.match(reviewGap(partial, s1, { digest: "d1" }) ?? "", /1\/3/);
   const open = upsertReview(
     initialState(),
     addRound(startReview(s1, 3), round([finding("blocking")])),
   );
-  assert.match(reviewGap(open, s1, "d1") ?? "", /fix/i);
+  assert.match(reviewGap(open, s1, { digest: "d1" }) ?? "", /fix/i);
 });
 
 const packet = (lens: string, body: string, verdict: string) =>
@@ -83,14 +84,44 @@ test("combinePackets merges lenses and findings with unique ids", () => {
   assert.equal(new Set(merged.findings.map((f: Finding) => f.id)).size, 3);
 });
 
-test("adoptSeverity follows Jev only when it is confident and says so", () => {
+test("adoptSeverity follows Jev only when confident and only upward or sideways", () => {
   const f = finding("blocking");
   assert.deepEqual(adoptSeverity(f, { severity: "nit", confidence: 0.5 }), { finding: f });
   assert.deepEqual(adoptSeverity(f, { severity: "blocking", confidence: 0.99 }), { finding: f });
-  const moved = adoptSeverity(f, { severity: "false-positive", confidence: 0.95 });
-  assert.equal(moved.finding.severity, "false-positive");
-  assert.match(moved.note ?? "", /blocking → false-positive/);
   assert.deepEqual(adoptSeverity(f, undefined), { finding: f });
+  const lowered = adoptSeverity(f, { severity: "false-positive", confidence: 0.95 });
+  assert.equal(lowered.finding.severity, "blocking");
+  assert.match(lowered.note ?? "", /suggests false-positive/);
+  const raised = adoptSeverity(finding("nit"), { severity: "should-fix", confidence: 0.9 });
+  assert.equal(raised.finding.severity, "should-fix");
+  assert.match(raised.note ?? "", /nit → should-fix/);
+  const sideways = adoptSeverity(finding("should-fix"), { severity: "blocking", confidence: 0.9 });
+  assert.equal(sideways.finding.severity, "blocking");
+});
+
+test("a smaller diff made only of reviewed files is still covered (commit in parts)", () => {
+  const reviewed = [1, 2, 3].reduce(
+    (r) => addRound(r, { ...round([]), files: { "a.ts": "1", "b.ts": "2" } }),
+    startReview(s1, 3),
+  );
+  const state = upsertReview(initialState(), reviewed);
+  assert.equal(reviewGap(state, s1, { digest: "other", files: { "b.ts": "2" } }), undefined);
+  assert.match(
+    reviewGap(state, s1, { digest: "other", files: { "b.ts": "9" } }) ?? "",
+    /changed since/,
+  );
+  assert.match(
+    reviewGap(state, s1, { digest: "other", files: { "c.ts": "1" } }) ?? "",
+    /changed since/,
+  );
+  assert.match(reviewGap(state, s1, { digest: "other" }) ?? "", /changed since/);
+});
+
+test("splitDiffByFile keys each file's section by its new path", () => {
+  const diff = "diff --git a/a.ts b/a.ts\n+1\ndiff --git a/old b/new dir/b.ts\n+2";
+  const parts = splitDiffByFile(diff);
+  assert.deepEqual(Object.keys(parts), ["a.ts", "new dir/b.ts"]);
+  assert.match(parts["a.ts"] ?? "", /\+1/);
 });
 
 test("renderFollowups lists only nits, or nothing", () => {

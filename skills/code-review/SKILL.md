@@ -12,12 +12,14 @@ Review is a soft gate (`review.unsatisfied`): skipping it needs a recorded depar
 ## Run a round
 
 1. `devsys_review_start` (slice defaults to the active slice; `diffRange` defaults
-   to `HEAD`, i.e. everything uncommitted). It computes the diff digest, lets Jev
-   choose lenses, and returns an exact `agent_spawn` payload.
+   to `HEAD`: everything uncommitted, untracked files included). It computes the
+   diff digest, lets Jev choose lenses, and returns an exact `agent_spawn` payload.
 2. Run that `agent_spawn` unchanged. The reviewer is a top-level agent, not a
    child of this conversation, so it does not inherit your context.
-3. Pass the reviewer's packet, verbatim, to `devsys_review_record`
-   (`packets: [...]`; one packet per lens reviewer if you split them).
+3. Pass the reviewer's packet, verbatim, to `devsys_review_record` with the
+   `diffDigest` the start reply gave (`packets: [...]`; all lens packets of one
+   round in one call). A packet is recorded once, in the round its header names;
+   if the diff changed since the start, the round is refused: start again.
 4. Read the reply: `review: N/R clean` and `next:`.
    - `fix-findings`: fix every blocking and should-fix finding, then start a new round.
    - `review`: the streak is short (or the diff changed with findings); start another round.
@@ -47,8 +49,9 @@ The verdict must agree with the findings.
   `docs/decisions/followups.md`.
 - **false-positive**: refuted; ignored.
 
-Jev may move a finding's severity when it is at least 0.8 confident; the reply
-says what moved. A round is clean when it has no blocking or should-fix findings.
+Jev may raise a finding's severity when it is at least 0.8 confident; it never
+lowers a blocking or should-fix finding (it only suggests, in the reply, and you
+re-check it yourself). A round is clean when it has no blocking or should-fix findings.
 The default is three consecutive clean rounds (`review.required_clean_rounds`).
 Only real findings reset the count; a changed diff alone does not, so a small fix
 commit keeps the clean rounds already earned unless findings come back.

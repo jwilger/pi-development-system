@@ -63,7 +63,13 @@ const StartParameters = Type.Object({
   ),
 });
 
-const pathSafe = (slice: string): string => slice.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+/** One path segment is at most 64 chars (src/subagents/orch/paths.ts); keep room for round and attempt. */
+const pathSafe = (slice: string): string =>
+  slice
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 32);
 
 /** `devsys_review_start`: Jev picks lenses for the diff; the reply carries the agent_spawn payload for a fresh reviewer. */
 export function createReviewStartTool(
@@ -128,7 +134,8 @@ export function createReviewStartTool(
         availableModels(ctx.modelRegistry),
       );
       const spawn = {
-        path: `/review-${pathSafe(slice)}-r${round}`,
+        // A fresh path per attempt: a failed spawn must not leave a thread that blocks the retry.
+        path: `/review-${pathSafe(slice)}-r${round}-${(deps.now?.() ?? new Date()).getTime().toString(36)}`,
         type: "reviewer",
         task: reviewerTask({ slice, round, lenses, diffRange: range }),
         ...(resolved.ok ? { model: resolved.value.model } : {}),
@@ -139,7 +146,7 @@ export function createReviewStartTool(
         [
           `${reviewLabel(review)}; round ${round}; diff ${snap.value.digest}. ${basis}`,
           `lenses: ${lenses.join(", ")}`,
-          "Spawn the reviewer with agent_spawn using exactly this payload, then pass its packet to devsys_review_record:",
+          `Spawn the reviewer with agent_spawn using exactly this payload, then pass its packet to devsys_review_record with diffDigest "${snap.value.digest}":`,
           JSON.stringify(spawn),
         ].join("\n"),
       );
@@ -157,6 +164,10 @@ const RecordParameters = Type.Object({
   diffRange: Type.Optional(
     Type.String({ description: "The range that was reviewed; defaults to HEAD." }),
   ),
+  diffDigest: Type.String({
+    description:
+      "The diff digest devsys_review_start reported for this round; the round is refused if the diff has changed since.",
+  }),
 });
 
 async function adjusted(
@@ -214,13 +225,28 @@ export function createReviewRecordTool(
       const snap = await snapshotDiff(deps.exec, ctx.cwd, params.diffRange?.trim() || "HEAD");
       if (!snap.ok) return reply(`cannot read the diff: ${snap.error}`, true);
 
-      const merged = combinePackets(packets);
-      const { findings, notes } = await adjusted(deps, ctx, merged.findings, snap.value.sample);
+      if (params.diffDigest !== snap.value.digest) {
+        return reply(
+          `the diff changed since the review started (reviewed ${params.diffDigest}, now ${snap.value.digest}); the reviewer did not see the current code. Run devsys_review_start again.`,
+          true,
+        );
+      }
       const required = Math.max(
         config.value.review.requiredCleanRounds,
         config.value.review.minRounds,
       );
       const before = reviewOf(deps.state.get(), slice) ?? startReview(slice, required);
+      const expected = before.rounds.length + 1;
+      const wrong = packets.findIndex((p) => p.round !== expected || p.slice !== slice);
+      if (wrong !== -1) {
+        return reply(
+          `packet ${wrong + 1} is for slice "${packets[wrong]?.slice}" round ${packets[wrong]?.round}; this is round ${expected} of slice "${slice}". A packet is recorded once, in the round it was written for; ask the reviewer for a packet with the right header.`,
+          true,
+        );
+      }
+
+      const merged = combinePackets(packets);
+      const { findings, notes } = await adjusted(deps, ctx, merged.findings, snap.value.sample);
       const review = addRound(
         { ...before, required },
         {
@@ -228,16 +254,25 @@ export function createReviewRecordTool(
           findings,
           reviewedAt: (deps.now?.() ?? new Date()).toISOString(),
           diffDigest: snap.value.digest,
+          files: snap.value.files,
         },
       );
-      deps.state.update((s) => upsertReview(s, review));
 
+      // File the nits first: if this fails nothing is recorded and a retry cannot count the round twice.
       const followups = renderFollowups(slice, review.rounds.length, findings);
       if (followups !== undefined) {
-        const dir = join(ctx.cwd, "docs", "decisions");
-        await mkdir(dir, { recursive: true });
-        await appendFile(join(dir, "followups.md"), followups);
+        try {
+          const dir = join(ctx.cwd, "docs", "decisions");
+          await mkdir(dir, { recursive: true });
+          await appendFile(join(dir, "followups.md"), followups);
+        } catch (cause) {
+          return reply(
+            `could not write docs/decisions/followups.md (${cause instanceof Error ? cause.message : String(cause)}); the round was not recorded, retry`,
+            true,
+          );
+        }
       }
+      deps.state.update((s) => upsertReview(s, review));
       const counts = (sev: Finding["severity"]) =>
         findings.filter((f) => f.severity === sev).length;
       return reply(

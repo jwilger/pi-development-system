@@ -11,7 +11,7 @@ import type { SliceRef } from "../../src/core/types.ts";
 import { registerCommitGuard } from "../../src/gates/commit-guard.ts";
 import { createRecordDepartureTool } from "../../src/gates/record-departure-tool.ts";
 import type { Jev } from "../../src/jev/client.ts";
-import { digestOf } from "../../src/review/digest.ts";
+import { snapshotDiff } from "../../src/review/digest.ts";
 import { createSessionState } from "../../src/state/session-state.ts";
 import { createFakePi } from "../harness/fake-pi.ts";
 
@@ -242,7 +242,13 @@ test("commits that legitimately have no inline message are not blocked as opaque
 const DIFF = "a.ts | 2 +-";
 const withPhase = (t: ReturnType<typeof setup>, phase: "implementing" | "reviewing" | "idle") =>
   t.state.update((s) => ({ ...s, phase, activeSlice: "s1" as SliceRef }));
-const cleanRounds = (n: number, digest = digestOf(DIFF)) =>
+// The digest the guard will compute: same fake exec as setup(), which answers every git call with DIFF.
+const currentDigest = async () => {
+  const snap = await snapshotDiff(async () => ({ code: 0, stdout: DIFF, stderr: "" }), "/", "HEAD");
+  if (!snap.ok) throw new Error(snap.error);
+  return snap.value.digest;
+};
+const cleanRounds = (n: number, digest: string) =>
   Array.from({ length: n }).reduce<ReturnType<typeof startReview>>(
     (r) => addRound(r, { lenses: ["types"], findings: [], reviewedAt: "t", diffDigest: digest }),
     startReview("s1" as SliceRef, 3),
@@ -267,11 +273,12 @@ test("a recorded review.unsatisfied departure lets the commit through", async ()
 test("a satisfied review on the current diff passes; a stale or partial one blocks", async () => {
   const t = setup(jevJudging(0.9, 0.1));
   withPhase(t, "implementing");
-  t.state.update((s) => upsertReview(s, cleanRounds(3)));
+  const digest = await currentDigest();
+  t.state.update((s) => upsertReview(s, cleanRounds(3, digest)));
   assert.equal(await t.bash(commit(GOOD)), undefined);
   t.state.update((s) => upsertReview(s, cleanRounds(3, "other")));
   assert.match((await t.bash(commit(GOOD)))?.reason ?? "", /changed since/);
-  t.state.update((s) => upsertReview(s, cleanRounds(1)));
+  t.state.update((s) => upsertReview(s, cleanRounds(1, digest)));
   assert.match((await t.bash(commit(GOOD)))?.reason ?? "", /1\/3/);
 });
 
@@ -282,4 +289,23 @@ test("outside implementing and reviewing, or without an active slice, the review
   const noSlice = setup(jevJudging(0.9, 0.1));
   noSlice.state.update((s) => ({ ...s, phase: "implementing" }));
   assert.equal(await noSlice.bash(commit(GOOD)), undefined);
+});
+
+test("committing a reviewed change in parts passes: the rest is only reviewed files", async () => {
+  const t = setup(jevJudging(0.9, 0.1));
+  withPhase(t, "implementing");
+  // Reviewed: two files. Now only one of them remains in the diff (the other was committed).
+  const reviewed = Array.from({ length: 3 }).reduce<ReturnType<typeof startReview>>(
+    (r) =>
+      addRound(r, {
+        lenses: ["types"],
+        findings: [],
+        reviewedAt: "t",
+        diffDigest: "earlier",
+        files: { [DIFF]: `new:${DIFF}`, "gone.ts": "x" },
+      }),
+    startReview("s1" as SliceRef, 3),
+  );
+  t.state.update((s) => upsertReview(s, reviewed));
+  assert.equal(await t.bash(commit(GOOD)), undefined);
 });

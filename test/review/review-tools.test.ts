@@ -8,6 +8,7 @@ import type { Exec } from "../../src/core/exec.ts";
 import { err, ok } from "../../src/core/result.ts";
 import type { SliceRef } from "../../src/core/types.ts";
 import type { Jev } from "../../src/jev/client.ts";
+import { snapshotDiff } from "../../src/review/digest.ts";
 import { createReviewRecordTool, createReviewStartTool } from "../../src/review/review-tools.ts";
 import { createSessionState } from "../../src/state/session-state.ts";
 import { createFakePi } from "../harness/fake-pi.ts";
@@ -38,10 +39,15 @@ const offline: Jev = {
 };
 
 const exec =
-  (diff: string): Exec =>
-  async () => ({ code: 0, stdout: diff, stderr: "" });
+  (diff: string, untracked = ""): Exec =>
+  async (_command, args) => ({
+    code: 0,
+    stdout: args[0] === "ls-files" ? untracked : args[0] === "hash-object" ? "abc123\n" : diff,
+    stderr: "",
+  });
 
-const setup = (jev: Jev, diff = "diff --git a/x b/x\n+1\n", withSlice = true) => {
+const DIFF = "diff --git a/x b/x\n+1\n";
+const setup = (jev: Jev, diff = DIFF, withSlice = true, untracked = "") => {
   const cwd = mkdtempSync(join(tmpdir(), "devsys-review-"));
   const fake = createFakePi({ cwd });
   const state = createSessionState(fake.api);
@@ -49,7 +55,7 @@ const setup = (jev: Jev, diff = "diff --git a/x b/x\n+1\n", withSlice = true) =>
   const deps = {
     state,
     jev: () => jev,
-    exec: exec(diff),
+    exec: exec(diff, untracked),
     now: () => new Date("2026-10-06T10:00:00Z"),
   };
   return {
@@ -57,21 +63,26 @@ const setup = (jev: Jev, diff = "diff --git a/x b/x\n+1\n", withSlice = true) =>
     state,
     start: (p: Record<string, unknown> = {}) =>
       createReviewStartTool(deps).execute("c", p as never, undefined, undefined, fake.ctx as never),
-    record: (p: Record<string, unknown>) =>
-      createReviewRecordTool(deps).execute(
+    // Fills diffDigest the way the coordinator copies it from devsys_review_start's reply.
+    record: async (p: Record<string, unknown>) => {
+      const snap = await snapshotDiff(deps.exec, cwd, "HEAD");
+      const digest = snap.ok ? snap.value.digest : "";
+      return createReviewRecordTool(deps).execute(
         "c",
-        p as never,
+        { diffDigest: digest, ...p } as never,
         undefined,
         undefined,
         fake.ctx as never,
-      ),
+      );
+    },
+    snapshot: () => snapshotDiff(deps.exec, cwd, "HEAD"),
   };
 };
 const text = (r: { content: readonly { type: string }[] }): string =>
   r.content.map((c) => ("text" in c && typeof c.text === "string" ? c.text : "")).join("\n");
 
-const packet = (findings: string, verdict: string, lenses = "types, tests") =>
-  `## Review — s1 — round 1 — lenses: ${lenses}\n### Sources inspected\n- a.ts:1-5\n### Findings\n${findings}\n### Verdict\n${verdict}\n`;
+const packet = (findings: string, verdict: string, round = 1, lenses = "types, tests") =>
+  `## Review — s1 — round ${round} — lenses: ${lenses}\n### Sources inspected\n- a.ts:1-5\n### Findings\n${findings}\n### Verdict\n${verdict}\n`;
 
 test("start picks Jev lenses, returns an agent_spawn payload and shows 0/3 clean", async () => {
   const t = setup(jevWith({ security: 0.9, types: 0.7 }));
@@ -80,7 +91,7 @@ test("start picks Jev lenses, returns an agent_spawn payload and shows 0/3 clean
   const out = text(r);
   assert.match(out, /lenses: security, types/);
   assert.match(out, /"type":"reviewer"/);
-  assert.match(out, /"path":"\/review-s1-r1"/);
+  assert.match(out, /"path":"\/review-s1-r1-[a-z0-9]+"/);
   assert.match(out, /git diff HEAD/);
   const review = t.state.get().reviews?.[0];
   assert.equal(review?.required, 3);
@@ -124,7 +135,7 @@ test("a should-fix finding resets the streak and asks for fixes", async () => {
   await t.start();
   await t.record({ packets: [packet("none", "no-blocking")] });
   const r = await t.record({
-    packets: [packet("- [should-fix] tests `a.ts:2` — no test — real defect", "blocking")],
+    packets: [packet("- [should-fix] tests `a.ts:2` — no test — real defect", "blocking", 2)],
   });
   assert.match(text(r), /review: 0\/3 clean/);
   assert.match(text(r), /next: fix-findings/);
@@ -133,18 +144,75 @@ test("a should-fix finding resets the streak and asks for fixes", async () => {
 test("three clean rounds on the current diff are done", async () => {
   const t = setup(offline);
   await t.start();
-  for (let i = 0; i < 3; i++) await t.record({ packets: [packet("none", "no-blocking")] });
-  assert.match(text(await t.record({ packets: [packet("none", "no-blocking")] })), /next: done/);
+  for (let i = 1; i <= 2; i++) await t.record({ packets: [packet("none", "no-blocking", i)] });
+  assert.match(text(await t.record({ packets: [packet("none", "no-blocking", 3)] })), /next: done/);
 });
 
-test("Jev may move a finding's severity when confident, and the move is reported", async () => {
+test("Jev never lowers a blocking finding to one that does not count; it only suggests", async () => {
   const t = setup(jevWith({}, "false-positive"));
   await t.start();
   const r = await t.record({
     packets: [packet("- [blocking] types `a.ts:2` — claim — because", "blocking")],
   });
-  assert.match(text(r), /blocking → false-positive/);
-  assert.match(text(r), /review: 1\/3 clean/);
+  assert.match(text(r), /Jev suggests false-positive instead of blocking/);
+  assert.match(text(r), /review: 0\/3 clean/);
+  assert.match(text(r), /next: fix-findings/);
+});
+
+test("Jev may raise a nit that is really a defect", async () => {
+  const t = setup(jevWith({}, "should-fix"));
+  await t.start();
+  const r = await t.record({
+    packets: [packet("- [nit] types `a.ts:2` — claim — because", "no-blocking")],
+  });
+  assert.match(text(r), /nit → should-fix/);
+  assert.match(text(r), /review: 0\/3 clean/);
+});
+
+test("a packet is recorded once, in the round and slice it was written for", async () => {
+  const t = setup(offline);
+  await t.start();
+  await t.record({ packets: [packet("none", "no-blocking")] });
+  const again = await t.record({ packets: [packet("none", "no-blocking")] });
+  assert.equal(again.isError, true);
+  assert.match(text(again), /round 1.*this is round 2/);
+  assert.equal(t.state.get().reviews?.[0]?.rounds.length, 1);
+  const other = await t.record({
+    packets: [packet("none", "no-blocking", 2).replace("— s1 —", "— other —")],
+  });
+  assert.equal(other.isError, true);
+});
+
+test("a diff that changed since start is refused: the reviewer did not see this code", async () => {
+  const t = setup(offline);
+  await t.start();
+  const r = await t.record({ packets: [packet("none", "no-blocking")], diffDigest: "stale" });
+  assert.equal(r.isError, true);
+  assert.match(text(r), /diff changed since the review started/);
+  assert.equal(t.state.get().reviews?.[0]?.rounds.length, 0);
+});
+
+test("untracked files are part of the reviewed change", async () => {
+  const withNew = setup(offline, "", true, "src/new.ts\n");
+  const r = await withNew.start();
+  assert.notEqual(r.isError, true);
+  assert.match(text(r), /untracked/);
+  const a = await withNew.snapshot();
+  const b = await setup(offline, DIFF).snapshot();
+  assert.ok(a.ok && b.ok);
+  assert.notEqual(a.value.digest, b.value.digest);
+  assert.ok("src/new.ts" in a.value.files);
+});
+
+test("each start gets its own spawn path, and long odd slice names stay valid", async () => {
+  const t = setup(offline);
+  t.state.update((s) => ({
+    ...s,
+    activeSlice: "Slice #1: A very long name that goes on and on and on forever" as SliceRef,
+  }));
+  const out = text(await t.start());
+  const path = /"path":"([^"]+)"/.exec(out)?.[1] ?? "";
+  assert.match(path, /^\/[a-z0-9][a-z0-9_-]{0,63}$/);
 });
 
 test("a malformed packet is an error naming what is wrong and records nothing", async () => {

@@ -124,7 +124,11 @@ async function reviewNeeds(deps: CommitGuardDeps, ctx: ExtensionContext): Promis
   if ((phase !== "implementing" && phase !== "reviewing") || activeSlice === undefined) return [];
   const snap = await snapshotDiff(deps.exec, ctx.cwd, "HEAD");
   // An unreadable diff cannot be compared; the gate asks for a departure rather than guessing.
-  const gap = reviewGap(deps.state.get(), activeSlice, snap.ok ? snap.value.digest : "unknown");
+  const gap = reviewGap(
+    deps.state.get(),
+    activeSlice,
+    snap.ok ? { digest: snap.value.digest, files: snap.value.files } : { digest: "unknown" },
+  );
   return gap === undefined ? [] : [{ gate: REVIEW, why: gap }];
 }
 

@@ -173,3 +173,9 @@ The semantic-version gate in CI reported Jev confidence 0.47–0.50 for the patc
 - `src/jev/questions/route.ts` `clip` redacts the first `2*max` chars then cuts to `max`; a secret straddling the `2*max` boundary could leave a partial prefix.
 - Agents claiming "read-only" (reviewer, lenses, advisor) still have `bash`; `test/agents/agents.test.ts` only checks `edit`/`write` are absent.
 - `docs/subagents/custom-agents.md` links to a `settings.md` that was not vendored (verbatim upstream).
+
+## From I6 review round 1
+
+- tests `test/gates/commit-guard.test.ts` — the fake exec answers every git call alike, so the gate and tools digesting the same range is pinned by `snapshotDiff` being shared, not by a call-level assertion.
+- correctness `src/gates/commit-guard.ts` — in a repo with no commits `git diff HEAD` fails, so the digest is "unknown" and the gate needs a departure; `devsys_review_start` fails the same way.
+- api-contract plan I6.3 — review state lives inside the `devsys-state` entry rather than a separate `devsys-review` entry.
