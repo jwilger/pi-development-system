@@ -43,7 +43,7 @@ export function createInheritedToolSource(pi: ExtensionAPI) {
       for (const tool of loadout.registered) {
         const exposure = loadout.getExposure(tool.name);
         // Inactive direct tools and hidden tools are not available in the root either.
-        if (!(callable.has(tool.name) || active.has(tool.name))) continue;
+        if (!callable.has(tool.name) && !active.has(tool.name)) continue;
         if (exposure === "hidden") continue;
         const metadata = info.get(tool.name);
         tools.push({
@@ -64,14 +64,14 @@ export function createInheritedToolSource(pi: ExtensionAPI) {
               // SDK orchestrators are instead recreated locally by runtime.
               throw new Error(
                 `Cannot safely inherit model-only tool ${tool.name}: the SDK does not ` +
-                  "provide a hook-preserving execution bridge. Run it in the main session.",
+                "provide a hook-preserving execution bridge. Run it in the main session.",
               );
             }
             const bridge = rootContext ?? context;
             if (!bridge) {
               throw new Error(
                 "Inherited tool execution needs a main-session agent_* tool call first. " +
-                  "Use agent_steer to resume this child instead of the thread dialog.",
+                "Use agent_steer to resume this child instead of the thread dialog.",
               );
             }
             const outcome = await bridge.executeTool(tool.name, args, { signal, onUpdate });

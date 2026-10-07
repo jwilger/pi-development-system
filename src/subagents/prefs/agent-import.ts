@@ -159,8 +159,8 @@ export async function offerAgentImport(
       cwd: ctx.cwd,
       agentDir: options.agentDir,
       includeProject: ctx.isProjectTrusted(),
-      homeDir: options.homeDir,
-      extraAgentDirs: options.extraAgentDirs,
+      ...(options.homeDir === undefined ? {} : { homeDir: options.homeDir }),
+      ...(options.extraAgentDirs === undefined ? {} : { extraAgentDirs: options.extraAgentDirs }),
     });
     if (found.diagnostics.length > 0)
       ctx.ui.notify(dialogText(found.diagnostics.join("\n")), "warning");

@@ -13,7 +13,7 @@ import {
   wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 import type { ThreadService, TranscriptSnapshot } from "../types.ts";
-import { type DialogHost, dialogText } from "./dialog.ts";
+import { dialogText, type DialogHost } from "./dialog.ts";
 import { AGENT_PROGRESS_INTERVAL, agentProgressIcon, agentTypeLabel } from "./ui.ts";
 
 /** Transcript detail level cycled by the t key: full → preview → compact. */
@@ -66,10 +66,7 @@ export class LiveAgentView {
   private unsubscribe: (() => void) | undefined;
   private renderTimer: ReturnType<typeof setTimeout> | undefined;
   private progressTimer: ReturnType<typeof setInterval> | undefined;
-  private cache = new WeakMap<
-    object,
-    { width: number; detail: TranscriptDetail; lines: string[] }
-  >();
+  private cache = new WeakMap<object, { width: number; detail: TranscriptDetail; lines: string[] }>();
   private scroll: ScrollView;
   private content: string[] = [];
   private restoreViewport = true;
@@ -191,10 +188,7 @@ export class LiveAgentView {
 
   private syncProgress(): void {
     const state = this.snapshot?.thread?.state;
-    const active =
-      this.nerdFontIcons &&
-      !this.disposed &&
-      !this.error &&
+    const active = this.nerdFontIcons && !this.disposed && !this.error &&
       (state === "starting" || state === "running");
     if (!active) {
       if (this.progressTimer !== undefined) clearInterval(this.progressTimer);
@@ -339,11 +333,7 @@ export class LiveAgentView {
         if (this.detail === "compact")
           return [this.theme.fg("dim", "[Thinking hidden · t cycles view]")];
         // Thinking is model-authored Markdown; preview truncates the rendered lines, not the source.
-        const rendered = this.markdown(
-          String(block.thinking ?? "[redacted thinking]"),
-          width,
-          true,
-        );
+        const rendered = this.markdown(String(block.thinking ?? "[redacted thinking]"), width, true);
         if (this.detail === "full" || rendered.length <= 3) return rendered;
         return [...rendered.slice(0, 3), this.theme.fg("dim", "...")];
       }
@@ -459,9 +449,7 @@ export class LiveAgentView {
       }
       case "ls": {
         const limit = num("limit");
-        lines = [
-          `${title("ls")} ${path ?? "."}${limit != null ? detail(` (limit ${limit})`) : ""}`,
-        ];
+        lines = [`${title("ls")} ${path ?? "."}${limit != null ? detail(` (limit ${limit})`) : ""}`];
         break;
       }
       default:

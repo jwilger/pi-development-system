@@ -1,4 +1,4 @@
-// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: agent-file parsing and layer merging are long validators kept close to upstream; only parseAgentType is covered (test/agents/agents.test.ts), so splitting the rest would move untested behaviour (see src/subagents/VENDORED.md)
 import { randomUUID } from "node:crypto";
 import {
   lstatSync,

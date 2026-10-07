@@ -1,5 +1,5 @@
-// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
-// biome-ignore-all lint/suspicious/noShadow: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: vendored upstream settings-file loader with no tests of its own; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/suspicious/noShadow: vendored upstream settings-file loader with no tests of its own; rewriting it risks behaviour (see src/subagents/VENDORED.md)
 import { randomUUID } from "node:crypto";
 import {
   closeSync,

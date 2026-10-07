@@ -1,4 +1,4 @@
-// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: vendored upstream TUI/config code with no tests; rewriting it risks behaviour (see src/subagents/VENDORED.md)
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: the flagged functions (driver construction, settings resolution) are long sequences over pi sessions; only the pin and resume paths are covered by test/subagents/spawn-pins.test.ts, so splitting them would move untested behaviour (see src/subagents/VENDORED.md)
 import { existsSync } from "node:fs";
 import { mkdir, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
