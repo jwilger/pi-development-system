@@ -1,9 +1,25 @@
 # pi-development-system
 
 A [pi](https://pi.dev) extension package representing my seasoned approach to
-software development using a full AI SDLC.
+software development using a full AI SDLC: work is sized, planned in proportion, built
+test-first in small slices, reviewed by fresh-context reviewers and delivered by trunk-based
+commits. Guards enforce what must hold; the rest is guidance with a recorded way out.
 
-> **Status:** under construction (see `docs/plan/development-system-plan.md`).
+## Install
+
+```sh
+pi install npm:@jwilger/pi-development-system
+```
+
+Then `/reload`. To move to a newer release use
+`pi install npm:@jwilger/pi-development-system@<version>`.
+
+Jev, the classifier behind the judgements, is optional. Without a credential configured, the checks
+that rest on a judgement do not run or fall back to a default: the motive behind a test change, whether a
+diff needs an ADR, the quality of a commit rationale and whether a commit mixes changes, the intent
+nudges, the verifier's check of the agent's own claims, and the lens and severity choices in review.
+The status line shows `jev offline` when that is so. Everything deterministic holds without Jev: the
+hard stops, the delivery mode, the review streak, red-first and the slice life cycle.
 
 ## Replaces pi-subagent-manager
 
@@ -22,6 +38,12 @@ what the current phase expects. When you say a slice is finished with no review 
 it tells you to start one. The slash commands (`/devsys-start`, `/devsys-plan`, `/devsys-review`,
 `/devsys-lens-review`, `/devsys-adr`, `/devsys-event-model`) are shortcuts to the same tools.
 
+Skills cover the habits behind the gates: `tdd-canon`, `behaviour-tests`, `semantic-types`,
+`typed-errors`, `functional-core-imperative-shell`, `strict-lints`, `delivery-discipline`, `delegation`,
+`code-review`, the language profiles (`profile-rust`, `profile-typescript`), `profile-design-system` for UI
+work (tokens, then components; build from the design system's materials and log a snowflake),
+`threat-modelling` (proportional; a document only when the risk earns it) and the planning skills below.
+
 Product planning has a skill (`product-planning`: brief, decision register, follow-ups,
 terminology, journeys). `devsys_lens_review` plans a review of the brief by five product lenses and
 writes the packets to `docs/product/reviews/`; `devsys_adr_new` creates the next numbered ADR, and
@@ -35,7 +57,7 @@ Event modelling has a skill (`event-modelling`: three slice patterns, Given/When
 `devsys_event_model_check` validates a directory of slice files (schema v1) and renders the swimlane
 Markdown or a Mermaid diagram; each profile's `gwt-tests` reference turns scenarios into failing tests.
 A dedicated extension that offers `event_model_validate`, or `event_model.provider` in
-`.development-system.toml`, replaces the builtin tool (`docs/event-model-extension-contract.md`).
+`.development-system.toml`, replaces the builtin tool ([contract](https://github.com/jwilger/pi-development-system/blob/main/docs/event-model-extension-contract.md)).
 
 A slice has a life cycle: `implementing` → `reviewing` (when a review round starts) → `delivering`
 (review satisfied) → `idle`. Editing production source while delivering reopens `implementing`,
@@ -51,6 +73,95 @@ front, such as in a goal's planning, is passed as `size` and skips the sizing qu
 With `codemode` enabled (`"defaultTools": ["+codemode"]` in pi settings), rarely used tools are
 reached through scripts and the `judge_*` Jev wrappers exist for scripts only; without codemode
 the rarely used tools are declared directly and the wrappers are absent.
+
+## Configuration
+
+`.development-system.toml` at the repository root (version 1). Every key is optional; an unknown
+key is an error that names it. `/devsys-models` writes the `[models]` table for the models this
+machine can use.
+
+| Table | Keys | Meaning |
+| --- | --- | --- |
+| `[delivery]` | `mode` (`trunk`, `pull-request`, `local-only`), `trunk`, `remote` | Where work lands; the push guard follows it. `local-only` blocks every push. |
+| `[review]` | `required_clean_rounds` (3), `min_rounds` (1) | The clean streak a slice needs before commit. |
+| `[tracker]` | `kind` (`repo-files`, `github`; `jira` and `linear` are not implemented), `repo` | Backlog for `devsys_work_item`. |
+| `[profiles]` | `override` | Languages to apply (`rust`, `typescript`); empty means detect. |
+| `[models]` | one ordered candidate list per slot | See Model tiers below. |
+| `[routing]` | `"<difficulty>/<risk>" = ["<slot>", "<thinking level>"]` | What `devsys_route_task` recommends for a subagent. |
+| `[verifier]` | `max_per_session` (6) | Cap on Jev checks of the agent's own claims. |
+| `[cadence]` | `push_minutes` (60) | Minutes without a push before the cadence nudge. |
+| `[event_model]` | `provider` (`builtin`) | Another provider replaces the builtin validator. |
+
+## Model tiers
+
+Models are asked for by slot, never by id. Three capability tiers (`frontier`, `strong`, `fast`)
+and role slots built on them (`planning`, `advisor`, `implementer`, `reviewer`, `lens`,
+`researcher`, `jev`). A slot is an ordered list of candidates: `provider/id`, a family pattern
+such as `provider/gpt-*-sol` (the newest available id wins) or a slot reference such as `@strong`.
+The first candidate this machine has credentials for is used, so one committed file works across
+accounts. Pin an exact id to stop it rolling forward. `devsys_models` shows what each slot
+resolves to, and the system recommends a model for a phase but never switches yours.
+
+## Enforcement tiers
+
+- **Hard stops** fire for the non-negotiables (`principles/NON-NEGOTIABLES.md`): rewriting
+  published history, force-pushing, deleting remote branches, discarding work with `reset --hard`,
+  `--no-verify`, forbidden commit trailers, pushing onto a red trunk, breaking the delivery mode.
+  Only the user can approve one, once, and only with a UI: a headless run refuses.
+- **Soft gates** guard the defaults (`principles/DEFAULTS.md`): weakening tests, commit rationale,
+  mixed commits, red-first, lint suppression, an unreviewed slice, scope, model for the phase, a
+  skipped planning artifact, a missing ADR. A soft gate is passed by recording a departure with
+  `devsys_record_departure` (what, why, cost if wrong, how long it applies).
+- **Guidance** covers everything else: skills and the phase guide, never enforced.
+
+What the tiers do not cover, so you can decide what to trust:
+
+- **Subagents run unguarded.** A child session is started without extensions, so none of the guards
+  runs inside it. The coordinator commits, pushes and delivers; a subagent's prompt tells it not to,
+  and the coordinator reviews what it produced.
+- **The red-trunk stop needs `gh`.** It reads CI through an authenticated `gh`; where `gh` is missing
+  or offline the trunk reads as unknown and the push is not stopped on that ground.
+- **A departure is the agent's own call.** `devsys_record_departure` waives a soft gate (also with no
+  UI) and is written to the decision log; it is never available for a hard stop.
+- **Gating starts at `devsys_intake`.** With no slice open, the review and red-first gates are off.
+- **Editing gate configuration is not guarded** (`biome.json`, hooks, CI files); review catches it.
+
+## Decision log
+
+Every departure and approval is appended to `docs/decisions/YYYY-MM.md` in the repository, so the
+reasons survive compaction and are reviewable. Architecture-shaping decisions get an ADR in
+`docs/adr/` (`devsys_adr_new`); product decisions go in the decision register that the
+`product-planning` skill describes.
+
+## Commands
+
+All of them are shortcuts to tools; none is required.
+
+| Command | Does |
+| --- | --- |
+| `/devsys-start` | Size the work and propose the artifacts it needs. |
+| `/devsys-plan` | Plan a capability or product, then begin work once approved. |
+| `/devsys-review` | Run a fresh-context review round. |
+| `/devsys-lens-review` | Five product lenses review the brief. |
+| `/devsys-adr` | Create the next ADR. |
+| `/devsys-event-model` | Validate and render an event model. |
+| `/devsys-models` | Write the model matrix for this machine (`--check` to verify). |
+| `/devsys-ci` | Watch CI for the pushed commit. |
+| `/devsys-status` | Phase, slice, review streak, departures and Jev status. |
+| `/agents` | The vendored subagent manager. |
+
+## Agents
+
+Spawn with `agent_spawn`; `devsys_route_task` picks the model and thinking level. `advisor` gives
+read-only decision support, `implementer`, `coder` and `tasker` build (one task record each),
+`reviewer` reviews a diff in fresh context and submits through `devsys_submit_review`,
+`researcher` reads and cites, `architect` and `writer` design and draft, and the five `lens-*`
+agents (Cagan, Torres, Pichler, Perri, Rumelt) review a product brief.
+
+## Changelog
+
+`CHANGELOG.md` is generated from the commit history by `npm run changelog`. A release is the commit that
+changes the version, so run it after that commit exists; the file lists what has been committed so far.
 
 ## Development
 

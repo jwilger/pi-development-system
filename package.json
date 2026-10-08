@@ -1,10 +1,11 @@
 {
   "name": "@jwilger/pi-development-system",
-  "version": "0.88.0",
+  "version": "0.89.0",
   "description": "A pi extension package representing a seasoned approach to software development using a full AI SDLC.",
   "keywords": [
     "pi-package"
   ],
+  "license": "MIT",
   "author": "John Wilger",
   "repository": {
     "type": "git",
@@ -57,6 +58,7 @@
   "scripts": {
     "test": "node --experimental-transform-types --no-warnings --test \"test/**/*.test.ts\"",
     "test:jev": "node --experimental-transform-types --no-warnings --test \"test/live/*.live.ts\"",
+    "changelog": "node --experimental-transform-types --no-warnings scripts/changelog.ts",
     "check:jev": "node scripts/run-jev-fixtures.ts",
     "typecheck": "tsc --noEmit",
     "lint": "biome check --error-on-warnings .",

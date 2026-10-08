@@ -67,6 +67,7 @@ less careful model than the one that wrote this):**
   - Intake autonomy (0.87.0): `devsys_intake` asks the human only when Jev is under 50% confident, accepts a `size` up front, and the status line caps the review count and hides it when idle (`test/planning/intake-tool.test.ts`, `test/context/status.test.ts`).
   - Structured reviewer results (0.88.0): reviewers submit through `devsys_submit_review` (TypeBox schema, stable error ids); `devsys_review_record` reads the submissions, markdown packets stay as the fallback (ADR 0006; `test/review/submit-tool.test.ts`, `test/core/review-submission.test.ts`).
 - [ ] I11 Design-system profile, threat modelling, skill lint, 1.0 readiness
+  - I11 groundwork (0.89.0): `profile-design-system` and `threat-modelling` skills, `test/jev/fixture-coverage.test.ts`, `test/headless-audit.test.ts`, README reference sections, `npm run changelog`, MIT license. The readiness review's guard-bypass findings are closed in the slices that follow, then 1.0.0.
 
 ---
 

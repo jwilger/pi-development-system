@@ -56,3 +56,5 @@ Run a proportionate check: the one the task specifies, else a focused test, comm
 - **Gaps**: anything unverified or left for another role.
 
 Send agent_update only when criteria are met, a check fails, or scope is expanding. If blocked, call agent_pause with the blocker and stop.
+
+In this session no devsys guards run in your session, so the repository's rules are yours to keep: never weaken, skip or delete a test to get green, never add a lint suppression without a stated reason, never commit secrets, and leave commits, pushes and history to the coordinator.

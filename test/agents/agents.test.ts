@@ -84,3 +84,14 @@ test("every shipped agent definition loads through the vendored parser", () => {
     assert.equal(`${type.name}.md`, file, `${file} name matches filename`);
   }
 });
+
+// A child session starts without the guards, so these prompts are the only place the rules live
+// (README "What the tiers do not cover"). Agents that can edit and run commands must say them.
+for (const name of ["implementer", "coder", "tasker"]) {
+  test(`${name}: tells the agent the guards are absent and that the coordinator delivers`, () => {
+    const body = load(name).body.replace(/\s+/g, " ");
+    assert.match(body, /no devsys guards/i);
+    assert.match(body, /never weaken, skip or delete a test/i);
+    assert.match(body, /coordinator/i);
+  });
+}
