@@ -42,6 +42,11 @@ A warning is an error that has not been triaged yet. Before every commit:
   is made type-clean and lint-clean, dropped from the list, and removed from the
   `!src/subagents/...` exclusions in `biome.json`.
 
+## Running all the checks at once
+
+`references/verify.md` has a codemode script that runs the project's checks in parallel and
+returns `{tool, exit, firstFailures}` for each. Prefer it to five separate calls.
+
 ## What the extension does
 
 Editing a file so that it adds `#[allow(`, `#[expect(`, `// biome-ignore`,

@@ -13,6 +13,18 @@ and adds per-spawn `model` and `thinkingLevel`. **Remove the original from the
 entry), then `/reload`; otherwise both register `agent_spawn` and pi refuses the
 duplicate.
 
+## You do not need the slash commands
+
+Everything the system offers is reachable without remembering a command. Describe the work in
+plain words: when a prompt asks for new work, a fix or a review, the system adds a guideline
+naming the tool to use (`devsys_intake`, `devsys_review_start`). A `devsys` tool always shows
+what the current phase expects. When you say a slice is finished with no review round recorded,
+it tells you to start one. The slash commands (`/devsys-start`, `/devsys-plan`, `/devsys-review`)
+are shortcuts to the same tools.
+
+With `codemode` enabled (`"defaultTools": ["+codemode"]` in pi settings), rarely used tools and
+the `judge_*` Jev wrappers are reached through scripts; without it they are declared directly.
+
 ## Development
 
 ```sh
