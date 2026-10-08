@@ -31,6 +31,7 @@ test("only an idle session is nudged: in a running slice a request may be part o
 });
 
 type Setup = { label?: string | undefined; phase?: Phase; offline?: boolean };
+type Nudge = { message?: { customType: string; content: string; display: boolean } } | undefined;
 
 const run = async (prompt: string, opts: Setup = {}) => {
   const label = opts.label;
@@ -53,48 +54,61 @@ const run = async (prompt: string, opts: Setup = {}) => {
     systemPrompt: "",
     systemPromptOptions: { sections: {}, promptGuidelines: [] as string[] },
   };
-  await fake.emit(event as never);
-  const out = (await fake.emit({ type: "context", messages: [] } as never)) as
-    | { messages: { content: string }[] }
-    | undefined;
+  const out = (await fake.emitAll(event as never)).find((r) => (r as Nudge)?.message) as Nudge;
   return {
     guidelines: event.systemPromptOptions.promptGuidelines,
-    tail: out?.messages.map((m) => m.content).join("\n") ?? "",
+    sections: event.systemPromptOptions.sections as Record<string, string>,
+    message: out?.message,
+    tail: out?.message?.content ?? "",
+    calls: fake.classifyCalls.count,
     fake,
     system,
   };
 };
 
-test("a plain request on an idle session puts the intake line in the context tail", async () => {
+test("a plain request on an idle session returns the intake line as a one-shot message", async () => {
   const r = await run("add a --json flag to the export command", { label: "new-work" });
   assert.match(r.tail, /devsys_intake/);
+  assert.equal(r.message?.customType, "devsys-nudge");
+  assert.equal(r.message?.display, false);
 });
 
-test("the system prompt is left alone, so the provider's cache survives the nudge", async () => {
-  const r = await run("add a --json flag to the export command", { label: "new-work" });
-  assert.deepEqual(r.guidelines, []);
+test("the nudge never touches the system prompt sections or guidelines", async () => {
+  const quiet = await run("how does the verifier work?", { label: "question" });
+  const nudged = await run("add a --json flag to the export command", { label: "new-work" });
+  assert.deepEqual(nudged.guidelines, []);
+  assert.deepEqual(nudged.sections, quiet.sections);
 });
 
-test("the line applies to one run only", async () => {
-  const r = await run("add a --json flag", { label: "new-work" });
-  await r.fake.emit({ type: "agent_end" } as never);
-  const out = (await r.fake.emit({ type: "context", messages: [] } as never)) as unknown;
-  assert.equal(out, undefined);
+test("a question gets no message at all", async () => {
+  const r = await run("how does the verifier work?", { label: "question" });
+  assert.equal(r.message, undefined);
 });
 
-test("a question gets no line", async () => {
-  assert.equal((await run("how does the verifier work?", { label: "question" })).tail, "");
-});
-
-test("a busy session is not judged at all", async () => {
+test("a busy session is not judged at all: no Jev call is made", async () => {
   const r = await run("also add a test for the empty case", {
     label: "new-work",
     phase: "implementing",
   });
-  assert.equal(r.tail.includes("devsys_intake"), false);
+  assert.equal(r.calls, 0);
+  assert.equal(r.message, undefined);
 });
 
-test("with Jev offline or failing the prompt goes through untouched", async () => {
-  assert.equal((await run("add a flag", { offline: true })).tail, "");
-  assert.equal((await run("add a flag", { label: undefined })).tail, "");
+test("a Jev that is known to be offline costs no call; a failing one adds nothing", async () => {
+  const fake = createFakePi({ classifiers: ["typesafe/jev-latest"], classifyAnswers: undefined });
+  createDevelopmentSystem(fake.api);
+  await fake.emit({ type: "session_start" } as never);
+  const event = () => ({
+    type: "before_agent_start",
+    prompt: "add a flag",
+    systemPrompt: "",
+    systemPromptOptions: { sections: {}, promptGuidelines: [] as string[] },
+  });
+  const nudges = async () =>
+    (await fake.emitAll(event() as never)).filter((r) => (r as Nudge)?.message);
+  assert.deepEqual(await nudges(), []);
+  assert.equal(fake.classifyCalls.count, 1);
+  // The first failure marked Jev offline; the next prompt must not pay for a call.
+  assert.deepEqual(await nudges(), []);
+  assert.equal(fake.classifyCalls.count, 1);
 });

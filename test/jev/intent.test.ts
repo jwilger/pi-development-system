@@ -3,7 +3,12 @@ import test from "node:test";
 import type { ClassifierAnswer, ClassifierQuestion } from "@earendil-works/pi-ai";
 import { err, ok } from "../../src/core/result.ts";
 import type { Jev } from "../../src/jev/client.ts";
-import { INTENT_QUESTION, INTENTS, judgeIntent } from "../../src/jev/questions/intent.ts";
+import {
+  INTENT_QUESTION,
+  INTENTS,
+  judgeIntent,
+  requestText,
+} from "../../src/jev/questions/intent.ts";
 import { loadFixture, questionHash } from "./fixture-runner.ts";
 
 const choice = (label: string, confidence: number): ClassifierAnswer => ({
@@ -58,4 +63,17 @@ test("every fixture label is a known intent, and the question hash is pinned", (
   const fixture = loadFixture("intent");
   assert.equal(fixture.questionHash, questionHash(INTENT_QUESTION));
   for (const c of fixture.cases) assert.ok((INTENTS as readonly string[]).includes(c.expected));
+});
+
+test("a /skill: prompt is judged on the request after the skill body, and long prompts keep both ends", () => {
+  const body = "x".repeat(3000);
+  assert.equal(
+    requestText(`<skill name="tdd">${body}</skill>\n\nadd a --json flag`),
+    "add a --json flag",
+  );
+  const long = `${"a".repeat(2000)} THE REQUEST`;
+  const kept = requestText(long);
+  assert.ok(kept.length <= 1500 + 3);
+  assert.ok(kept.endsWith("THE REQUEST"));
+  assert.ok(kept.startsWith("aaaa"));
 });

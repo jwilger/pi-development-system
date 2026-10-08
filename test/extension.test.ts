@@ -70,17 +70,49 @@ test("loading registers the departure and approval tools and guards force pushes
   assert.equal(result.block, true);
 });
 
-test("the context handler appends the departure tail at the end only when there is something to say", async () => {
+test("no context handler: nothing is appended to the request after the cache breakpoint", () => {
   const fake = createFakePi();
+  createDevelopmentSystem(fake.api);
+  assert.equal(fake.handlers.get("context"), undefined);
+});
+
+const promptEvent = () => ({
+  type: "before_agent_start",
+  prompt: "hi",
+  systemPrompt: "",
+  systemPromptOptions: { sections: {} as Record<string, string>, promptGuidelines: [] },
+});
+
+test("the principles section is byte-identical across state changes; only the state section moves", async () => {
+  const fake = createFakePi({ hasUI: false });
   const { state } = createDevelopmentSystem(fake.api);
-  const messages = [{ role: "user", content: "hi", timestamp: 1 }];
-  assert.equal(await fake.emit({ type: "context", messages } as never), undefined);
-  state.update((s) => ({ ...s, phase: "implementing" }));
-  const result = (await fake.emit({ type: "context", messages } as never)) as {
-    messages: Array<{ content: string }>;
-  };
-  assert.equal(result.messages.length, 2);
-  assert.match(result.messages[1]?.content ?? "", /phase: implementing/);
+  const a = promptEvent();
+  await fake.emit(a as never);
+  state.update((s) => ({ ...s, phase: "implementing", jev: "offline" }));
+  const b = promptEvent();
+  await fake.emit(b as never);
+  const section = (e: typeof a, name: string) =>
+    new Map(Object.entries(e.systemPromptOptions.sections)).get(name) ?? "";
+  assert.equal(section(a, "development-system"), section(b, "development-system"));
+  assert.match(section(a, "development-system-state"), /phase: idle/);
+  assert.match(section(b, "development-system-state"), /phase: implementing/);
+  assert.doesNotMatch(section(b, "development-system-state"), /offline/);
+});
+
+test("the cadence warning is a one-shot persisted message, said once per bucket", async () => {
+  const fake = createFakePi({ hasUI: false });
+  const { state } = createDevelopmentSystem(fake.api);
+  type Nudge = { message?: { content: string; display: boolean } } | undefined;
+  const nudge = async () =>
+    (await fake.emitAll(promptEvent() as never)).find((r) => (r as Nudge)?.message) as Nudge;
+  const old = new Date(Date.now() - 70 * 60_000).toISOString();
+  state.update((s) => ({ ...s, phase: "implementing", lastPushAt: old }));
+  const first = await nudge();
+  assert.match(first?.message?.content ?? "", /over 60 min since last push/);
+  assert.equal(first?.message?.display, false);
+  assert.equal(await nudge(), undefined);
+  state.update((s) => ({ ...s, lastPushAt: new Date().toISOString() }));
+  assert.equal(await nudge(), undefined);
 });
 
 test("session_start shows the Jev model when a classifier credential exists", async () => {
@@ -177,17 +209,6 @@ test("the turn verifier is wired to turn_end and stays silent with Jev unavailab
     toolResults: [],
   } as never);
   assert.equal(result, undefined);
-});
-
-test("the context tail carries the cadence line when the last push is older than cadence.push_minutes", async () => {
-  const fake = createFakePi({ hasUI: false });
-  const { state } = createDevelopmentSystem(fake.api);
-  const old = new Date(Date.now() - 90 * 60_000).toISOString();
-  state.update((s) => ({ ...s, phase: "implementing", lastPushAt: old }));
-  const result = (await fake.emit({ type: "context", messages: [] } as never)) as {
-    messages: Array<{ content: string }>;
-  };
-  assert.match(result.messages.at(-1)?.content ?? "", /9\d min since last push/);
 });
 
 test("loading registers the intake tool", () => {

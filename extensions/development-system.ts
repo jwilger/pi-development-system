@@ -5,13 +5,13 @@ import type {
   ExtensionContext,
   ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
-import { cadenceLine, DEFAULT_PUSH_MINUTES } from "../src/context/cadence.ts";
-import { appendContextTail, renderContextTail } from "../src/context/context-tail.ts";
+import { DEFAULT_PUSH_MINUTES } from "../src/context/cadence.ts";
 import { createPhaseTool } from "../src/context/devsys-tool.ts";
 import { intentLineFor } from "../src/context/intent-trigger.ts";
 import { registerModelAdvice } from "../src/context/model-advice.ts";
+import { NUDGE_ENTRY_TYPE, renderNudge } from "../src/context/nudge.ts";
 import { renderStatus, renderStatusLine, STATUS_KEY } from "../src/context/status.ts";
-import { applyPromptSection } from "../src/context/system-prompt.ts";
+import { applyPromptSections } from "../src/context/system-prompt.ts";
 import { DEFAULT_VERIFIER_MAX, registerTurnVerifier } from "../src/context/turn-verifier.ts";
 import { type Exec, timeoutAsFailure } from "../src/core/exec.ts";
 import { defaultMatrix } from "../src/core/models.ts";
@@ -89,26 +89,30 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   pi.on("session_start", (_event, ctx) => rebuild(ctx));
   pi.on("session_tree", (_event, ctx) => rebuild(ctx));
 
-  // The intent line rides in the context tail for this run only: a change to the system prompt
-  // would invalidate the provider's cache for the whole conversation.
-  let intentLine: string | undefined;
+  // Prompt-cache discipline (ADR-0004): the system prompt carries two sections — static principles
+  // and a small state section pi only resends when it changes — and anything one-shot (intent
+  // nudge, cadence warning) is returned here as a persisted message. No `context` handler: an
+  // unpersisted edit at the end of the request sits on the provider's cache breakpoint.
+  let lastCadence: string | undefined;
+  let cadenceFor: string | undefined;
   pi.on("before_agent_start", async (event, ctx) => {
-    applyPromptSection(event, state.get(), nonNegotiables);
-    intentLine = await intentLineFor(event.prompt, state.get(), jevHolder.forContext(ctx));
-  });
-  pi.on("agent_end", () => {
-    intentLine = undefined;
-  });
-
-  pi.on("context", (event) => {
-    const now = Date.now();
-    const cadence = cadenceLine(state.get(), now, pushMinutes);
-    const messages = appendContextTail(
-      event.messages,
-      renderContextTail(state.get(), cadence, intentLine),
-      now,
-    );
-    return messages === undefined ? undefined : { messages };
+    const current = state.get();
+    applyPromptSections(event, current, nonNegotiables);
+    if (current.lastPushAt !== cadenceFor) {
+      cadenceFor = current.lastPushAt;
+      lastCadence = undefined;
+    }
+    const intentLine = await intentLineFor(event.prompt, current, jevHolder.forContext(ctx));
+    const nudge = renderNudge(current, Date.now(), pushMinutes, intentLine, lastCadence);
+    if (nudge === undefined) return undefined;
+    lastCadence = nudge.cadence;
+    return {
+      message: {
+        customType: NUDGE_ENTRY_TYPE,
+        content: nudge.text,
+        display: false,
+      },
+    };
   });
 
   const exec: Exec = async (command, args, options) =>

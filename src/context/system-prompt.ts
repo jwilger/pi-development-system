@@ -1,30 +1,60 @@
 import type { BeforeAgentStartEvent } from "@earendil-works/pi-coding-agent";
-import type { DevsysState } from "../core/types.ts";
+import type { Departure, DevsysState } from "../core/types.ts";
 
-const PROMPT_SECTION_NAME = "development-system";
+/**
+ * Two sections, kept apart on purpose. pi diffs system-prompt sections per run and appends
+ * only the ones whose text changed, so the static section is paid for once per conversation
+ * and only the small state section is resent when the workflow state moves. Nothing in either
+ * may change from call to call within a run (that would break the provider's prefix cache).
+ */
+const PRINCIPLES_SECTION = "development-system";
+const STATE_SECTION = "development-system-state";
 
-/** Pure: renders the system-prompt section from current state. */
-export function buildPromptSection(state: DevsysState, nonNegotiables: string): string {
-  const slice = state.activeSlice ?? "none";
-  return [
-    nonNegotiables.trim(),
-    "",
-    "## Current state",
-    `- phase: ${state.phase}`,
-    `- active slice: ${slice}`,
-    `- open departures: ${state.openDepartures.length}`,
-    `- jev: ${state.jev}`,
-  ].join("\n");
+const MAX_DEPARTURES = 12;
+const REMINDER =
+  "Call devsys_record_departure before acting against a default; hard stops need the user.";
+
+const scopeLabel = (d: Departure): string =>
+  d.scope.kind === "slice" ? `slice ${d.scope.slice}` : d.scope.kind;
+
+/** Pure: the static principles section — byte-identical whatever the state. */
+export function buildPrinciplesSection(nonNegotiables: string): string {
+  return nonNegotiables.trim();
 }
 
-/** Adapter: mutates the section on a before_agent_start event (never returns systemPrompt). */
-export function applyPromptSection(
+/**
+ * Pure: the small state section. Jev availability is deliberately absent — it flaps, and the
+ * status line already shows it. Timestamps and counters that tick are absent for the same reason.
+ */
+export function buildStateSection(state: DevsysState): string {
+  const lines = [
+    "## Current state",
+    `- phase: ${state.phase}`,
+    `- sizing: ${state.sizing ?? "none"}`,
+    `- active slice: ${state.activeSlice ?? "none"}`,
+    `- profiles: ${(state.profiles?.length ?? 0) > 0 ? state.profiles?.join(", ") : "none"}`,
+  ];
+  const open = state.openDepartures;
+  if (open.length === 0) {
+    lines.push("- open departures: none");
+  } else {
+    lines.push("- open departures:");
+    const shown = open.slice(0, MAX_DEPARTURES);
+    for (const d of shown) {
+      lines.push(`  - ${d.gate} — ${d.chosen.replace(/\s+/g, " ")} (${scopeLabel(d)})`);
+    }
+    if (open.length > shown.length) lines.push(`  - …and ${open.length - shown.length} more`);
+  }
+  lines.push("", REMINDER);
+  return lines.join("\n");
+}
+
+/** Adapter: sets both sections on a before_agent_start event (never returns systemPrompt). */
+export function applyPromptSections(
   event: BeforeAgentStartEvent,
   state: DevsysState,
   nonNegotiables: string,
 ): void {
-  event.systemPromptOptions.sections[PROMPT_SECTION_NAME] = buildPromptSection(
-    state,
-    nonNegotiables,
-  );
+  event.systemPromptOptions.sections[PRINCIPLES_SECTION] = buildPrinciplesSection(nonNegotiables);
+  event.systemPromptOptions.sections[STATE_SECTION] = buildStateSection(state);
 }

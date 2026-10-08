@@ -45,6 +45,8 @@ export function createFakePi(init: FakePiOptions = {}) {
   const commands = new Map<string, Omit<RegisteredCommand, "name" | "sourceInfo">>();
   const entries: FakeEntry[] = [];
   const sentMessages: unknown[] = [];
+  /** How many times Jev's `classify` was called, for tests that claim a path costs no call. */
+  const classifyCalls = { count: 0 };
   const sendOptions: unknown[] = [];
   const ui: FakeUi = {
     hasUI: init.hasUI ?? true,
@@ -81,6 +83,7 @@ export function createFakePi(init: FakePiOptions = {}) {
           return { provider: c.slice(0, at), id: c.slice(at + 1) };
         }),
       classify: async () => {
+        classifyCalls.count += 1;
         const answers = init.classifyAnswers;
         if (answers === undefined) throw new Error("fake registry: classify not configured");
         return {
@@ -163,6 +166,16 @@ export function createFakePi(init: FakePiOptions = {}) {
     return result;
   }
 
+  /** Like `emit`, but returns every handler's result (pi collects `before_agent_start` messages from all). */
+  async function emitAll(event: ExtensionEvent, overrides?: Partial<ExtensionContext>) {
+    const results: unknown[] = [];
+    const effective = { ...ctx, ...overrides };
+    for (const handler of handlers.get(event.type) ?? []) {
+      results.push(await handler(event, effective as ExtensionContext));
+    }
+    return results;
+  }
+
   /**
    * A stand-in for `ctx.executeTool()` as a codemode script sees it: every nested call is
    * announced to `tool_call` handlers, then (unless blocked) run by `run`, then reported to
@@ -196,12 +209,14 @@ export function createFakePi(init: FakePiOptions = {}) {
     api,
     ctx,
     emit,
+    emitAll,
     nestedExecutor,
     tools,
     commands,
     entries,
     sentMessages,
     sendOptions,
+    classifyCalls,
     ui,
     handlers,
   };

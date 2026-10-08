@@ -23,13 +23,28 @@ export const INTENT_QUESTION: ClassifierChoiceQuestion = {
 };
 
 const PROMPT_MAX = 1500;
+const SKILL_END = "</skill>";
+
+/**
+ * Pi expands `/skill:name args` into `<skill …>body</skill>\n\nargs`; the body is the skill's own
+ * instructions, not the request. Judge the text after it, and when a prompt is still long keep both
+ * ends so a request that comes last is not clipped away.
+ */
+export function requestText(prompt: string): string {
+  const trimmed = prompt.trimStart();
+  const end = trimmed.startsWith("<skill ") ? trimmed.indexOf(SKILL_END) : -1;
+  const text = (end === -1 ? trimmed : trimmed.slice(end + SKILL_END.length)).trim();
+  if (text.length <= PROMPT_MAX) return text;
+  const half = Math.floor(PROMPT_MAX / 2);
+  return `${text.slice(0, half)}\n…\n${text.slice(-half)}`;
+}
 const isIntent = (value: string): value is Intent => INTENTS.some((i) => i === value);
 
 export async function judgeIntent(
   jev: Jev,
   input: { prompt: string; phase: string },
 ): Promise<Result<{ intent: Intent; confidence: number }, JevError>> {
-  const prompt = redactSecrets(input.prompt.slice(0, PROMPT_MAX * 2)).slice(0, PROMPT_MAX);
+  const prompt = redactSecrets(requestText(input.prompt));
   const asked = await jev.ask({ prompt, phase: input.phase }, { intent: INTENT_QUESTION });
   if (!asked.ok) return asked;
   const answer = asked.value.intent;
