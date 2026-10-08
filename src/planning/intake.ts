@@ -71,3 +71,36 @@ export const renderProposal = (input: {
   );
   return lines.join("\n");
 };
+
+/** Jev confidence below this asks the human; at or above it intake proceeds with Jev's size. */
+const ASK_BELOW = 0.5;
+
+export type SizeDecision =
+  | { readonly kind: "decided"; readonly size: Sizing; readonly basis: string }
+  | { readonly kind: "ask"; readonly proposed: Sizing; readonly basis: string };
+
+/**
+ * Pure: who sizes the work. A size given up front (the caller, e.g. a goal's planning, already
+ * decided) wins; otherwise Jev decides when it is confident enough; only a doubtful or missing
+ * judgement asks the human, with Jev's size (or `change`) as the proposal.
+ */
+export function decideSize(
+  given: Sizing | undefined,
+  judged: { readonly sizing: Sizing; readonly confidence: number } | undefined,
+  unavailable: string,
+): SizeDecision {
+  if (given !== undefined) {
+    return { kind: "decided", size: given, basis: `Size given up front: ${given}.` };
+  }
+  if (judged === undefined) {
+    return {
+      kind: "ask",
+      proposed: "change",
+      basis: `Jev unavailable (${unavailable}); defaulted to change.`,
+    };
+  }
+  const said = `Jev judged ${judged.sizing} (confidence ${judged.confidence.toFixed(2)})`;
+  return judged.confidence >= ASK_BELOW
+    ? { kind: "decided", size: judged.sizing, basis: `${said}; proceeding without asking.` }
+    : { kind: "ask", proposed: judged.sizing, basis: `${said}, too unsure to proceed alone.` };
+}

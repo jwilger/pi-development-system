@@ -19,8 +19,9 @@ export const upsertReview = (state: DevsysState, review: ReviewState): DevsysSta
   return { ...state, reviews: [...others, review] };
 };
 
+/** Capped at the requirement: extra clean rounds (after a late change) are not progress past "done". */
 export const reviewLabel = (review: ReviewState): string =>
-  `review: ${cleanStreak(review)}/${review.required} clean`;
+  `review: ${Math.min(cleanStreak(review), review.required)}/${review.required} clean`;
 
 /**
  * Why a commit on this slice lacks a satisfied review, or `undefined` when the review is complete

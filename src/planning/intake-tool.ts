@@ -13,12 +13,26 @@ import type { Jev } from "../jev/client.ts";
 import { judgeSizing } from "../jev/questions/sizing.ts";
 import { appendDecision } from "../state/decision-log.ts";
 import type { SessionState } from "../state/session-state.ts";
-import { phaseFor, proposeArtifacts, renderProposal, sliceSlug, uniqueSlice } from "./intake.ts";
+import {
+  decideSize,
+  phaseFor,
+  proposeArtifacts,
+  renderProposal,
+  type SizeDecision,
+  sliceSlug,
+  uniqueSlice,
+} from "./intake.ts";
 
 const Parameters = Type.Object({
   request: Type.String({ description: "What the user asked for, in their words." }),
   repoSummary: Type.Optional(
     Type.String({ description: "One or two sentences on the repository, if known." }),
+  ),
+  size: Type.Optional(
+    Type.String({
+      description:
+        "fix, change, capability or product, when the size is already decided (for example during a goal's up-front planning). Skips Jev's sizing question and the user's.",
+    }),
   ),
 });
 
@@ -62,11 +76,36 @@ async function declinedToReplace(
   const { activeSlice, phase } = before;
   const inFlight = phase === "implementing" || phase === "reviewing" || phase === "delivering";
   if (activeSlice === undefined || !inFlight) return undefined;
+  if (!ctx.hasUI) {
+    return `Slice "${activeSlice}" is still ${phase}; replacing it needs the user's yes, and there is no UI to ask. Intake cancelled; slice "${activeSlice}" is unchanged.`;
+  }
   const go = await ctx.ui.confirm(
     "Slice already in flight",
     `Slice "${activeSlice}" is still ${phase}. Its uncommitted or unpushed changes would ship under the new slice's rules. Start new work anyway?`,
   );
   return go ? undefined : `Intake cancelled; slice "${activeSlice}" is unchanged.`;
+}
+
+type Chosen = { readonly sizing: Sizing } | { readonly stop: string; readonly isError: boolean };
+
+/** A decided size passes through; an undecided one asks the user (headless: stops with the proposal). */
+async function chooseSize(
+  ctx: ExtensionContext,
+  decision: SizeDecision,
+  proposalFor: (size: Sizing) => ReturnType<typeof proposeArtifacts>,
+): Promise<Chosen> {
+  if (decision.kind === "decided") return { sizing: decision.size };
+  const { basis, proposed } = decision;
+  const proposal = renderProposal({ sizing: proposed, basis, proposal: proposalFor(proposed) });
+  if (!ctx.hasUI) {
+    return { stop: `${proposal}\nHeadless: proposal only, not applied.`, isError: false };
+  }
+  const picked = await ctx.ui.select(`Size this work (${basis})`, sizeChoices(proposed));
+  if (picked === undefined) {
+    return { stop: `${proposal}\nIntake cancelled; nothing changed.`, isError: false };
+  }
+  const parsed = parseSizing(picked);
+  return isParseError(parsed) ? { stop: parsed.message, isError: true } : { sizing: parsed };
 }
 
 const waiverNote = (sizing: Sizing, departed: string | undefined): string => {
@@ -108,7 +147,7 @@ async function fixWithoutReview(
   return path;
 }
 
-/** `devsys_intake`: Jev proposes a size and artifact set; the user confirms; state moves to the first phase. */
+/** `devsys_intake`: Jev (or the caller) sizes the work; only a doubtful Jev asks the user; state moves to the first phase. */
 export function createIntakeTool(deps: {
   pi: ExtensionAPI;
   state: SessionState;
@@ -119,36 +158,39 @@ export function createIntakeTool(deps: {
     label: "Start work",
     description:
       "Size a request (fix, change, capability, product) and list the planning artifacts that size needs. " +
-      "The user confirms the size; then phase, sizing and the active slice are set. Call at the start of any non-trivial work.",
+      "Jev sizes the work and the user is asked only when Jev is under 50% confident; pass `size` when it is already decided. Then phase, sizing and the active slice are set. Call at the start of any non-trivial work.",
     promptSnippet: "Size new work and propose the planning artifacts it needs",
     parameters: Parameters,
     exposure: "model-only",
     async execute(_id, params: Static<typeof Parameters>, _signal, _onUpdate, ctx) {
       const request = params.request.trim();
       if (request === "") return reply("request must not be empty", true);
-      const judged = await judgeSizing(deps.jev(ctx), {
-        request,
-        repoSummary: params.repoSummary ?? "",
-      });
-      const proposedSize: Sizing = judged.ok ? judged.value.sizing : "change";
-      const basis = judged.ok
-        ? `Jev judged ${judged.value.sizing} (confidence ${judged.value.confidence.toFixed(2)}).`
-        : `Jev unavailable (${judged.error.kind}); defaulted to change.`;
-      const artifactNeed = judged.ok ? judged.value.artifactNeed : {};
+      const given = params.size === undefined ? undefined : parseSizing(params.size.trim());
+      if (given !== undefined && isParseError(given)) return reply(given.message, true);
+      const judged =
+        given === undefined
+          ? await judgeSizing(deps.jev(ctx), { request, repoSummary: params.repoSummary ?? "" })
+          : undefined;
+      const decision = decideSize(
+        given,
+        judged?.ok ? judged.value : undefined,
+        judged?.ok === false ? judged.error.kind : "not asked",
+      );
+      const artifactNeed = judged?.ok ? judged.value.artifactNeed : {};
       const proposalFor = (size: Sizing) => proposeArtifacts(size, artifactNeed);
-      const proposal = renderProposal({
-        sizing: proposedSize,
-        basis,
-        proposal: proposalFor(proposedSize),
-      });
-      if (!ctx.hasUI) return reply(`${proposal}\nHeadless: proposal only, not applied.`);
-      const picked = await ctx.ui.select(`Size this work (${basis})`, sizeChoices(proposedSize));
-      if (picked === undefined) return reply(`${proposal}\nIntake cancelled; nothing changed.`);
-      const sizing = parseSizing(picked);
-      if (isParseError(sizing)) return reply(sizing.message, true);
+      const chosen = await chooseSize(ctx, decision, proposalFor);
+      if ("stop" in chosen) return reply(chosen.stop, chosen.isError);
+      const { sizing } = chosen;
       const before = deps.state.get();
       const keep = await declinedToReplace(ctx, before);
-      if (keep !== undefined) return reply(`${proposal}\n${keep}`);
+      if (keep !== undefined) {
+        const proposal = renderProposal({
+          sizing,
+          basis: decision.basis,
+          proposal: proposalFor(sizing),
+        });
+        return reply(`${proposal}\n${keep}`);
+      }
       const slice = uniqueSlice(sliceSlug(request), slicesInUse(before)) as SliceRef;
       deps.state.update((s) => ({
         ...s,
@@ -156,9 +198,14 @@ export function createIntakeTool(deps: {
         sizing,
         activeSlice: slice,
       }));
-      const waived = sizing === "fix" ? await askToWaiveReview(ctx, request, slice) : false;
+      const waived =
+        sizing === "fix" && ctx.hasUI ? await askToWaiveReview(ctx, request, slice) : false;
       const departed = waived ? await fixWithoutReview(deps, ctx, slice) : undefined;
-      const final = renderProposal({ sizing, basis, proposal: proposalFor(sizing) });
+      const final = renderProposal({
+        sizing,
+        basis: decision.basis,
+        proposal: proposalFor(sizing),
+      });
       const note = waiverNote(sizing, departed);
       return reply(`${final}\nPhase: ${phaseFor(sizing)}. Active slice: ${slice}.${note}`);
     },

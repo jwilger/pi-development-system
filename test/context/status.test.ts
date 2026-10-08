@@ -66,7 +66,27 @@ test("status shows the active slice's review as N/R clean", async () => {
   assert.doesNotMatch(renderStatus(initialState()), /review:/);
 });
 
-test("without an active slice the most recent review is still shown", () => {
+test("without an active slice no review is shown, however recent", () => {
   const review = { slice: "s1" as never, rounds: [], required: 3 };
-  assert.match(renderStatus({ ...initialState(), reviews: [review] }), /review: 0\/3 clean/);
+  const state = { ...initialState(), reviews: [review] };
+  assert.doesNotMatch(renderStatus(state), /review/);
+  assert.doesNotMatch(renderStatusLine(state), /review/);
+});
+
+test("more clean rounds than required never show past N/N", async () => {
+  const { addRound, startReview } = await import("../../src/core/review.ts");
+  const { upsertReview } = await import("../../src/core/review-flow.ts");
+  let review = startReview("s1" as never, 3);
+  for (let n = 1; n <= 4; n++) {
+    review = addRound(review, {
+      lenses: ["tests"],
+      findings: [],
+      diffDigest: `d${n}`,
+      reviewedAt: "t",
+    });
+  }
+  const state = upsertReview({ ...initialState(), activeSlice: "s1" as never }, review);
+  assert.match(renderStatusLine(state), /review 3\/3/);
+  assert.doesNotMatch(renderStatusLine(state), /4\/3/);
+  assert.match(renderStatus(state), /review: 3\/3 clean/);
 });
