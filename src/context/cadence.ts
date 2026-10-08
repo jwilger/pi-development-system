@@ -19,6 +19,9 @@ export function cadenceLine(
   if (!Number.isFinite(pushed)) return undefined;
   const minutes = Math.floor((now - pushed) / 60_000);
   if (minutes <= pushMinutes) return undefined;
-  const bucket = Math.floor(minutes / CADENCE_BUCKET_MINUTES) * CADENCE_BUCKET_MINUTES;
+  const bucket = Math.max(
+    pushMinutes,
+    Math.floor(minutes / CADENCE_BUCKET_MINUTES) * CADENCE_BUCKET_MINUTES,
+  );
   return `⚠ over ${bucket} min since last push — is this increment too big?`;
 }

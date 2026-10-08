@@ -26,3 +26,10 @@ test("at or under the limit, other phases, no push yet or a bad timestamp say no
 test("a clock that is before the push says nothing", () => {
   assert.equal(cadenceLine(implementing, at(-5), 60), undefined);
 });
+
+test("a threshold under one bucket never reports less than the threshold", () => {
+  assert.equal(
+    cadenceLine(implementing, at(25), 20),
+    "⚠ over 20 min since last push — is this increment too big?",
+  );
+});

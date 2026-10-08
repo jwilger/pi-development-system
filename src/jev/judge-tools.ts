@@ -15,7 +15,7 @@ const JUDGE_NAMESPACE = {
   description:
     "Jev judgements as data: probabilities and labels a script can branch on (sizing, test-change, lenses, task readiness).",
   instructions:
-    "Each tool returns JSON text: the judgement, or {error} when Jev is unavailable. Inputs are redacted and clipped before they reach Jev. Use these inside codemode scripts; they change no state.",
+    'Each tool returns JSON text: the judgement. When Jev is unavailable the call rejects with a message holding {"error": …}, so wrap calls in try/catch or Promise.allSettled. Inputs are redacted and clipped before they reach Jev. Use these inside codemode scripts; they change no state.',
 } as const;
 
 type Deps = { jev: (ctx: ExtensionContext) => Jev };

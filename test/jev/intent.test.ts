@@ -73,7 +73,24 @@ test("a /skill: prompt is judged on the request after the skill body, and long p
   );
   const long = `${"a".repeat(2000)} THE REQUEST`;
   const kept = requestText(long);
-  assert.ok(kept.length <= 1500 + 3);
+  assert.ok(kept.length <= 1500);
   assert.ok(kept.endsWith("THE REQUEST"));
   assert.ok(kept.startsWith("aaaa"));
+});
+
+test("a secret whose name falls in the clipped middle is redacted before the clip, not after", async () => {
+  const secret = "ghp_abcdefghijklmnopqrstuvwxyz0123456789";
+  const prompt = `${"a".repeat(740)}\nexport MY_SERVICE_TOKEN=${secret}\n${"b".repeat(1400)}`;
+  let sent = "";
+  const jev = {
+    ask: (state: unknown) => {
+      sent = JSON.stringify(state);
+      return Promise.resolve({ ok: false as const, error: { kind: "no-model" as const } });
+    },
+    availability: () => "online" as const,
+    model: () => undefined,
+  };
+  await judgeIntent(jev as never, { prompt, phase: "idle" });
+  assert.equal(sent.includes(secret), false);
+  assert.equal(sent.includes("MY_SERVICE_TOKEN=ghp"), false);
 });

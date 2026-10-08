@@ -49,6 +49,12 @@ during a run. Plan rule R13 states the invariant; tests in
   ignores the prompt's state section loses the reminder at the point of
   action. The departure gates still enforce it.
 - A state change still resends the state section once.
+- Turns pi starts without `prompt()` — the vendored subagent recap uses
+  `pi.sendMessage(..., {triggerTurn: true})` — never run `before_agent_start`,
+  so pi's next-turn refresh diffs against base options that have no extension
+  sections and drops both. The next user prompt then resends them: one cache
+  miss after each asynchronous subagent recap. pi offers no way to register
+  base sections, so this is accepted.
 
 ## Alternatives
 
