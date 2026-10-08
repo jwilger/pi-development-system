@@ -9,7 +9,7 @@ import { phaseGuide } from "./phase-guide.ts";
  * system prompt's state section; calling the tool returns the guidance for it.
  */
 export const DEVSYS_TOOL_DESCRIPTION =
-  "What the development system expects in the current workflow phase (named in the system prompt's Current state), and which tools to use. Call it when unsure what comes next.";
+  "What the development system expects in the current workflow phase (the system prompt names it as of the start of the prompt; this call is live), and which tools to use. Call it when unsure what comes next.";
 
 /** `devsys`: a model-only tool that returns the current phase's guidance. */
 export function createPhaseTool(deps: { state: SessionState }): ToolDefinition {

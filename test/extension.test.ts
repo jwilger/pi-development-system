@@ -218,3 +218,15 @@ test("loading registers the intake tool", () => {
   assert.ok(fake.tools.has("devsys_task_check"));
   assert.ok(fake.tools.has("devsys_work_item"));
 });
+
+test("no before_agent_start handler returns a forced systemPrompt (it would defeat the cache)", async () => {
+  const fake = createFakePi({ hasUI: false });
+  createDevelopmentSystem(fake.api);
+  await fake.emit({ type: "session_start" } as never);
+  const results = await fake.emitAll(promptEvent() as never);
+  for (const r of results)
+    assert.equal((r as { systemPrompt?: string } | undefined)?.systemPrompt, undefined);
+  const e = promptEvent();
+  await fake.emitAll(e as never);
+  assert.ok("pi-subagent" in e.systemPromptOptions.sections);
+});

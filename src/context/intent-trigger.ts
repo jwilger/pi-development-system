@@ -1,6 +1,6 @@
 import type { DevsysState } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
-import { type Intent, judgeIntent } from "../jev/questions/intent.ts";
+import { type Intent, judgeIntent, requestText } from "../jev/questions/intent.ts";
 
 /** Probability at or above which an intent is acted on. */
 export const INTENT_AT = 0.7;
@@ -35,7 +35,7 @@ export async function intentLineFor(
   state: DevsysState,
   jev: Jev,
 ): Promise<string | undefined> {
-  if (state.phase !== "idle" || prompt.trim() === "" || jev.availability() === "offline") {
+  if (state.phase !== "idle" || requestText(prompt) === "" || jev.availability() === "offline") {
     return undefined;
   }
   const judged = await judgeIntent(jev, { prompt, phase: state.phase });

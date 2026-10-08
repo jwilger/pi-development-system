@@ -55,3 +55,23 @@ test("changeWindow keeps the changed region of a large file visible", async () =
   assert.match(w.after, /it\.skip\('last'\)/);
   assert.ok(w.before.split("\n").length <= 100);
 });
+
+test("the path is redacted and clipped like every other input", async () => {
+  const seen: Record<string, unknown>[] = [];
+  const secret = ["gh", "p_", "a".repeat(36)].join("");
+  const jev = {
+    ask: (state: Record<string, unknown>) => {
+      seen.push(state);
+      return Promise.resolve({ ok: false as const, error: { kind: "no-model" as const } });
+    },
+    availability: () => "online" as const,
+    model: () => undefined,
+  };
+  await judgeTestChange(jev as never, {
+    path: `${secret}/${"p".repeat(2000)}.test.ts`,
+    before: "x",
+  });
+  const path = String(seen[0]?.path);
+  assert.equal(path.includes(secret), false);
+  assert.ok(path.length <= 400);
+});

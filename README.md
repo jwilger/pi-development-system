@@ -22,8 +22,9 @@ what the current phase expects. When you say a slice is finished with no review 
 it tells you to start one. The slash commands (`/devsys-start`, `/devsys-plan`, `/devsys-review`)
 are shortcuts to the same tools.
 
-With `codemode` enabled (`"defaultTools": ["+codemode"]` in pi settings), rarely used tools and
-the `judge_*` Jev wrappers are reached through scripts; without it they are declared directly.
+With `codemode` enabled (`"defaultTools": ["+codemode"]` in pi settings), rarely used tools are
+reached through scripts and the `judge_*` Jev wrappers exist for scripts only; without codemode
+the rarely used tools are declared directly and the wrappers are absent.
 
 ## Development
 

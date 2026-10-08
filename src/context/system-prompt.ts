@@ -28,7 +28,7 @@ export function buildPrinciplesSection(nonNegotiables: string): string {
  */
 export function buildStateSection(state: DevsysState): string {
   const lines = [
-    "## Current state",
+    "## Workflow state at the start of this prompt (call the devsys tool for the live phase)",
     `- phase: ${state.phase}`,
     `- sizing: ${state.sizing ?? "none"}`,
     `- active slice: ${state.activeSlice ?? "none"}`,

@@ -79,7 +79,7 @@ export async function judgeTestChange(
       ? { before: input.before ?? "", after: "" }
       : changeWindow(input.before ?? "", input.after);
   const state = {
-    path: input.path,
+    path: clip(input.path).slice(0, 400),
     before: clip(windowed.before),
     after: input.after === undefined ? "" : clip(windowed.after),
     deleted: input.after === undefined,

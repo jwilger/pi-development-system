@@ -4,7 +4,6 @@
  * A new file under src/subagents must be type-clean and must not be added to this list.
  */
 export const NOCHECK_FILES: readonly string[] = [
-  "src/subagents/index.ts",
   "src/subagents/orch/inherited-tools.ts",
   "src/subagents/orch/paths.ts",
   "src/subagents/orch/prompt.ts",

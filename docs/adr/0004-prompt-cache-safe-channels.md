@@ -49,6 +49,12 @@ during a run. Plan rule R13 states the invariant; tests in
   ignores the prompt's state section loses the reminder at the point of
   action. The departure gates still enforce it.
 - A state change still resends the state section once.
+- The state section is built when a prompt starts and is not refreshed within the run, so after
+  `devsys_intake`, `devsys_begin_work` or a recorded departure the model reads the old phase until
+  the next prompt. The section says so and points to the `devsys` tool for the live value.
+- Nothing may return `systemPrompt` from `before_agent_start`: pi then forces the whole prompt as
+  the head of every request, and any state change is a full cache miss. The vendored subagent
+  handler now sets its own `pi-subagent` section instead; a test pins that no handler returns one.
 - Turns pi starts without `prompt()` — the vendored subagent recap uses
   `pi.sendMessage(..., {triggerTurn: true})` — never run `before_agent_start`,
   so pi's next-turn refresh diffs against base options that have no extension

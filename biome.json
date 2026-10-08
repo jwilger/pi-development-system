@@ -12,7 +12,6 @@
       "src/**",
       "*.json",
       "!package-lock.json",
-      "!src/subagents/index.ts",
       "!src/subagents/orch/inherited-tools.ts",
       "!src/subagents/orch/paths.ts",
       "!src/subagents/orch/prompt.ts",

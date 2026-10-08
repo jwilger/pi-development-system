@@ -112,3 +112,9 @@ test("a Jev that is known to be offline costs no call; a failing one adds nothin
   assert.deepEqual(await nudges(), []);
   assert.equal(fake.classifyCalls.count, 1);
 });
+
+test("a bare skill block with no request after it costs no Jev call", async () => {
+  const r = await run('<skill name="tdd" location="x">\nbody\n</skill>', { label: "new-work" });
+  assert.equal(r.calls, 0);
+  assert.equal(r.message, undefined);
+});
