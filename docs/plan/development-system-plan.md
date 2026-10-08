@@ -60,7 +60,7 @@ less careful model than the one that wrote this):**
 - [x] I7 Anti-drift: verifier, compaction, model/phase recommendation
 - [x] I7b Cleanup: no skips, no nit file, no warnings, subagent thread cap, resync removed
 - [x] I8 Work sizing, slices, task records, tracker adapters, pi-goal-x hand-off
-- [ ] I8b Codemode and ambient activation (nested-call guard tests, exposure pass, intent trigger, verifier nudges)
+- [x] I8b Codemode and ambient activation (nested-call guard tests, exposure pass, intent trigger, verifier nudges)
 - [ ] I9 Product planning skills (brief, decisions, interview loop, lens review, journeys, ADR)
 - [ ] I10 Event modelling lite (slice schema v1, validator, GWT → tests)
 - [ ] I11 Design-system profile, threat modelling, skill lint, 1.0 readiness
