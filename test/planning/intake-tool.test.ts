@@ -151,6 +151,18 @@ test("declining the waiver keeps the review gate for that fix", async () => {
   assert.match(JSON.stringify(fake.ui.calls), /Skip fresh-context review/);
 });
 
+test("a slice that is reviewed but not yet shipped still asks before it is replaced", async () => {
+  const { fake, state, run } = setup(online("fix"));
+  fake.ui.selectResponses.push("change");
+  await run({ request: "make retry configurable" });
+  state.update((s) => ({ ...s, phase: "delivering" }));
+  fake.ui.selectResponses.push("fix");
+  fake.ui.confirmResponses.push(false);
+  const r = await run({ request: "typo in help text" });
+  assert.equal(state.get().activeSlice, "make-retry-configurable");
+  assert.match(textOf(r), /unchanged/);
+});
+
 test("intake in the middle of a slice asks first and leaves the slice alone when declined", async () => {
   const { fake, state, run } = setup(online("fix"));
   fake.ui.selectResponses.push("change");

@@ -194,7 +194,8 @@ async function reviewNeeds(
   command: string,
 ): Promise<Need[]> {
   const { phase, activeSlice } = deps.state.get();
-  if ((phase !== "implementing" && phase !== "reviewing") || activeSlice === undefined) return [];
+  const inFlight = phase === "implementing" || phase === "reviewing" || phase === "delivering";
+  if (!inFlight || activeSlice === undefined) return [];
   const snap = await snapshotDiff(deps.exec, ctx.cwd, "HEAD");
   // An unreadable diff cannot be compared; the gate asks for a departure rather than guessing.
   const gap = reviewGap(

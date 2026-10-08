@@ -9,6 +9,7 @@ const EXPOSURE: Record<string, string> = {
   devsys_record_departure: "direct",
   devsys_review_record: "direct",
   devsys_adr_new: "direct",
+  devsys_finish_slice: "model-only",
   devsys_lens_review: "direct",
   devsys_request_approval: "model-only",
   devsys_intake: "model-only",

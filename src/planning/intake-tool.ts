@@ -60,12 +60,11 @@ async function declinedToReplace(
   before: DevsysState,
 ): Promise<string | undefined> {
   const { activeSlice, phase } = before;
-  if (activeSlice === undefined || (phase !== "implementing" && phase !== "reviewing")) {
-    return undefined;
-  }
+  const inFlight = phase === "implementing" || phase === "reviewing" || phase === "delivering";
+  if (activeSlice === undefined || !inFlight) return undefined;
   const go = await ctx.ui.confirm(
     "Slice already in flight",
-    `Slice "${activeSlice}" is still ${phase}. Its uncommitted changes would be committed under the new slice's rules. Start new work anyway?`,
+    `Slice "${activeSlice}" is still ${phase}. Its uncommitted or unpushed changes would ship under the new slice's rules. Start new work anyway?`,
   );
   return go ? undefined : `Intake cancelled; slice "${activeSlice}" is unchanged.`;
 }

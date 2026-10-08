@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { type ExtensionAPI, isToolCallEventType } from "@earendil-works/pi-coding-agent";
+import { afterSourceEdit } from "../core/lifecycle.ts";
 import { classifyPath } from "../core/path-class.ts";
 import { normalizeRepoPath } from "../core/test-paths.ts";
 import type { SessionState } from "../state/session-state.ts";
@@ -57,7 +58,7 @@ const JUDGED_EXEMPTIONS =
   "straightforward CI scripting, a simple dev-environment utility, or a behaviour-preserving refactor with green coverage";
 
 /**
- * Soft gate `tdd.red-first`: while implementing, production source is edited only after a failing
+ * Soft gate `tdd.red-first`: while a slice is in flight (implementing, reviewing, delivering), production source is edited only after a failing
  * test run has been observed. Test, docs, config and generated files are exempt by path; the
  * judged exemptions go through one recorded departure, which covers its whole slice.
  */
@@ -69,11 +70,13 @@ export function registerRedFirstGuard(deps: RedFirstGuardDeps): void {
   deps.pi.on("tool_call", (event, ctx) => {
     if (!(isToolCallEventType("edit", event) || isToolCallEventType("write", event)))
       return undefined;
-    const { phase, lastTestRun, activeSlice } = deps.state.get();
-    if (phase !== "implementing") return undefined;
-    if (lastTestRun !== undefined && lastTestRun.exitCode !== 0) return undefined;
+    const { phase, activeSlice } = deps.state.get();
+    if (phase !== "implementing" && phase !== "reviewing" && phase !== "delivering")
+      return undefined;
     const path = normalizeRepoPath(ctx.cwd, event.input.path, homedir());
     if (classifyPath(path) !== "source") return undefined;
+    const { lastTestRun } = deps.state.get();
+    if (lastTestRun !== undefined && lastTestRun.exitCode !== 0) return undefined;
     if (touchesInlineTest(event.input, () => existing(ctx.cwd, path))) return undefined;
     if (departure.covers()) return undefined;
     const seen =
@@ -89,5 +92,18 @@ export function registerRedFirstGuard(deps: RedFirstGuardDeps): void {
         `call devsys_record_departure with gate "${GATE_ID}", scope "${scope}", naming the exemption in "why"; one ` +
         `departure covers the rest of the ${scope}.`,
     };
+  });
+
+  // The review covered the code as it was: source that was really written puts the slice back to implementing.
+  deps.pi.on("tool_result", (event, ctx) => {
+    if (event.isError || (event.toolName !== "edit" && event.toolName !== "write"))
+      return undefined;
+    if (deps.state.get().phase !== "delivering") return undefined;
+    const given = (event.input as { path?: unknown }).path;
+    if (typeof given !== "string") return undefined;
+    if (classifyPath(normalizeRepoPath(ctx.cwd, given, homedir())) === "source") {
+      deps.state.update(afterSourceEdit);
+    }
+    return undefined;
   });
 }

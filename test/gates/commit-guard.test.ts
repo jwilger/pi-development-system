@@ -278,8 +278,10 @@ test("commits that legitimately have no inline message are not blocked as opaque
 });
 
 // --- review.unsatisfied (I6.4) ---
-const withPhase = (t: ReturnType<typeof setup>, phase: "implementing" | "reviewing" | "idle") =>
-  t.state.update((s) => ({ ...s, phase, activeSlice: "s1" as SliceRef }));
+const withPhase = (
+  t: ReturnType<typeof setup>,
+  phase: "implementing" | "reviewing" | "delivering" | "idle",
+) => t.state.update((s) => ({ ...s, phase, activeSlice: "s1" as SliceRef }));
 // The digest the guard will compute: same fake exec as setup(), which answers every git call with DIFF.
 const currentDigest = async () => {
   const snap = await snapshotDiff(
@@ -307,6 +309,14 @@ test("while implementing, a commit with no review for the slice needs a departur
   assert.equal(r?.block, true);
   assert.match(r?.reason ?? "", /review\.unsatisfied/);
   assert.match(r?.reason ?? "", /devsys_review_start/);
+});
+
+test("a delivering slice is still reviewed: an unreviewed change at that point needs a departure", async () => {
+  const t = setup(jevJudging(0.9, 0.1), DIFF);
+  withPhase(t, "delivering");
+  const r = await t.bash(commit(GOOD));
+  assert.equal(r?.block, true);
+  assert.match(r?.reason ?? "", /review\.unsatisfied/);
 });
 
 test("a recorded review.unsatisfied departure lets the commit through", async () => {
@@ -529,7 +539,7 @@ test("an ADR created but not yet staged, added by the same command, counts as ad
   const { bash } = setup(jevArchitectural(0.9), CODE_DIFF, {
     untracked: "docs/adr/0005-use-queue.md\n",
   });
-  assert.equal(await bash("git add -A && " + commit(GOOD)), undefined);
+  assert.equal(await bash(`git add -A && ${commit(GOOD)}`), undefined);
 });
 
 test("an untracked ADR does not count when the commit stages nothing new", async () => {
@@ -553,7 +563,7 @@ test("adding only an unrelated path does not count an untracked ADR", async () =
   const { bash } = setup(jevArchitectural(0.9), CODE_DIFF, {
     untracked: "docs/adr/0005-use-queue.md\n",
   });
-  assert.match((await bash("git add src/a.ts && " + commit(GOOD)))?.reason ?? "", /adr\.missing/);
+  assert.match((await bash(`git add src/a.ts && ${commit(GOOD)}`))?.reason ?? "", /adr\.missing/);
 });
 
 test("adding the ADR by path counts it", async () => {
@@ -561,7 +571,7 @@ test("adding the ADR by path counts it", async () => {
     untracked: "docs/adr/0005-use-queue.md\n",
   });
   assert.equal(
-    await bash("git add docs/adr/0005-use-queue.md src/a.ts && " + commit(GOOD)),
+    await bash(`git add docs/adr/0005-use-queue.md src/a.ts && ${commit(GOOD)}`),
     undefined,
   );
 });
@@ -570,7 +580,7 @@ test("adding an unrelated docs file does not count an untracked ADR", async () =
   const { bash } = setup(jevArchitectural(0.9), CODE_DIFF, {
     untracked: "docs/adr/0005-use-queue.md\n",
   });
-  const cmd = "git add docs/decisions/2026-10.md src/a.ts && " + commit(GOOD);
+  const cmd = `git add docs/decisions/2026-10.md src/a.ts && ${commit(GOOD)}`;
   assert.match((await bash(cmd))?.reason ?? "", /adr\.missing/);
 });
 
@@ -587,7 +597,7 @@ test("git add -A with a pathspec does not count an untracked ADR outside it", as
   const { bash } = setup(jevArchitectural(0.9), CODE_DIFF, {
     untracked: "docs/adr/0005-use-queue.md\n",
   });
-  const cmd = "git add -A src && " + commit(GOOD);
+  const cmd = `git add -A src && ${commit(GOOD)}`;
   assert.match((await bash(cmd))?.reason ?? "", /adr\.missing/);
 });
 

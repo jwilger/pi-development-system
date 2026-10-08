@@ -30,6 +30,16 @@ const setup = (init: { phase?: Phase; exitCode?: number; slice?: string } = {}) 
     fake.emit({ type: "tool_call", toolName, toolCallId: "c1", input } as never) as Promise<
       { block: boolean; reason: string } | undefined
     >;
+  const result = (toolName: string, input: Record<string, unknown>, isError: boolean) =>
+    fake.emit({
+      type: "tool_result",
+      toolName,
+      toolCallId: "c1",
+      input,
+      content: [],
+      isError,
+      details: undefined,
+    } as never);
   const depart = (scope: string) =>
     record.execute(
       "r1",
@@ -44,7 +54,7 @@ const setup = (init: { phase?: Phase; exitCode?: number; slice?: string } = {}) 
       undefined,
       { cwd } as never,
     );
-  return { call, depart, state, cwd };
+  return { call, result, depart, state, cwd };
 };
 
 const edit = { path: "src/x.ts", edits: [{ oldText: "1", newText: "2" }] };
@@ -76,11 +86,47 @@ test("tests, docs, config and generated files are exempt", async () => {
   }
 });
 
-test("only implementing is gated", async () => {
-  for (const phase of ["idle", "planning", "intake", "reviewing", "delivering"] as const) {
+test("outside a slice in flight nothing is gated", async () => {
+  for (const phase of ["idle", "planning", "intake"] as const) {
     const { call } = setup({ phase, exitCode: 0 });
     assert.equal(await call("edit", edit), undefined, phase);
   }
+});
+
+test("reviewing is gated like implementing, because its fixes need a RED too", async () => {
+  const { call } = setup({ phase: "reviewing", exitCode: 0 });
+  assert.equal((await call("edit", edit))?.block, true);
+  assert.equal(await setup({ phase: "reviewing", exitCode: 1 }).call("edit", edit), undefined);
+});
+
+test("a blocked source edit while delivering does not reopen the slice", async () => {
+  const { call, state } = setup({ phase: "delivering", exitCode: 0, slice: "s1" });
+  assert.equal((await call("edit", edit))?.block, true);
+  assert.equal(state.get().phase, "delivering");
+});
+
+test("source really written after the review is satisfied reopens implementing", async () => {
+  const { call, result, state } = setup({ phase: "delivering", exitCode: 1, slice: "s1" });
+  assert.equal(await call("edit", edit), undefined);
+  await result("edit", edit, true);
+  assert.equal(state.get().phase, "delivering");
+  await result("edit", edit, false);
+  assert.equal(state.get().phase, "implementing");
+});
+
+test("rewriting a source file whole after the review also reopens implementing", async () => {
+  const { result, state } = setup({ phase: "delivering", exitCode: 1, slice: "s1" });
+  await result("write", { path: "src/x.ts", content: "x" }, false);
+  assert.equal(state.get().phase, "implementing");
+});
+
+test("a docs or test edit while delivering keeps the slice delivering", async () => {
+  const { call, result, state } = setup({ phase: "delivering", exitCode: 0, slice: "s1" });
+  assert.equal(await call("edit", { ...edit, path: "README.md" }), undefined);
+  assert.equal(await call("edit", { ...edit, path: "test/x.test.ts" }), undefined);
+  await result("edit", { ...edit, path: "README.md" }, false);
+  await result("write", { ...edit, path: "test/x.test.ts" }, false);
+  assert.equal(state.get().phase, "delivering");
 });
 
 test("bash and read calls are not gated", async () => {

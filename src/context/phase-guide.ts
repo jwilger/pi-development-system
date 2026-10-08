@@ -10,11 +10,11 @@ export function phaseGuide(phase: Phase): string {
     case "planning":
       return "Planning. Produce the artifacts the sizing asked for, write task records (check each with devsys_task_check), and when the user approves the plan call devsys_begin_work.";
     case "implementing":
-      return "Implementing one slice. Write a failing test first, make it pass with the least code, run the tests and read the result before claiming anything. Push small, verified increments.";
+      return "Implementing one slice. Write a failing test first, make it pass with the least code, run the tests and read the result before claiming anything. Push when the slice is complete and reviewed: a push of a clean tree closes it (devsys_finish_slice closes it explicitly).";
     case "reviewing":
-      return "Reviewing. Call devsys_review_start for a fresh-context review, pass its packet and diffDigest to devsys_review_record, fix every blocking and should-fix finding, and repeat until the round is clean.";
+      return "Reviewing. Call devsys_review_start for a fresh-context review, pass its packet and diffDigest to devsys_review_record, fix every blocking and should-fix finding (red-first still applies), and repeat until the review is satisfied; then the slice moves to delivering.";
     case "delivering":
-      return "Delivering. Commit with a rationale, push to trunk, wait for CI to go green, and release before starting the next slice. A red trunk is repaired first.";
+      return "Delivering. The review is satisfied. Commit with a rationale, push, and release; a push of a clean tree closes the slice (devsys_finish_slice closes it explicitly, or abandons it with a reason). Editing source reopens implementing. A red trunk (CI) is repaired first.";
     default:
       return assertNever(phase);
   }

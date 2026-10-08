@@ -145,6 +145,22 @@ test("only implementing, reviewing and delivering are verified, and Jev is not a
   }
 });
 
+test("the delivery report is still verified when the push in the same run closed the slice", async () => {
+  const t = setup({ claim: 1 });
+  t.agentStart();
+  t.state.update((s) => ({ ...s, phase: "idle" }));
+  assert.ok(await t.turnEnd("Pushed. All tests pass."));
+  const whole = setup({ phase: "idle", claim: 1 });
+  whole.agentStart();
+  whole.state.update((st) => ({ ...st, phase: "implementing" }));
+  whole.toolResult("bash", "pushed", false, "git push");
+  whole.state.update((st) => ({ ...st, phase: "idle" }));
+  assert.ok(await whole.turnEnd("Pushed. All tests pass."), "a slice begun and closed in one run");
+  const later = setup({ phase: "idle", claim: 1 });
+  later.agentStart();
+  assert.equal(await later.turnEnd("All tests pass."), undefined);
+});
+
 test("a turn that still calls tools is not judged; evidence may be on its way", async () => {
   const t = setup({ claim: 1 });
   assert.equal(

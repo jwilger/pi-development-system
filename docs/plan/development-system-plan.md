@@ -62,6 +62,7 @@ less careful model than the one that wrote this):**
 - [x] I8 Work sizing, slices, task records, tracker adapters, pi-goal-x hand-off
 - [x] I8b Codemode and ambient activation (nested-call guard tests, exposure pass, intent trigger, verifier nudges)
 - [x] I9 Product planning skills (brief, decisions, interview loop, lens review, journeys, ADR)
+  - Slice lifecycle fix (0.85.0): implementing → reviewing → delivering → idle, auto-close on push, `devsys_finish_slice` (decisions in `docs/decisions/2026-10.md`, tests in `test/core/lifecycle.test.ts`, `test/planning/slice-close.test.ts`).
 - [ ] I10 Event modelling lite (slice schema v1, validator, GWT → tests)
 - [ ] I11 Design-system profile, threat modelling, skill lint, 1.0 readiness
 

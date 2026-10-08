@@ -149,17 +149,23 @@ export function registerTurnVerifier(deps: TurnVerifierDeps): void {
   let evidence: ToolEvidence[] = [];
   let corrected = 0;
   let justCorrected = false;
+  let inFlightThisRun = false;
 
   deps.pi.on("session_start", () => {
     corrected = 0;
     justCorrected = false;
+    inFlightThisRun = false;
     evidence = [];
   });
   deps.pi.on("agent_start", () => {
+    // A push in this run may close the slice; its delivery report is still the claim to check.
+    inFlightThisRun = VERIFIED_PHASES.has(deps.state.get().phase);
     evidence = [];
     justCorrected = false;
   });
   deps.pi.on("tool_result", (event) => {
+    // The slice can start inside this run (intake, begin) and be closed by its own push; note it was open.
+    if (VERIFIED_PHASES.has(deps.state.get().phase)) inFlightThisRun = true;
     evidence = [...evidence, evidenceOf(event)].slice(-MAX_EVIDENCE);
   });
 
@@ -167,7 +173,7 @@ export function registerTurnVerifier(deps: TurnVerifierDeps): void {
     // An aborted or errored turn is dropped by pi; judging it would delay the abort and spend a correction.
     if (event.outcome !== "completed") return undefined;
     const state = deps.state.get();
-    if (!VERIFIED_PHASES.has(state.phase)) return undefined;
+    if (!(VERIFIED_PHASES.has(state.phase) || inFlightThisRun)) return undefined;
     const parts = assistantParts(event.message);
     if (parts === undefined || parts.callsTools || parts.text.trim() === "") return undefined;
     if (justCorrected) {

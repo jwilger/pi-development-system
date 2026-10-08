@@ -1,6 +1,7 @@
 import type { ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { type Static, Type } from "typebox";
 import type { Exec } from "../core/exec.ts";
+import { afterReviewRound } from "../core/lifecycle.ts";
 import { resolveSlot } from "../core/models.ts";
 import type { Lens } from "../core/review.ts";
 import {
@@ -181,6 +182,7 @@ async function startRound(
   const existing = reviewOf(deps.state.get(), p.slice) ?? startReview(p.slice, required);
   const review: ReviewState = { ...existing, required };
   deps.state.update((s) => upsertReview(s, review));
+  deps.state.update((s) => afterReviewRound(s, nextAction(review, p.snap.digest), p.slice));
   const refusal = startRefusal(review, p);
   if (refusal !== undefined) return refusal;
 
@@ -345,6 +347,7 @@ async function recordRound(
     },
   );
   deps.state.update((s) => upsertReview(s, review));
+  deps.state.update((s) => afterReviewRound(s, nextAction(review, p.snap.digest), p.slice));
   return reply(recordSummary(review, findings, notes, p));
 }
 

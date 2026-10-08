@@ -263,3 +263,46 @@ test("the start reply tells the coordinator to pass the slice to record", async 
   const r = await t.start({ slice: "s1" });
   assert.match(text(r), /devsys_review_record with slice "s1", diffDigest/);
 });
+
+const inPhase = (t: ReturnType<typeof setup>, phase: "implementing" | "planning" | "idle") =>
+  t.state.update((s) => ({ ...s, phase }));
+const clean = (round: number) => packet("- none", "no-blocking", round);
+
+test("starting a review takes an implementing slice into reviewing", async () => {
+  const t = setup(offline);
+  inPhase(t, "implementing");
+  await t.start();
+  assert.equal(t.state.get().phase, "reviewing");
+});
+
+test("a satisfied review moves the slice to delivering; a later finding takes it back", async () => {
+  const t = setup(offline);
+  inPhase(t, "implementing");
+  for (const round of [1, 2, 3]) {
+    await t.start();
+    await t.record({ packets: [clean(round)] });
+    assert.equal(t.state.get().phase, round === 3 ? "delivering" : "reviewing");
+  }
+  // Starting again on the same diff is "already satisfied": still delivering.
+  assert.match(text(await t.start()), /already satisfied/);
+  assert.equal(t.state.get().phase, "delivering");
+});
+
+test("a round with a blocking finding leaves the slice in reviewing", async () => {
+  const t = setup(offline);
+  inPhase(t, "implementing");
+  await t.start();
+  await t.record({
+    packets: [packet("- [blocking] types `a.ts:1` — bad — it breaks", "blocking", 1)],
+  });
+  assert.equal(t.state.get().phase, "reviewing");
+});
+
+test("reviewing a slice that is not in flight does not change the phase", async () => {
+  for (const phase of ["planning", "idle"] as const) {
+    const t = setup(offline);
+    inPhase(t, phase);
+    await t.start();
+    assert.equal(t.state.get().phase, phase);
+  }
+});

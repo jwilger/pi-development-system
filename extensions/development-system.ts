@@ -30,6 +30,7 @@ import { createJudgeTools } from "../src/jev/judge-tools.ts";
 import { createAdrNewTool } from "../src/planning/adr-tool.ts";
 import { createBeginWorkTool } from "../src/planning/begin-tool.ts";
 import { createIntakeTool } from "../src/planning/intake-tool.ts";
+import { createFinishSliceTool, registerSliceClose } from "../src/planning/slice-close.ts";
 import { createTaskCheckTool } from "../src/planning/task-check-tool.ts";
 import { createLensReviewTool } from "../src/review/lens-review-tool.ts";
 import { createReviewRecordTool, createReviewStartTool } from "../src/review/review-tools.ts";
@@ -158,6 +159,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
     },
   });
   registerRedFirstGuard({ pi, state });
+  registerSliceClose({ pi, state, exec });
   registerLintSuppressionGuard({ pi, state });
   pi.registerTool(createRecordDepartureTool({ pi, state }));
   pi.registerTool(createRequestApprovalTool({ pi, approvals }));
@@ -177,6 +179,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   pi.registerTool(createPhaseTool({ state }));
   pi.registerTool(createBeginWorkTool({ state }));
   pi.registerTool(createAdrNewTool({ now: () => new Date() }));
+  pi.registerTool(createFinishSliceTool({ state, exec }));
   pi.registerTool(
     createLensReviewTool({ state, jev: (ctx) => jevHolder.forContext(ctx), now: () => new Date() }),
   );
