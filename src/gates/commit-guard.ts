@@ -17,6 +17,7 @@ import { resolveGit } from "../core/git-invocations.ts";
 import { DECISION_LOG, reviewGap } from "../core/review-flow.ts";
 import { type GateId, isParseError, parseGateId } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
+import { ARCHITECTURE_THRESHOLD, judgeArchitectureShaping } from "../jev/questions/architecture.ts";
 import { judgeCommit, MIX_THRESHOLD, RATIONALE_FLOOR } from "../jev/questions/commit.ts";
 import { snapshotDiff } from "../review/digest.ts";
 import type { SessionState } from "../state/session-state.ts";
@@ -40,6 +41,13 @@ const gateId = (id: string): GateId => {
 const RATIONALE = gateId("commit.rationale");
 const MIXED = gateId("commit.mixed-change");
 const REVIEW = gateId("review.unsatisfied");
+const ADR_MISSING = gateId("adr.missing");
+
+/** A new `docs/adr/NNNN-*.md` among the pending changes; editing an older ADR is not recording a new decision. */
+const addsAdr = (diff: string): boolean =>
+  /^diff --git a\/docs\/adr\/\d{4}-\S+\.md b\/\S+\n(?:new file mode|rename from |similarity index)/m.test(
+    diff,
+  );
 
 const readMessageFile = (cwd: string, path: string): string | undefined => {
   try {
@@ -72,23 +80,83 @@ const stagesEverything = (command: string): boolean =>
     command,
   );
 
+/**
+ * The pathspecs a `git add` in the command stages new files under: `.` for `-A` with no path, else the named
+ * paths. Empty when nothing in the command can add an untracked file (`-u` stages only tracked files, `-n` nothing).
+ */
+const addedPathspecs = (command: string): string[] =>
+  [...command.matchAll(/\bgit\s+add\b([^;&|\n]*)/g)].flatMap((m) => {
+    const words = (m[1] ?? "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w.replace(/^(["'])(.*)\1$/, "$2")); // `git add "docs/adr/0005-x.md"` names the same file
+    if (words.some((w) => ["-u", "--update", "-n", "--dry-run"].includes(w))) return [];
+    const paths = words.filter((w) => !w.startsWith("-"));
+    if (paths.length === 0) return words.some((w) => w === "-A" || w === "--all") ? ["."] : [];
+    return paths.map((p) => p.replace(/^\.\//, "").replace(/\/$/, "") || ".");
+  });
+
+type PendingDiff = { stat: string; diff: string; untrackedAdr: boolean };
+
 /** What is about to be committed: the staged changes, or every tracked change when the commit stages them itself. */
 async function pendingDiff(
   exec: Exec,
   cwd: string,
   command: string,
-): Promise<{ stat: string; diff: string } | undefined> {
+): Promise<PendingDiff | undefined> {
   try {
-    const base = stagesEverything(command) ? ["diff", "HEAD"] : ["diff", "--cached"];
-    const [stat, diff] = await Promise.all([
+    const widened = stagesEverything(command);
+    const specs = addedPathspecs(command);
+    // Fixed prefixes and no external driver: `addsAdr` reads the headers, and git config can change them.
+    const fixed = ["--no-ext-diff", "--no-color", "--src-prefix=a/", "--dst-prefix=b/"];
+    const base = widened ? ["diff", ...fixed, "HEAD"] : ["diff", ...fixed, "--cached"];
+    const [stat, diff, untracked] = await Promise.all([
       exec("git", [...base, "--stat"], { cwd, timeout: 10_000 }),
       exec("git", base, { cwd, timeout: 10_000 }),
+      // `git diff HEAD` leaves out files git does not track yet, such as a new module or an ADR just created.
+      specs.length > 0
+        ? exec("git", ["ls-files", "--others", "--exclude-standard", "--", ...new Set(specs)], {
+            cwd,
+            timeout: 10_000,
+          })
+        : Promise.resolve(undefined),
     ]);
-    if (stat.code !== 0 || diff.code !== 0 || diff.stdout.trim() === "") return undefined;
-    return { stat: stat.stdout, diff: diff.stdout };
+    if (stat.code !== 0 || diff.code !== 0) return undefined;
+    const added = untracked?.code === 0 ? untracked.stdout.trim() : "";
+    if (diff.stdout.trim() === "" && added === "") return undefined;
+    return {
+      stat:
+        added === ""
+          ? stat.stdout
+          : // First, because Jev clips the stat: a long list of tracked files must not push new files out of view.
+            `New files this commit adds (untracked):\n${added}\n\n${stat.stdout}`,
+      diff: diff.stdout,
+      untrackedAdr: /^docs\/adr\/\d{4}-\S+\.md$/m.test(added),
+    };
   } catch {
     return undefined;
   }
+}
+
+/** Non-negotiable 9 as a soft gate: the judgement is probabilistic, so a departure can answer it. */
+async function adrNeeds(
+  deps: CommitGuardDeps,
+  ctx: ExtensionContext,
+  pending: PendingDiff,
+): Promise<Need[]> {
+  if (addsAdr(pending.diff) || pending.untrackedAdr) return [];
+  const judged = await judgeArchitectureShaping(deps.jev(ctx), {
+    diffStat: pending.stat,
+    diff: pending.diff,
+  });
+  if (!judged.ok || judged.value < ARCHITECTURE_THRESHOLD) return [];
+  return [
+    {
+      gate: ADR_MISSING,
+      why: "Jev reads this diff as an architecture-shaping decision (a boundary, dependency, data format or protocol) and it adds no ADR",
+    },
+  ];
 }
 
 async function jevNeeds(
@@ -100,13 +168,13 @@ async function jevNeeds(
 ): Promise<Need[]> {
   const pending = await pendingDiff(deps.exec, ctx.cwd, command);
   if (pending === undefined) return [];
-  const judged = await judgeCommit(deps.jev(ctx), {
-    message,
-    diffStat: pending.stat,
-    diff: pending.diff,
-  });
-  if (!judged.ok) return [];
-  const needs: Need[] = [];
+  // Both ask Jev; run them together so a hung provider costs one timeout, not two.
+  const [judged, adr] = await Promise.all([
+    judgeCommit(deps.jev(ctx), { message, diffStat: pending.stat, diff: pending.diff }),
+    adrNeeds(deps, ctx, pending),
+  ]);
+  const needs: Need[] = adr;
+  if (!judged.ok) return needs;
   if (bodyPresent && judged.value.rationale < RATIONALE_FLOOR) {
     needs.push({ gate: RATIONALE, why: "Jev reads the body as restating what changed, not why" });
   }
@@ -247,13 +315,22 @@ const reviewReason = (need: Need): string =>
   "and repeat until the review is satisfied. If skipping review is deliberate call devsys_record_departure " +
   `with gate "${need.gate}", what you are doing instead, why, and the cost if wrong; then retry.`;
 
-const blockReason = (need: Need): string =>
-  need.gate === REVIEW
-    ? reviewReason(need)
-    : `${need.gate}: ${need.why}. Commit messages carry their rationale and structural and behavioural ` +
-      "changes go in separate commits. Fix the commit (split it, or write the why in the body), or if " +
-      `departing is deliberate call devsys_record_departure with gate "${need.gate}", what you are doing ` +
-      "instead, why, and the cost if wrong; then retry.";
+const adrReason = (need: Need): string =>
+  `${need.gate}: ${need.why}. Hard-to-reverse decisions are recorded as an ADR in the same change. ` +
+  "Call devsys_adr_new with the decision's title, fill in the ADR and stage it. If this diff is not " +
+  `architecture-shaping, call devsys_record_departure with gate "${need.gate}", what you are doing instead, ` +
+  "why, and the cost if wrong; then retry.";
+
+const commitReason = (need: Need): string =>
+  `${need.gate}: ${need.why}. Commit messages carry their rationale and structural and behavioural ` +
+  "changes go in separate commits. Fix the commit (split it, or write the why in the body), or if " +
+  `departing is deliberate call devsys_record_departure with gate "${need.gate}", what you are doing ` +
+  "instead, why, and the cost if wrong; then retry.";
+
+function blockReason(need: Need): string {
+  if (need.gate === REVIEW) return reviewReason(need);
+  return need.gate === ADR_MISSING ? adrReason(need) : commitReason(need);
+}
 
 const forbiddenReason = (found: readonly string[]): string =>
   `commit.forbidden-trailer: this commit carries an AI attribution (${found.join("; ")}). ` +

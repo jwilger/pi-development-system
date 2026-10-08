@@ -1,0 +1,89 @@
+{
+  "questionHash": "c10375c94ca933dd",
+  "cases": [
+    {
+      "state": {
+        "diffStat": "package.json | 3 +++\n src/queue/redis.ts | 60 +++++++",
+        "diff": "+  \"dependencies\": {\n+    \"ioredis\": \"^5.4.0\"\n+import Redis from \"ioredis\";\n+export class RedisQueue implements JobQueue {"
+      },
+      "expected": "architectural"
+    },
+    {
+      "state": {
+        "diffStat": "migrations/0007_orders.sql | 24 +++++\n src/db/schema.ts | 12 ++",
+        "diff": "+CREATE TABLE orders (\n+  id uuid PRIMARY KEY,\n+  payload jsonb NOT NULL\n+);"
+      },
+      "expected": "architectural"
+    },
+    {
+      "state": {
+        "diffStat": "src/events/envelope.ts | 30 +++++\n docs/protocol.md | 20 ++",
+        "diff": "+export type Envelope = { v: 1; type: string; payload: unknown };\n+// All services publish events in this envelope over the bus."
+      },
+      "expected": "architectural"
+    },
+    {
+      "state": {
+        "diffStat": "src/domain/index.ts | 5 +\n src/infra/index.ts | 5 +\n src/ports/storage.ts | 18 +++",
+        "diff": "+export interface StoragePort {\n+  read(key: string): Promise<Uint8Array>;\n+}\n+// domain must not import from infra"
+      },
+      "expected": "architectural"
+    },
+    {
+      "state": {
+        "diffStat": "src/api/v2/routes.ts | 80 +++++++++\n openapi.yaml | 40 ++",
+        "diff": "+paths:\n+  /v2/orders:\n+    post:\n+      operationId: createOrder"
+      },
+      "expected": "architectural"
+    },
+    {
+      "state": {
+        "diffStat": "src/session/store.ts | 22 ++--\n",
+        "diff": "-const sessions = new Map();\n+// sessions now persist as JSON files on disk in ~/.app/sessions/<id>.json with a version field"
+      },
+      "expected": "architectural"
+    },
+    {
+      "state": {
+        "diffStat": "src/cart.ts | 4 ++--",
+        "diff": "-  return items.length > 0 ? total : 0;\n+  return items.length > 0 ? total : 0.0;"
+      },
+      "expected": "local"
+    },
+    {
+      "state": {
+        "diffStat": "test/cart.test.ts | 18 +++++",
+        "diff": "+test(\"empty cart totals zero\", () => {\n+  assert.equal(total([]), 0);\n+});"
+      },
+      "expected": "local"
+    },
+    {
+      "state": {
+        "diffStat": "README.md | 6 ++--",
+        "diff": "-Run npm start to begin.\n+Run `npm start` to begin the server."
+      },
+      "expected": "local"
+    },
+    {
+      "state": {
+        "diffStat": "src/format.ts | 10 +++---",
+        "diff": "-function pad(n) { return n < 10 ? '0' + n : '' + n }\n+const pad = (n: number) => String(n).padStart(2, '0');"
+      },
+      "expected": "local"
+    },
+    {
+      "state": {
+        "diffStat": "src/button.tsx | 8 ++--",
+        "diff": "-<button className=\"btn\">Save</button>\n+<button className=\"btn btn-primary\">Save</button>"
+      },
+      "expected": "local"
+    },
+    {
+      "state": {
+        "diffStat": "src/auth/login.ts | 7 ++-",
+        "diff": "-  if (user.attempts > 5) return lock(user);\n+  if (user.attempts >= 5) return lock(user);"
+      },
+      "expected": "local"
+    }
+  ]
+}

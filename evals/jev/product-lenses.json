@@ -1,0 +1,65 @@
+{
+  "questionHash": "58e9117f3c390867a1f846a99e8f8464b9e862f61e1739e69aee419e14cf5abaac33b700c411a932",
+  "cases": [
+    {
+      "state": {
+        "brief": "# Brief\n\nWe will build a mobile app with a social feed, push notifications and in-app payments. Small businesses will love it. Launch in Q3."
+      },
+      "expected": "cagan,torres,pichler,perri,rumelt"
+    },
+    {
+      "state": {
+        "brief": "# Brief\n\nOutcome: cut the median time a support agent needs to resolve a ticket from 14 to 9 minutes within two quarters. Evidence: 12 observed sessions (docs/research/sessions.md) show agents re-typing order data. Diagnosis: the order screen and the ticket screen are separate. Policy: show order data inside the ticket. Risks: agents may not trust auto-filled data; tested in prototype A with 6 agents, no objections."
+      },
+      "expected": ""
+    },
+    {
+      "state": {
+        "brief": "# Brief\n\nShip: user dashboard, CSV export, role management, audit log, SSO, and a public API. Success = all six shipped by December."
+      },
+      "expected": "cagan,pichler,perri,rumelt"
+    },
+    {
+      "state": {
+        "brief": "# Brief\n\nFix the typo 'recieve' in the settings page copy and update the help link to the new docs URL."
+      },
+      "expected": ""
+    },
+    {
+      "state": {
+        "brief": "# Brief\n\nDiagnosis: churn is concentrated in accounts that never connect a second data source (interviews with 9 churned customers, docs/research/churn.md). Guiding policy: make the second connection the first-week goal. Actions: guided onboarding step and a day-3 email nudge. Metric: 60% second-source within 7 days, up from 31%. Risk: nudges may annoy; A/B test on 10% of new accounts first."
+      },
+      "expected": ""
+    },
+    {
+      "state": {
+        "brief": "# Brief\n\nWe believe teachers want an AI lesson planner. Our goal is to become the number one education tool. We have not spoken to any teachers yet but the market is large."
+      },
+      "expected": "cagan,torres,pichler,rumelt"
+    },
+    {
+      "state": {
+        "brief": "# Brief\n\nRename the internal 'Account' term to 'Workspace' across the docs and UI strings to match the terminology file; no behaviour change."
+      },
+      "expected": ""
+    },
+    {
+      "state": {
+        "brief": "# Brief\n\nOur vision is to be the leading platform for freelancers. Goals: grow ARR 3x and reach NPS 60 by next year. We will add more integrations, a better editor and a mobile app."
+      },
+      "expected": "cagan,rumelt"
+    },
+    {
+      "state": {
+        "brief": "# Brief\n\nUpgrade the logging library from v4 to v5 and update the two call sites that use the removed `warn` alias."
+      },
+      "expected": ""
+    },
+    {
+      "state": {
+        "brief": "# Brief\n\nCustomers in 14 of 20 interviews (docs/research/billing.md) said invoices arrive too late to reconcile. Build a self-serve invoice download. Success: invoice-related support tickets fall 40% in a quarter. Biggest risk: finance teams may still need PDFs signed; we will test with 5 accounts before building."
+      },
+      "expected": ""
+    }
+  ]
+}

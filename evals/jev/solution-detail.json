@@ -1,0 +1,77 @@
+{
+  "questionHash": "04eaac93c254b1af",
+  "cases": [
+    {
+      "state": {
+        "brief": "Outcome: support agents resolve a ticket in 9 minutes instead of 14.\nUsers: tier-1 support agents.\nRisk: agents distrust suggested replies."
+      },
+      "expected": "product"
+    },
+    {
+      "state": {
+        "brief": "We will create a `tickets` table with columns id, status, assignee_id and add POST /api/tickets/{id}/assign."
+      },
+      "expected": "solution"
+    },
+    {
+      "state": {
+        "brief": "Introduce a TicketRouterService and a TicketRepository; the controller calls the router which calls the repository."
+      },
+      "expected": "solution"
+    },
+    {
+      "state": {
+        "brief": "Users sign in with their company account. Constraint: must work with the customer's existing SSO provider."
+      },
+      "expected": "product"
+    },
+    {
+      "state": {
+        "brief": "Implement with React Query and a Redux store; poll every 5s via GET /api/notifications."
+      },
+      "expected": "solution"
+    },
+    {
+      "state": {
+        "brief": "Journey: a manager opens the weekly report, filters by team, exports it and shares it with finance. Success: finance stops asking for manual spreadsheets."
+      },
+      "expected": "product"
+    },
+    {
+      "state": {
+        "brief": "Store sessions in Redis with a 30 minute TTL keyed by user id; rotate the JWT secret nightly."
+      },
+      "expected": "solution"
+    },
+    {
+      "state": {
+        "brief": "Assumption: most customers have fewer than 50 users. Risk: onboarding drops if setup takes more than ten minutes. Open question: do we need an offline mode?"
+      },
+      "expected": "product"
+    },
+    {
+      "state": {
+        "brief": "Change src/billing/invoice.ts to retry on failure and add an InvoiceHandler class."
+      },
+      "expected": "solution"
+    },
+    {
+      "state": {
+        "brief": "Constraint: data must stay in the EU for regulatory reasons. Users call this 'the vault' and expect it to be searchable."
+      },
+      "expected": "product"
+    },
+    {
+      "state": {
+        "brief": "The mobile app should feel instant. Users complain that checkout takes too long and abandon their carts."
+      },
+      "expected": "product"
+    },
+    {
+      "state": {
+        "brief": "Add an index on orders(customer_id, created_at) and denormalise totals into a materialized view."
+      },
+      "expected": "solution"
+    }
+  ]
+}

@@ -35,9 +35,20 @@ const jevJudging = (rationale: number, mix: number): Jev => ({
   model: () => "fake/jev",
 });
 
+const jevArchitectural = (architecture: number): Jev => ({
+  ask: async () =>
+    ok({
+      rationale: { type: "bool", probability: 0.9 },
+      mix: { type: "bool", probability: 0.1 },
+      architecture: { type: "bool", probability: architecture },
+    } satisfies Record<string, ClassifierAnswer>),
+  availability: () => "online",
+  model: () => "fake/jev",
+});
+
 const DIFF = "diff --git a/a.ts b/a.ts\n+1\n";
 const sectionA = new Map(Object.entries(splitDiffByFile(DIFF))).get("a.ts") ?? "";
-type Names = { staged?: string; unstaged?: string; fail?: boolean };
+type Names = { staged?: string; unstaged?: string; fail?: boolean; untracked?: string };
 const setup = (jev: Jev, diff = "a.ts | 2 +-", names: Names = {}) => {
   const cwd = mkdtempSync(join(tmpdir(), "devsys-commit-"));
   const fake = createFakePi({ hasUI: false, cwd });
@@ -51,8 +62,17 @@ const setup = (jev: Jev, diff = "a.ts | 2 +-", names: Names = {}) => {
       execCalls.push([command, ...args]);
       const nameList = args.includes("--cached") ? names.staged : names.unstaged;
       let stdout = diff;
-      if (args.includes("ls-files")) stdout = "";
-      else if (args.includes("--name-only")) stdout = nameList ?? "";
+      if (args.includes("ls-files")) {
+        // Honour the pathspecs after `--` the way git does: a file, or a directory prefix.
+        const specs = args.slice(args.indexOf("--") + 1);
+        stdout = (names.untracked ?? "")
+          .split("\n")
+          .filter(
+            (f) => f !== "" && specs.some((sp) => sp === "." || f === sp || f.startsWith(`${sp}/`)),
+          )
+          .map((f) => `${f}\n`)
+          .join("");
+      } else if (args.includes("--name-only")) stdout = nameList ?? "";
       const failed = names.fail === true && args.includes("--name-only");
       return { code: failed ? 1 : 0, stdout, stderr: "" };
     },
@@ -215,10 +235,21 @@ test("the Jev diff is the staged one, or the whole tree when the command stages 
     await bash(command);
     return execCalls.find((c) => c[1] === "diff" && !c.includes("--stat")) ?? [];
   };
-  assert.deepEqual(await diffArgs(commit(GOOD)), ["git", "diff", "--cached"]);
-  assert.deepEqual(await diffArgs(`git add src/a.ts && ${commit(GOOD)}`), ["git", "diff", "HEAD"]);
-  assert.deepEqual(await diffArgs(`git add -A; ${commit(GOOD)}`), ["git", "diff", "HEAD"]);
-  assert.deepEqual(await diffArgs(`git commit -a -m '${GOOD}'`), ["git", "diff", "HEAD"]);
+  const fixed = ["--no-ext-diff", "--no-color", "--src-prefix=a/", "--dst-prefix=b/"];
+  assert.deepEqual(await diffArgs(commit(GOOD)), ["git", "diff", ...fixed, "--cached"]);
+  assert.deepEqual(await diffArgs(`git add src/a.ts && ${commit(GOOD)}`), [
+    "git",
+    "diff",
+    ...fixed,
+    "HEAD",
+  ]);
+  assert.deepEqual(await diffArgs(`git add -A; ${commit(GOOD)}`), [
+    "git",
+    "diff",
+    ...fixed,
+    "HEAD",
+  ]);
+  assert.deepEqual(await diffArgs(`git commit -a -m '${GOOD}'`), ["git", "diff", ...fixed, "HEAD"]);
 });
 
 test("a message built by a substitution cannot be checked, so it needs a departure", async () => {
@@ -462,4 +493,168 @@ test("a departure written to a staged decision log is not an edit after review",
   withPhase(t, "implementing");
   t.state.update((s) => upsertReview(s, cleanRounds(3, digest)));
   assert.equal(await t.bash(commit(GOOD)), undefined);
+});
+
+const ADR_DIFF =
+  "diff --git a/docs/adr/0005-use-queue.md b/docs/adr/0005-use-queue.md\nnew file mode 100644\n+x\n";
+const CODE_DIFF = "diff --git a/src/queue.ts b/src/queue.ts\n+import Redis from 'ioredis';\n";
+
+test("an architecture-shaping diff with no ADR is blocked naming adr.missing and devsys_adr_new", async () => {
+  const { bash, depart } = setup(jevArchitectural(0.9), CODE_DIFF);
+  const blocked = await bash(commit(GOOD));
+  assert.equal(blocked?.block, true);
+  assert.match(blocked?.reason ?? "", /adr\.missing/);
+  assert.match(blocked?.reason ?? "", /devsys_adr_new/);
+  await depart("adr.missing");
+  assert.equal(await bash(commit(GOOD)), undefined);
+});
+
+test("an architecture-shaping diff that adds an ADR passes", async () => {
+  const { bash } = setup(jevArchitectural(0.95), ADR_DIFF + CODE_DIFF);
+  assert.equal(await bash(commit(GOOD)), undefined);
+});
+
+test("a diff Jev reads as below the threshold passes without an ADR", async () => {
+  const { bash } = setup(jevArchitectural(0.69), CODE_DIFF);
+  assert.equal(await bash(commit(GOOD)), undefined);
+});
+
+test("a diff that only edits an existing ADR does not count as adding one", async () => {
+  const edit = "diff --git a/docs/adr/0002-x.md b/docs/adr/0002-x.md\nindex 1..2 100644\n+x\n";
+  const { bash } = setup(jevArchitectural(0.9), edit + CODE_DIFF);
+  assert.match((await bash(commit(GOOD)))?.reason ?? "", /adr\.missing/);
+});
+
+test("an ADR created but not yet staged, added by the same command, counts as adding one", async () => {
+  const { bash } = setup(jevArchitectural(0.9), CODE_DIFF, {
+    untracked: "docs/adr/0005-use-queue.md\n",
+  });
+  assert.equal(await bash("git add -A && " + commit(GOOD)), undefined);
+});
+
+test("an untracked ADR does not count when the commit stages nothing new", async () => {
+  const { bash } = setup(jevArchitectural(0.9), CODE_DIFF, {
+    untracked: "docs/adr/0005-use-queue.md\n",
+  });
+  assert.match((await bash(commit(GOOD)))?.reason ?? "", /adr\.missing/);
+});
+
+test("commit -a does not stage an untracked ADR, so it does not count", async () => {
+  const { bash } = setup(jevArchitectural(0.9), CODE_DIFF, {
+    untracked: "docs/adr/0005-use-queue.md\n",
+  });
+  assert.match(
+    (await bash(commit(GOOD).replace("git commit -m", "git commit -a -m")))?.reason ?? "",
+    /adr\.missing/,
+  );
+});
+
+test("adding only an unrelated path does not count an untracked ADR", async () => {
+  const { bash } = setup(jevArchitectural(0.9), CODE_DIFF, {
+    untracked: "docs/adr/0005-use-queue.md\n",
+  });
+  assert.match((await bash("git add src/a.ts && " + commit(GOOD)))?.reason ?? "", /adr\.missing/);
+});
+
+test("adding the ADR by path counts it", async () => {
+  const { bash } = setup(jevArchitectural(0.9), CODE_DIFF, {
+    untracked: "docs/adr/0005-use-queue.md\n",
+  });
+  assert.equal(
+    await bash("git add docs/adr/0005-use-queue.md src/a.ts && " + commit(GOOD)),
+    undefined,
+  );
+});
+
+test("adding an unrelated docs file does not count an untracked ADR", async () => {
+  const { bash } = setup(jevArchitectural(0.9), CODE_DIFF, {
+    untracked: "docs/adr/0005-use-queue.md\n",
+  });
+  const cmd = "git add docs/decisions/2026-10.md src/a.ts && " + commit(GOOD);
+  assert.match((await bash(cmd))?.reason ?? "", /adr\.missing/);
+});
+
+test("the pending diff is read with fixed a/ b/ prefixes and no external diff driver", async () => {
+  const { bash, execCalls } = setup(jevArchitectural(0.1), CODE_DIFF);
+  await bash(commit(GOOD));
+  const diffCall = execCalls.find((c) => c.includes("diff") && !c.includes("--stat"));
+  for (const flag of ["--no-ext-diff", "--no-color", "--src-prefix=a/", "--dst-prefix=b/"]) {
+    assert.ok(diffCall?.includes(flag), flag);
+  }
+});
+
+test("git add -A with a pathspec does not count an untracked ADR outside it", async () => {
+  const { bash } = setup(jevArchitectural(0.9), CODE_DIFF, {
+    untracked: "docs/adr/0005-use-queue.md\n",
+  });
+  const cmd = "git add -A src && " + commit(GOOD);
+  assert.match((await bash(cmd))?.reason ?? "", /adr\.missing/);
+});
+
+test("git add . and git add -A with no path both count an untracked ADR", async () => {
+  for (const add of ["git add .", "git add -A", "git add --all", "git add ./docs"]) {
+    const { bash } = setup(jevArchitectural(0.9), CODE_DIFF, {
+      untracked: "docs/adr/0005-use-queue.md\n",
+    });
+    assert.equal(await bash(`${add} && ${commit(GOOD)}`), undefined, add);
+  }
+});
+
+test("git add -u and a dry run do not stage an untracked ADR, so they do not count it", async () => {
+  for (const add of [
+    "git add -u .",
+    "git add --update docs",
+    "git add -n .",
+    "git add --dry-run -A",
+  ]) {
+    const { bash } = setup(jevArchitectural(0.9), CODE_DIFF, {
+      untracked: "docs/adr/0005-use-queue.md\n",
+    });
+    assert.match((await bash(`${add} && ${commit(GOOD)}`))?.reason ?? "", /adr\.missing/, add);
+  }
+});
+
+test("staging an existing ADR by path does not count an unrelated untracked draft ADR", async () => {
+  const { bash } = setup(jevArchitectural(0.9), CODE_DIFF, {
+    untracked: "docs/adr/0007-draft.md\n",
+  });
+  const blocked = await bash(`git add docs/adr/0002-x.md src/queue.ts && ${commit(GOOD)}`);
+  assert.match(blocked?.reason ?? "", /adr\.missing/);
+});
+
+test("a quoted ADR path in git add still counts the untracked ADR", async () => {
+  for (const path of [`"docs/adr/0005-use-queue.md"`, `'docs/adr/0005-use-queue.md'`]) {
+    const { bash } = setup(jevArchitectural(0.9), CODE_DIFF, {
+      untracked: "docs/adr/0005-use-queue.md\n",
+    });
+    assert.equal(await bash(`git add ${path} src/a.ts && ${commit(GOOD)}`), undefined, path);
+  }
+});
+
+test("new files that only exist untracked are still judged when the command stages them", async () => {
+  const { bash } = setup(jevArchitectural(0.9), "", { untracked: "src/queue/redis.ts\n" });
+  const blocked = await bash(`git add -A && ${commit(GOOD)}`);
+  assert.match(blocked?.reason ?? "", /adr\.missing/);
+});
+
+test("untracked files outside what git add stages are not judged", async () => {
+  const { bash } = setup(jevArchitectural(0.9), "", { untracked: "src/queue/redis.ts\n" });
+  assert.equal(await bash(`git add docs/notes.md && ${commit(GOOD)}`), undefined);
+});
+
+test("Jev is told about untracked new files, ahead of a stat long enough to be clipped", async () => {
+  const seen: string[] = [];
+  const spy: Jev = {
+    ...jevArchitectural(0.9),
+    ask: async (state, questions) => {
+      seen.push(String((state as Record<string, unknown>).diffStat ?? ""));
+      return jevArchitectural(0.9).ask(state, questions);
+    },
+  };
+  const longStat = " a/very/long/path.ts | 2 +-\n".repeat(120);
+  const { bash } = setup(spy, longStat, { untracked: "src/queue/redis.ts\n" });
+  await bash(`git add -A && ${commit(GOOD)}`);
+  assert.ok(seen.length > 0);
+  for (const stat of seen)
+    assert.ok(stat.slice(0, 200).includes("src/queue/redis.ts"), stat.slice(0, 200));
 });

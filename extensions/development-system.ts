@@ -27,9 +27,11 @@ import { createRequestApprovalTool } from "../src/gates/request-approval-tool.ts
 import { registerTestGuard } from "../src/gates/test-guard.ts";
 import { createJevHolder } from "../src/jev/holder.ts";
 import { createJudgeTools } from "../src/jev/judge-tools.ts";
+import { createAdrNewTool } from "../src/planning/adr-tool.ts";
 import { createBeginWorkTool } from "../src/planning/begin-tool.ts";
 import { createIntakeTool } from "../src/planning/intake-tool.ts";
 import { createTaskCheckTool } from "../src/planning/task-check-tool.ts";
+import { createLensReviewTool } from "../src/review/lens-review-tool.ts";
 import { createReviewRecordTool, createReviewStartTool } from "../src/review/review-tools.ts";
 import { registerCiCommand } from "../src/state/ci-command.ts";
 import { loadConfig } from "../src/state/config.ts";
@@ -174,6 +176,10 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   }
   pi.registerTool(createPhaseTool({ state }));
   pi.registerTool(createBeginWorkTool({ state }));
+  pi.registerTool(createAdrNewTool({ now: () => new Date() }));
+  pi.registerTool(
+    createLensReviewTool({ state, jev: (ctx) => jevHolder.forContext(ctx), now: () => new Date() }),
+  );
   pi.registerTool(createIntakeTool({ pi, state, jev: (ctx) => jevHolder.forContext(ctx) }));
   const reviewDeps = {
     state,

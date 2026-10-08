@@ -61,7 +61,7 @@ less careful model than the one that wrote this):**
 - [x] I7b Cleanup: no skips, no nit file, no warnings, subagent thread cap, resync removed
 - [x] I8 Work sizing, slices, task records, tracker adapters, pi-goal-x hand-off
 - [x] I8b Codemode and ambient activation (nested-call guard tests, exposure pass, intent trigger, verifier nudges)
-- [ ] I9 Product planning skills (brief, decisions, interview loop, lens review, journeys, ADR)
+- [x] I9 Product planning skills (brief, decisions, interview loop, lens review, journeys, ADR)
 - [ ] I10 Event modelling lite (slice schema v1, validator, GWT → tests)
 - [ ] I11 Design-system profile, threat modelling, skill lint, 1.0 readiness
 
@@ -468,11 +468,11 @@ five-lens review orchestration, journey inventory, ADR command. **Why.**
 Research 03 (what worked, what over-reached), research 05 Part A (Cagan,
 Torres).
 
-- [ ] **I9.1 Templates** under `skills/product-planning/references/`: `brief.md` (outcome, four risks, assumptions, non-goals, "deferral ≠ exclusion"), `decisions.md` (D/Q/F register), `followups.md` (P), `terminology.md`, `journeys.md` (J; "story of a user performing actions to achieve an outcome" test).
-- [ ] **I9.2 Skill `product-planning`** (≤ 300 lines + references): interview loop rule verbatim — "update docs after each answer, ask one next question, yield"; agent must not over-edit the brief (D55–D58 lesson): edits limited to the answered question; every answer becomes a D-item.
-- [ ] **I9.3 Lens review orchestration.** `prompts/devsys-lens-review.md` + `src/review/lens-review.ts`: returns a codemode script as the primary form (spawns the five lens agents, waits, writes the packets to the review file, returns only verdict lines and the path) and the five fresh `agent_spawn` payloads as fallback; builds the payloads (lens-* agents, routed models), round-1 template, round-2 peer exchange, synthesis R-table + one-question agenda; guardrail line "agreement among agents is useful critique, not customer evidence" included in every lens prompt. Jev `judgeLenses` variant for product lenses chooses a subset for `capability` sizing (all five for `product`).
-- [ ] **I9.4 ADR command.** `prompts/devsys-adr.md` + `devsys_adr_new({title})` tool creating next-numbered file from `docs/adr/0000-template.md`; commit guard adds soft gate `adr.missing` when Jev `judgeArchitectureShaping(diffStat) ≥ 0.7` and no ADR file is in the diff (non-negotiable 9 is enforced as soft gate here because the judgement is probabilistic; record this in ADR-0004).
-- [ ] **I9.5 Anti-leak lint.** `src/planning/brief-lint.ts`: brief must not contain solution-level detail markers (table names, endpoints, class names) — regex list + Jev `noul`; warning only.
+- [x] **I9.1 Templates** under `skills/product-planning/references/`: `brief.md` (outcome, four risks, assumptions, non-goals, "deferral ≠ exclusion"), `decisions.md` (D/Q/F register), `followups.md` (P), `terminology.md`, `journeys.md` (J; "story of a user performing actions to achieve an outcome" test).
+- [x] **I9.2 Skill `product-planning`** (≤ 300 lines + references): interview loop rule verbatim — "update docs after each answer, ask one next question, yield"; agent must not over-edit the brief (D55–D58 lesson): edits limited to the answered question; every answer becomes a D-item.
+- [x] **I9.3 Lens review orchestration.** `prompts/devsys-lens-review.md` + `src/review/lens-review.ts`: returns a codemode script as the primary form (spawns the five lens agents, waits, writes the packets to the review file, returns only verdict lines and the path) and the five fresh `agent_spawn` payloads as fallback; builds the payloads (lens-* agents, routed models), round-1 template, round-2 peer exchange, synthesis R-table + one-question agenda; guardrail line "agreement among agents is useful critique, not customer evidence" included in every lens prompt. Jev `judgeLenses` variant for product lenses chooses a subset for `capability` sizing (all five for `product`).
+- [x] **I9.4 ADR command.** `prompts/devsys-adr.md` + `devsys_adr_new({title})` tool creating next-numbered file from `docs/adr/0000-template.md`; commit guard adds soft gate `adr.missing` when Jev `judgeArchitectureShaping(diffStat) ≥ 0.7` and no ADR file is in the diff (non-negotiable 9 is enforced as soft gate here because the judgement is probabilistic; record this in ADR-0004).
+- [x] **I9.5 Anti-leak lint.** `src/planning/brief-lint.ts`: brief must not contain solution-level detail markers (table names, endpoints, class names) — regex list + Jev `noul`; warning only.
 
 Acceptance: `/devsys-lens-review` on a brief spawns five lens agents and produces `docs/product/reviews/<date>-round1.md`; `/devsys-adr "x"` creates `docs/adr/000N-x.md`.
 

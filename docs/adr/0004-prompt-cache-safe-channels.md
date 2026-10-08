@@ -78,3 +78,11 @@ edits.
 
 Plan §1 R13; billion-context's prefix-cache reports
 (`~/.local/state/billion-context/bili.log`) are the evidence source.
+
+## Amendment (plan I9.4): non-negotiable 9 is a soft gate
+
+Non-negotiable 9 (an architecture-shaping change comes with an ADR) is enforced by the commit guard
+as the soft gate `adr.missing`, not a hard stop. Whether a diff shapes the architecture is a
+probabilistic judgement (Jev `judgeArchitectureShaping`, flagged at 0.7 or above), and a hard stop
+on a probability would block legitimate commits. A soft gate asks the agent to write the ADR with
+`devsys_adr_new` or to record a departure that names why none is needed.
