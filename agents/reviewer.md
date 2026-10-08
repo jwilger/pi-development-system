@@ -18,6 +18,7 @@ tools:
     - find
     - ls
     - agent_update
+    - devsys_submit_review
     - agent_pause
 ---
 
@@ -41,7 +42,7 @@ Do not modify files. bash is not a sandbox: use it only for read-only inspection
 
 ## Output
 
-Use exactly this packet; the coordinator parses it.
+Submit your result by calling `devsys_submit_review` (slice and round exactly as the task gives them): it checks the call and refuses a self-contradicting one with an error id, which you correct and resubmit. After it accepts, end with one short line. Only when that tool is not available, return exactly this packet instead; the coordinator parses it.
 
 ```markdown
 ## Review — <slice> — round <n> — lenses: <a, b>

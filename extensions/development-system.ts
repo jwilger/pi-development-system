@@ -35,6 +35,8 @@ import { createFinishSliceTool, registerSliceClose } from "../src/planning/slice
 import { createTaskCheckTool } from "../src/planning/task-check-tool.ts";
 import { createLensReviewTool } from "../src/review/lens-review-tool.ts";
 import { createReviewRecordTool, createReviewStartTool } from "../src/review/review-tools.ts";
+import { createSubmissionStore } from "../src/review/submissions.ts";
+import { createSubmitReviewTool } from "../src/review/submit-tool.ts";
 import { registerCiCommand } from "../src/state/ci-command.ts";
 import { loadConfig } from "../src/state/config.ts";
 import { createModelsTool, registerModelsCommand } from "../src/state/models-command.ts";
@@ -186,13 +188,16 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
     createLensReviewTool({ state, jev: (ctx) => jevHolder.forContext(ctx), now: () => new Date() }),
   );
   pi.registerTool(createIntakeTool({ pi, state, jev: (ctx) => jevHolder.forContext(ctx) }));
+  const submissions = createSubmissionStore();
   const reviewDeps = {
     state,
+    submissions,
     jev: (ctx: ExtensionContext) => jevHolder.forContext(ctx),
     exec,
   } satisfies Parameters<typeof createReviewStartTool>[0];
   pi.registerTool(createReviewStartTool(reviewDeps));
   pi.registerTool(createReviewRecordTool(reviewDeps));
+  pi.registerTool(createSubmitReviewTool({ state, submissions }));
   registerModelsCommand(pi);
   piSubagent(pi);
 

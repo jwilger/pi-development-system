@@ -17,11 +17,13 @@ Review is a soft gate (`review.unsatisfied`): skipping it needs a recorded depar
    diff digest, lets Jev choose lenses, and returns an exact `agent_spawn` payload.
 2. Run that `agent_spawn` unchanged. The reviewer is a top-level agent, not a
    child of this conversation, so it does not inherit your context.
-3. Pass the reviewer's packet, verbatim, to `devsys_review_record` with the
-   `slice` and `diffDigest` the start reply gave, and the same `diffRange` if you gave one
-   (`packets: [...]`; all lens packets of one
-   round in one call). A packet is recorded once, in the round its header names;
-   if the diff changed since the start, the round is refused: start again.
+3. The reviewer submits its result with `devsys_submit_review` (typed arguments; a
+   self-contradicting or wrong-round result is refused to the reviewer with an error id).
+   Call `devsys_review_record` with the `slice` and `diffDigest` the start reply gave, and
+   the same `diffRange` if you gave one; it reads the submitted results of the round. If a
+   reviewer returned a markdown packet instead, pass it verbatim in `packets: [...]` (all
+   lens packets of one round in one call). A result is recorded once, in the round it
+   names; if the diff changed since the start, the round is refused: start again.
 4. Read the reply: `review: N/R clean` and `next:`.
    - `fix-findings`: fix every blocking and should-fix finding, then start a new round
      (starting again on an unchanged diff is refused).
@@ -29,7 +31,9 @@ Review is a soft gate (`review.unsatisfied`): skipping it needs a recorded depar
    - `stale-diff`: the diff changed after a satisfied review; one more round.
    - `done`: commit.
 
-## The packet
+## The result
+
+The fields of `devsys_submit_review` mirror this packet; the markdown form is the fallback (ADR 0006).
 
 ```markdown
 ## Review — <slice> — round <n> — lenses: <a, b>

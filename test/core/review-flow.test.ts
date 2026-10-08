@@ -154,6 +154,8 @@ test("reviewerTask carries the slice, lenses, diff range and packet format", () 
     "Do not modify",
     "blocking or should-fix, otherwise `no-blocking`",
     "`- none`",
+    "devsys_submit_review",
+    "verdict-contradicts-findings",
   ]) {
     assert.ok(task.includes(part), part);
   }

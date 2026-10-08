@@ -65,6 +65,7 @@ less careful model than the one that wrote this):**
   - Slice lifecycle fix (0.85.0): implementing → reviewing → delivering → idle, auto-close on push, `devsys_finish_slice` (decisions in `docs/decisions/2026-10.md`, tests in `test/core/lifecycle.test.ts`, `test/planning/slice-close.test.ts`).
 - [x] I10 Event modelling lite (slice schema v1, validator, GWT → tests)
   - Intake autonomy (0.87.0): `devsys_intake` asks the human only when Jev is under 50% confident, accepts a `size` up front, and the status line caps the review count and hides it when idle (`test/planning/intake-tool.test.ts`, `test/context/status.test.ts`).
+  - Structured reviewer results (0.88.0): reviewers submit through `devsys_submit_review` (TypeBox schema, stable error ids); `devsys_review_record` reads the submissions, markdown packets stay as the fallback (ADR 0006; `test/review/submit-tool.test.ts`, `test/core/review-submission.test.ts`).
 - [ ] I11 Design-system profile, threat modelling, skill lint, 1.0 readiness
 
 ---

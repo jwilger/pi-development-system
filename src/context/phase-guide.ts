@@ -12,7 +12,7 @@ export function phaseGuide(phase: Phase): string {
     case "implementing":
       return "Implementing one slice. Write a failing test first, make it pass with the least code, run the tests and read the result before claiming anything. Push when the slice is complete and reviewed: a push of a clean tree closes it (devsys_finish_slice closes it explicitly).";
     case "reviewing":
-      return "Reviewing. Call devsys_review_start for a fresh-context review, pass its packet and diffDigest to devsys_review_record, fix every blocking and should-fix finding (red-first still applies), and repeat until the review is satisfied; then the slice moves to delivering.";
+      return "Reviewing. Call devsys_review_start for a fresh-context review, give its diffDigest to devsys_review_record (the reviewer submits through devsys_submit_review), fix every blocking and should-fix finding (red-first still applies), and repeat until the review is satisfied; then the slice moves to delivering.";
     case "delivering":
       return "Delivering. The review is satisfied. Commit with a rationale, push, and release; a push of a clean tree closes the slice (devsys_finish_slice closes it explicitly, or abandons it with a reason). Editing source reopens implementing. A red trunk (CI) is repaired first.";
     default:

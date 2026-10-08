@@ -27,6 +27,10 @@ terminology, journeys). `devsys_lens_review` plans a review of the brief by five
 writes the packets to `docs/product/reviews/`; `devsys_adr_new` creates the next numbered ADR, and
 a commit that shapes the architecture without one is stopped by the soft gate `adr.missing`.
 
+A reviewer subagent hands over its result with `devsys_submit_review` (typed arguments; a result that
+contradicts itself or is for the wrong round is refused with an error id), and `devsys_review_record`
+reads it. A markdown packet is still accepted (ADR 0006).
+
 Event modelling has a skill (`event-modelling`: three slice patterns, Given/When/Then, completeness).
 `devsys_event_model_check` validates a directory of slice files (schema v1) and renders the swimlane
 Markdown or a Mermaid diagram; each profile's `gwt-tests` reference turns scenarios into failing tests.

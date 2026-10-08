@@ -30,11 +30,14 @@ import { CONFIG_FILE, loadConfig } from "../state/config.ts";
 import { availableModels } from "../state/models-command.ts";
 import type { SessionState } from "../state/session-state.ts";
 import { snapshotDiff } from "./digest.ts";
+import type { SubmissionStore } from "./submissions.ts";
 
 export type ReviewToolDeps = {
   state: SessionState;
   jev: (ctx: ExtensionContext) => Jev;
   exec: Exec;
+  /** Results reviewers submitted with `devsys_submit_review`, read by `devsys_review_record`. */
+  submissions: SubmissionStore;
   now?: () => Date;
 };
 
@@ -54,6 +57,9 @@ const sliceOf = (given: string | undefined, state: SessionState): SliceRef | und
 
 const NO_SLICE =
   "no slice: pass `slice`, or start work on a slice first (there is no active slice)";
+
+const NO_RESULT = (slice: string, round: number): string =>
+  `no result for round ${round} of "${slice}": the reviewer submits it with devsys_submit_review before you record, or you pass its packet markdown in \`packets\``;
 
 const StartParameters = Type.Object({
   slice: Type.Optional(
@@ -120,6 +126,7 @@ function spawnPayload(input: {
 }
 
 type Reply = ReturnType<typeof reply>;
+const replyText = (r: Reply): string => r.content.map((c) => c.text).join("\n");
 type Config = Extract<Awaited<ReturnType<typeof loadConfig>>, { ok: true }>["value"];
 type Snapshot = Extract<Awaited<ReturnType<typeof snapshotDiff>>, { ok: true }>["value"];
 type Prepared = { slice: SliceRef; config: Config; range: string; snap: Snapshot };
@@ -181,6 +188,8 @@ async function startRound(
   const required = requiredRounds(p.config);
   const existing = reviewOf(deps.state.get(), p.slice) ?? startReview(p.slice, required);
   const review: ReviewState = { ...existing, required };
+  // A new round only sees what reviewers submit after it began.
+  deps.submissions.clear(p.slice);
   deps.state.update((s) => upsertReview(s, review));
   deps.state.update((s) => afterReviewRound(s, nextAction(review, p.snap.digest), p.slice));
   const refusal = startRefusal(review, p);
@@ -200,7 +209,7 @@ async function startRound(
     [
       `${reviewLabel(review)}; round ${round}; diff ${p.snap.digest}. ${basis}`,
       `lenses: ${lenses.join(", ")}`,
-      `Spawn the reviewer with agent_spawn using exactly this payload, then pass its packet to devsys_review_record with slice "${p.slice}", diffDigest "${p.snap.digest}"${rangeArg}:`,
+      `Spawn the reviewer with agent_spawn using exactly this payload, then call devsys_review_record with slice "${p.slice}", diffDigest "${p.snap.digest}"${rangeArg}. The reviewer submits its result with devsys_submit_review, so pass no packets (only a markdown packet the reviewer returned instead goes in packets):`,
       JSON.stringify(spawn),
     ].join("\n"),
   );
@@ -214,7 +223,7 @@ export function createReviewStartTool(
     name: "devsys_review_start",
     label: "Start review round",
     description:
-      "Begin a review round for a slice: computes the diff digest, chooses review lenses, and returns the agent_spawn payload for a fresh-context reviewer. Run that spawn, then pass the reviewer's packet to devsys_review_record.",
+      "Begin a review round for a slice: computes the diff digest, chooses review lenses, and returns the agent_spawn payload for a fresh-context reviewer. Run that spawn, then call devsys_review_record (the reviewer submits its result with devsys_submit_review).",
     promptSnippet: "Start a fresh-context review round for a slice",
     parameters: StartParameters,
     exposure: "model-only",
@@ -243,9 +252,12 @@ const RecordParameters = Type.Object({
   slice: Type.Optional(
     Type.String({ description: "Slice reviewed; defaults to the active slice." }),
   ),
-  packets: Type.Array(Type.String(), {
-    description: "Reviewer packets, verbatim markdown: one per lens reviewer, all for one round.",
-  }),
+  packets: Type.Optional(
+    Type.Array(Type.String(), {
+      description:
+        "Reviewer packets, verbatim markdown, for a reviewer that could not call devsys_submit_review. Results submitted through that tool for this round are read without being passed.",
+    }),
+  ),
   diffRange: Type.Optional(
     Type.String({ description: "The range that was reviewed; defaults to HEAD." }),
   ),
@@ -275,15 +287,22 @@ async function adjusted(
   return { findings: out, notes };
 }
 
+const lensKey = (p: ReviewPacket): string => [...p.lenses].sort().join("\u0000");
+
+/** Submitted results win over a markdown packet for the same lenses (a reviewer that did both). */
+function mergeResults(
+  markdown: readonly ReviewPacket[],
+  submitted: readonly ReviewPacket[],
+): { packets: ReviewPacket[]; dropped: number } {
+  const taken = new Set(submitted.map(lensKey));
+  const kept = markdown.filter((m) => !taken.has(lensKey(m)));
+  return { packets: [...kept, ...submitted], dropped: markdown.length - kept.length };
+}
+
 /** Parses every packet, or the reply naming the first malformed one. */
 function parsePackets(
   raw: readonly string[],
 ): { ok: true; value: ReviewPacket[] } | { ok: false; reply: Reply } {
-  if (raw.length === 0)
-    return {
-      ok: false,
-      reply: reply("no packets: pass the reviewer's packet markdown in `packets`", true),
-    };
   const packets: ReviewPacket[] = [];
   for (const [i, text] of raw.entries()) {
     const parsed = parseReviewPacket(text);
@@ -359,7 +378,7 @@ export function createReviewRecordTool(
     name: "devsys_review_record",
     label: "Record review round",
     description:
-      "Record one review round from the reviewer's packet(s): parses findings, lets Jev adjust severity when confident, and returns the clean-round count and the next action.",
+      "Record one review round from the reviewer's submitted result (or markdown packets): reads findings, lets Jev adjust severity when confident, and returns the clean-round count and the next action.",
     promptSnippet: "Record a reviewer packet as a review round",
     parameters: RecordParameters,
     exposure: "direct",
@@ -370,9 +389,23 @@ export function createReviewRecordTool(
       _onUpdate,
       ctx: ExtensionContext,
     ) {
-      if (sliceOf(params.slice, deps.state) === undefined) return reply(NO_SLICE, true);
-      const packets = parsePackets(params.packets);
-      if (!packets.ok) return packets.reply;
+      const slice = sliceOf(params.slice, deps.state);
+      if (slice === undefined) return reply(NO_SLICE, true);
+      const round = (reviewOf(deps.state.get(), slice)?.rounds.length ?? 0) + 1;
+      const markdown = parsePackets(params.packets ?? []);
+      if (!markdown.ok) {
+        return deps.submissions.forRound(slice, round).length === 0
+          ? markdown.reply
+          : reply(
+              `${replyText(markdown.reply)}. A submitted result for round ${round} is waiting: omit \`packets\` to record it.`,
+              true,
+            );
+      }
+      const { packets, dropped } = mergeResults(
+        markdown.value,
+        deps.submissions.forRound(slice, round),
+      );
+      if (packets.length === 0) return reply(NO_RESULT(slice, round), true);
       const prepared = await prepare(
         deps,
         ctx,
@@ -386,7 +419,14 @@ export function createReviewRecordTool(
           true,
         );
       }
-      return recordRound(deps, ctx, prepared.value, packets.value);
+      const recorded = await recordRound(deps, ctx, prepared.value, packets);
+      if (recorded.isError === true) return recorded;
+      deps.submissions.clear(slice);
+      return dropped === 0
+        ? recorded
+        : reply(
+            `${replyText(recorded)}\nNote: ${dropped} markdown packet(s) for lenses already submitted were dropped; the submitted result is the one recorded.`,
+          );
     },
   };
 }

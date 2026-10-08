@@ -11,6 +11,7 @@ import type { SliceRef } from "../../src/core/types.ts";
 import type { Jev } from "../../src/jev/client.ts";
 import { snapshotDiff } from "../../src/review/digest.ts";
 import { createReviewRecordTool } from "../../src/review/review-tools.ts";
+import { createSubmissionStore } from "../../src/review/submissions.ts";
 import { createSessionState } from "../../src/state/session-state.ts";
 import { createFakePi } from "../harness/fake-pi.ts";
 
@@ -48,7 +49,12 @@ test("a nit is reported back, never stored, and leaves the review satisfied", as
   const state = createSessionState(fake.api);
   const slice = "s1" as SliceRef;
   state.update((s) => ({ ...s, activeSlice: slice }));
-  const tool = createReviewRecordTool({ state, jev: () => offline, exec });
+  const tool = createReviewRecordTool({
+    state,
+    submissions: createSubmissionStore(),
+    jev: () => offline,
+    exec,
+  });
   const packet = (round: number, finding: string) =>
     `## Review — s1 — round ${round} — lenses: types\n### Sources inspected\n- a.txt:1\n### Findings\n${finding}\n### Verdict\nno-blocking\n`;
   let last = "";

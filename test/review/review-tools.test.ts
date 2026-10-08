@@ -6,10 +6,12 @@ import test from "node:test";
 import type { ClassifierAnswer } from "@earendil-works/pi-ai";
 import type { Exec } from "../../src/core/exec.ts";
 import { err, ok } from "../../src/core/result.ts";
+import type { Finding } from "../../src/core/review.ts";
 import type { SliceRef } from "../../src/core/types.ts";
 import type { Jev } from "../../src/jev/client.ts";
 import { snapshotDiff } from "../../src/review/digest.ts";
 import { createReviewRecordTool, createReviewStartTool } from "../../src/review/review-tools.ts";
+import { createSubmissionStore } from "../../src/review/submissions.ts";
 import { createSessionState } from "../../src/state/session-state.ts";
 import { createFakePi } from "../harness/fake-pi.ts";
 
@@ -58,8 +60,10 @@ const setup = (jev: Jev, diff = DIFF, withSlice = true, untracked = "") => {
   const fake = createFakePi({ cwd });
   const state = createSessionState(fake.api);
   if (withSlice) state.update((s) => ({ ...s, activeSlice: "s1" as SliceRef }));
+  const submissions = createSubmissionStore();
   const deps = {
     state,
+    submissions,
     jev: () => jev,
     exec: exec(diff, untracked),
     now: () => new Date("2026-10-06T10:00:00Z"),
@@ -67,6 +71,7 @@ const setup = (jev: Jev, diff = DIFF, withSlice = true, untracked = "") => {
   return {
     cwd,
     state,
+    submissions,
     start: (p: Record<string, unknown> = {}) =>
       createReviewStartTool(deps).execute("c", p as never, undefined, undefined, fake.ctx as never),
     // Fills diffDigest the way the coordinator copies it from devsys_review_start's reply.
@@ -305,4 +310,121 @@ test("reviewing a slice that is not in flight does not change the phase", async 
     await t.start();
     assert.equal(t.state.get().phase, phase);
   }
+});
+
+const submitted = (
+  round = 1,
+  findings: Finding[] = [],
+  verdict: "no-blocking" | "blocking" = "no-blocking",
+) => ({
+  slice: "s1",
+  round,
+  lenses: ["types"],
+  sources: ["a.ts:1-5"],
+  findings,
+  verdict,
+});
+
+test("record reads the submitted result when no packets are passed, then forgets it", async () => {
+  const t = setup(offline);
+  await t.start();
+  t.submissions.put(submitted());
+  const r = await t.record({});
+  assert.notEqual(r.isError, true);
+  assert.match(text(r), /review: 1\/3 clean/);
+  assert.equal(t.state.get().reviews?.[0]?.rounds.length, 1);
+  assert.equal(t.submissions.forRound("s1", 1).length, 0);
+  assert.equal((await t.record({})).isError, true);
+});
+
+test("submitted findings count like markdown ones", async () => {
+  const t = setup(offline);
+  await t.start();
+  t.submissions.put(
+    submitted(
+      1,
+      [
+        {
+          id: "types-1",
+          severity: "should-fix",
+          path: "a.ts",
+          line: 2,
+          summary: "no test",
+          lens: "types",
+        },
+      ],
+      "blocking",
+    ),
+  );
+  const r = await t.record({});
+  assert.match(text(r), /review: 0\/3 clean/);
+  assert.match(text(r), /next: fix-findings/);
+});
+
+test("submitted and markdown packets for one round are recorded together", async () => {
+  const t = setup(offline);
+  await t.start();
+  t.submissions.put(submitted());
+  const r = await t.record({ packets: [packet("none", "no-blocking", 1, "tests")] });
+  assert.notEqual(r.isError, true);
+  assert.deepEqual(t.state.get().reviews?.[0]?.rounds[0]?.lenses, ["tests", "types"]);
+});
+
+test("with nothing submitted and no packets the refusal names both ways to hand over a result", async () => {
+  const t = setup(offline);
+  await t.start();
+  const r = await t.record({});
+  assert.equal(r.isError, true);
+  assert.match(text(r), /devsys_submit_review/);
+  assert.match(text(r), /packets/);
+});
+
+test("starting a round discards submissions left from an earlier attempt", async () => {
+  const t = setup(offline);
+  t.submissions.put(submitted());
+  await t.start();
+  assert.equal(t.submissions.forRound("s1", 1).length, 0);
+});
+
+test("a submission refused for the diff having changed stays available for a later record", async () => {
+  const t = setup(offline);
+  await t.start();
+  t.submissions.put(submitted());
+  const stale = await t.record({ diffDigest: "stale" });
+  assert.equal(stale.isError, true);
+  assert.equal(t.submissions.forRound("s1", 1).length, 1);
+});
+
+test("start tells the coordinator the reviewer submits its result; record needs no packets", async () => {
+  const t = setup(offline);
+  const out = text(await t.start());
+  assert.match(out, /devsys_submit_review/);
+  assert.doesNotMatch(out, /pass its packet/);
+});
+
+test("a non-packet in `packets` beside a submitted result is refused with a hint to drop it", async () => {
+  const t = setup(offline);
+  await t.start();
+  t.submissions.put(submitted());
+  const r = await t.record({ packets: ["Done, no findings."] });
+  assert.equal(r.isError, true);
+  assert.match(text(r), /malformed/);
+  assert.match(text(r), /submitted result.*omit `packets`/);
+  assert.equal(t.submissions.forRound("s1", 1).length, 1);
+  assert.notEqual((await t.record({})).isError, true);
+});
+
+test("a markdown packet for the lenses already submitted is dropped, not recorded twice", async () => {
+  const t = setup(offline);
+  await t.start();
+  t.submissions.put(
+    submitted(1, [{ id: "types-1", severity: "nit", summary: "naming", lens: "types" }]),
+  );
+  const r = await t.record({
+    packets: [packet("- [nit] types `a.ts:2` — naming — clearer", "no-blocking", 1, "types")],
+  });
+  assert.notEqual(r.isError, true);
+  assert.match(text(r), /1 nit/);
+  assert.match(text(r), /dropped.*submitted/i);
+  assert.equal(t.state.get().reviews?.[0]?.rounds[0]?.findings.length, 1);
 });

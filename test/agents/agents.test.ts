@@ -68,6 +68,12 @@ test("reviewer and lenses emit the review packet with a verdict line", () => {
   }
 });
 
+test("the reviewer may call devsys_submit_review, or its structured result never leaves the child", () => {
+  const { front, body } = load("reviewer");
+  assert.ok(front.tools?.allow?.includes("devsys_submit_review"));
+  assert.match(body, /devsys_submit_review/);
+});
+
 test("every shipped agent definition loads through the vendored parser", () => {
   const dir = new URL("../../agents/", import.meta.url);
   const files = readdirSync(dir).filter((f) => f.endsWith(".md"));
