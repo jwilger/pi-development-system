@@ -10,6 +10,7 @@ import { buildSessionContext, getAgentDir } from "@earendil-works/pi-coding-agen
 import { fuzzyFilter } from "@earendil-works/pi-tui";
 import { createInheritedToolSource } from "./orch/inherited-tools.ts";
 import { ThreadManager } from "./orch/manager.ts";
+import { registrySignature } from "./orch/persist-signature.ts";
 import { subagentPrompt } from "./orch/prompt.ts";
 import { createDriverFactory } from "./orch/runtime.ts";
 import { agentTools } from "./orch/tools.ts";
@@ -191,7 +192,7 @@ export default function piSubagent(pi: ExtensionAPI): void {
   const persist = () => {
     if (!manager) return;
     const threads = manager.saved();
-    const signature = JSON.stringify(threads);
+    const signature = registrySignature(threads);
     if (signature !== persistenceSignature) {
       pi.appendEntry(REGISTRY_ENTRY, {
         version: 1,
