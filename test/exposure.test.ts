@@ -41,7 +41,22 @@ test("with codemode off, session start declares the codemode tools directly", as
   await fake.emit({ type: "session_start" } as never);
   const seen = exposures(fake);
   for (const [name, wanted] of Object.entries(EXPOSURE)) {
-    assert.equal(seen[name], wanted === "codemode" ? "direct" : wanted, name);
+    const fallsBack = wanted === "codemode" && !name.startsWith("judge_");
+    assert.equal(seen[name], fallsBack ? "direct" : wanted, name);
+  }
+});
+
+test("the judge tools exist for scripts, so they stay behind codemode even when it is off", async () => {
+  const fake = createFakePi();
+  createDevelopmentSystem(fake.api);
+  await fake.emit({ type: "session_start" } as never);
+  for (const name of [
+    "judge_sizing",
+    "judge_test_change",
+    "judge_lenses",
+    "judge_task_readiness",
+  ]) {
+    assert.equal(fake.tools.get(name)?.exposure, "codemode", name);
   }
 });
 

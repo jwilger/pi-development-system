@@ -59,8 +59,14 @@ export function asksUser(text: string): boolean {
   return QUESTION_END.test(lead) || (LIST_ITEM.test(last) && CHOICE_LEAD_IN.test(lead));
 }
 
+/** A recorded round, or a departure that waives review for the slice: either way the nudge has nothing to ask for. */
 const hasReviewRound = (state: DevsysState, slice: DevsysState["activeSlice"] & string): boolean =>
-  (reviewOf(state, slice)?.rounds.length ?? 0) > 0;
+  (reviewOf(state, slice)?.rounds.length ?? 0) > 0 ||
+  state.openDepartures.some(
+    (d) =>
+      d.gate === "review.unsatisfied" &&
+      (d.scope.kind === "session" || (d.scope.kind === "slice" && d.scope.slice === slice)),
+  );
 
 /** True when a scope.expansion departure already covers the slice: the remedy the note asks for exists. */
 const expansionRecorded = (state: DevsysState, slice: string): boolean =>

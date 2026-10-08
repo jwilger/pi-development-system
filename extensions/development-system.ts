@@ -8,7 +8,7 @@ import type {
 import { cadenceLine, DEFAULT_PUSH_MINUTES } from "../src/context/cadence.ts";
 import { appendContextTail, renderContextTail } from "../src/context/context-tail.ts";
 import { createPhaseTool } from "../src/context/devsys-tool.ts";
-import { applyIntentGuideline } from "../src/context/intent-trigger.ts";
+import { intentLineFor } from "../src/context/intent-trigger.ts";
 import { registerModelAdvice } from "../src/context/model-advice.ts";
 import { renderStatus, renderStatusLine, STATUS_KEY } from "../src/context/status.ts";
 import { applyPromptSection } from "../src/context/system-prompt.ts";
@@ -89,9 +89,15 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   pi.on("session_start", (_event, ctx) => rebuild(ctx));
   pi.on("session_tree", (_event, ctx) => rebuild(ctx));
 
+  // The intent line rides in the context tail for this run only: a change to the system prompt
+  // would invalidate the provider's cache for the whole conversation.
+  let intentLine: string | undefined;
   pi.on("before_agent_start", async (event, ctx) => {
     applyPromptSection(event, state.get(), nonNegotiables);
-    await applyIntentGuideline(event, state.get(), jevHolder.forContext(ctx));
+    intentLine = await intentLineFor(event.prompt, state.get(), jevHolder.forContext(ctx));
+  });
+  pi.on("agent_end", () => {
+    intentLine = undefined;
   });
 
   pi.on("context", (event) => {
@@ -99,7 +105,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
     const cadence = cadenceLine(state.get(), now, pushMinutes);
     const messages = appendContextTail(
       event.messages,
-      renderContextTail(state.get(), cadence),
+      renderContextTail(state.get(), cadence, intentLine),
       now,
     );
     return messages === undefined ? undefined : { messages };
@@ -155,10 +161,13 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
     createRouteTaskTool({ jev: (ctx) => jevHolder.forContext(ctx) }),
     createTaskCheckTool({ jev: (ctx) => jevHolder.forContext(ctx) }),
     createWorkItemTool({ exec }),
-    ...createJudgeTools({ jev: (ctx) => jevHolder.forContext(ctx) }),
   ];
   for (const tool of rarelyUsed) pi.registerTool(tool);
   pi.on("session_start", () => declareWithoutCodemode(pi, rarelyUsed));
+  // The judge_* tools exist only for scripts: without codemode there is nothing to call them from.
+  for (const tool of createJudgeTools({ jev: (ctx) => jevHolder.forContext(ctx) })) {
+    pi.registerTool(tool);
+  }
   pi.registerTool(createPhaseTool({ state }));
   pi.registerTool(createBeginWorkTool({ state }));
   pi.registerTool(createIntakeTool({ pi, state, jev: (ctx) => jevHolder.forContext(ctx) }));

@@ -347,3 +347,26 @@ test("a review nudge shares one continuation with a claim correction", async () 
   const r = (await t.turnEnd("All done, tests pass.")) as { entries: unknown[] };
   assert.equal(r.entries.length, 2);
 });
+
+test("a review waived by a review.unsatisfied departure is not asked for again", async () => {
+  const waiver = (scope: unknown) =>
+    ({
+      id: "w1",
+      gate: "review.unsatisfied",
+      tier: "soft",
+      default: "x",
+      chosen: "skip review for this fix",
+      why: "user approved",
+      costIfWrong: "c",
+      approver: "user",
+      scope,
+      recordedAt: "2026-10-07T00:00:00Z",
+    }) as never;
+  const waived = setup({ done: 0.9, slice: "S1" });
+  waived.setDepartures([waiver({ kind: "slice", slice: "S1" })]);
+  assert.equal(await waived.turnEnd("Done."), undefined);
+  assert.equal(waived.asked[0]?.questions.includes("done"), false);
+  const other = setup({ done: 0.9, slice: "S1" });
+  other.setDepartures([waiver({ kind: "slice", slice: "S2" })]);
+  assert.match(textOf(await other.turnEnd("Done.")), /devsys_review_start/);
+});

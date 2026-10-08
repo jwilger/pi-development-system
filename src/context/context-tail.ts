@@ -9,15 +9,25 @@ const scopeLabel = (d: Departure): string =>
   d.scope.kind === "slice" ? `slice ${d.scope.slice}` : d.scope.kind;
 
 /** Small, cache-friendly reminder appended at the end of the context; undefined when nothing to say. */
-export function renderContextTail(state: DevsysState, cadence?: string): string | undefined {
-  if (state.phase === "idle" && state.openDepartures.length === 0) return undefined;
+export function renderContextTail(
+  state: DevsysState,
+  cadence?: string,
+  note?: string,
+): string | undefined {
+  if (state.phase === "idle" && state.openDepartures.length === 0 && note === undefined) {
+    return undefined;
+  }
   const head = [
     "[development-system]",
     `phase: ${state.phase} · slice: ${state.activeSlice ?? "none"}`,
     `Jev: ${state.jev}`,
     ...((state.profiles?.length ?? 0) > 0 ? [`profiles: ${state.profiles?.join(", ")}`] : []),
   ];
-  const tailLines = [...(cadence === undefined ? [] : [cadence]), REMINDER];
+  const tailLines = [
+    ...(note === undefined ? [] : [note]),
+    ...(cadence === undefined ? [] : [cadence]),
+    REMINDER,
+  ];
   const room = MAX_LINES - head.length - tailLines.length - 1;
   const lines = state.openDepartures.map(
     (d) => `- ${d.gate} — ${d.chosen.replace(/\s+/g, " ")} (${scopeLabel(d)})`,

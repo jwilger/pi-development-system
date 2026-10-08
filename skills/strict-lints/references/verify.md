@@ -11,23 +11,28 @@ Adjust `CHECKS` to the project profile (see the profile skill: TypeScript, Rust,
 const CHECKS = [
   { tool: "tsc", command: "npx tsc --noEmit" },
   { tool: "biome", command: "biome check --error-on-warnings ." },
-  { tool: "tests", command: "npm test 2>&1 | tail -n 60" },
+  { tool: "tests", command: "npm test" },
 ];
 
 const results = await Promise.all(
   CHECKS.map(async ({ tool, command }) => {
     const r = await tools.bash({ command });
     const lines = r.output.split("\n").filter((l) => l.trim() !== "");
+    // Failure lines first: the head of a test run is mostly passing tests.
+    const failing = lines.filter((l) => /error|fail|✖|not ok/i.test(l));
     return {
       tool,
       exit: r.exit_code,
-      firstFailures: r.exit_code === 0 ? [] : lines.slice(0, 15),
+      firstFailures: r.exit_code === 0 ? [] : (failing.length > 0 ? failing : lines.slice(-15)).slice(0, 15),
     };
   }),
 );
 
 return results;
 ```
+
+Never pipe a check through `tail`, `head` or `grep` inside `command`: the exit code is then the
+pipe's, not the check's, and a failing run reads as `0`. Trim the output in the script instead.
 
 Read the result before saying anything passed: every `exit` must be `0`. A non-zero `exit`
 means fix `firstFailures` first, then run the script again.
