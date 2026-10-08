@@ -13,6 +13,7 @@ Read the reference you need:
 - Result pattern: `references/errors.md`
 - tsconfig and biome: `references/lints.md`
 - Test layout: `references/tests.md`
+- Event-model scenarios as tests: `references/gwt-tests.md`
 
 ## Defaults
 

@@ -1,0 +1,13 @@
+id: slice.signin.c01
+pattern: state-change
+actor: user
+command: { name: SignIn, fields: { email: string, password: secret } }
+events:
+  - { name: SignedIn, fields: { userId: id, at: timestamp } }
+gwt:
+  - given: [{ event: UserRegistered, let: { email: "a@b.c" } }]
+    when: { command: SignIn, let: { email: "a@b.c", password: "pw" } }
+    then: [{ event: SignedIn }]
+  - given: []
+    when: { command: SignIn, let: { email: "x@y.z", password: "pw" } }
+    then: [{ error: unknown-user }]

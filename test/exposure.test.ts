@@ -78,3 +78,14 @@ test("the Jev judgement tools share one namespace", () => {
     .map((t) => t.namespace?.name);
   assert.deepEqual(names, ["devsys-judge", "devsys-judge", "devsys-judge", "devsys-judge"]);
 });
+
+test("the builtin event-model check is declared directly once the session starts", async () => {
+  for (const activeTools of [[], ["codemode"]]) {
+    const fake = createFakePi({ activeTools });
+    createDevelopmentSystem(fake.api);
+    await fake.emit({ type: "session_start" } as never);
+    const tool = fake.tools.get("devsys_event_model_check");
+    assert.ok(tool, "registered at session start");
+    assert.equal(tool.exposure ?? "direct", "direct");
+  }
+});

@@ -63,7 +63,7 @@ less careful model than the one that wrote this):**
 - [x] I8b Codemode and ambient activation (nested-call guard tests, exposure pass, intent trigger, verifier nudges)
 - [x] I9 Product planning skills (brief, decisions, interview loop, lens review, journeys, ADR)
   - Slice lifecycle fix (0.85.0): implementing → reviewing → delivering → idle, auto-close on push, `devsys_finish_slice` (decisions in `docs/decisions/2026-10.md`, tests in `test/core/lifecycle.test.ts`, `test/planning/slice-close.test.ts`).
-- [ ] I10 Event modelling lite (slice schema v1, validator, GWT → tests)
+- [x] I10 Event modelling lite (slice schema v1, validator, GWT → tests)
 - [ ] I11 Design-system profile, threat modelling, skill lint, 1.0 readiness
 
 ---
@@ -479,18 +479,18 @@ Acceptance: `/devsys-lens-review` on a brief spawns five lens agents and produce
 
 Release + STOP.
 
-### I10 — Event modelling lite  (expect 0.11.0)
+### I10 — Event modelling lite  (shipped as 0.86.0)
 
 **Goal.** Compact slice format, validator, derived Markdown, GWT → test
 skeletons, replaceable by a future dedicated extension. **Why.** D13,
 research 03 §4 lessons (keep schema small; "do not invent policy to make
 validation pass"), research 05 (Dymitruk, Dilger).
 
-- [ ] **I10.1 Schema v1** (Appendix D) as TypeBox in `src/planning/slice-schema.ts`; `parseSlice(json|yaml)`; validator codes ≤ 12 (missing-origin, missing-destination, gwt-without-when, orphan-event, duplicate-id, unknown-ref, …); `validateModel(slices): ValidationIssue[]` with the information-completeness check (every view field has an event origin; every command field has a source).
-- [ ] **I10.2 Derivations.** `renderModelMarkdown(slices)` (swimlane table + per-slice GWT) and `renderMermaid(slices)`. Tool `devsys_event_model_check({dir})`.
-- [ ] **I10.3 GWT → test skeleton skill** per profile (`skills/profile-rust/references/gwt-tests.md`, `skills/profile-typescript/references/gwt-tests.md`): one failing test per GWT scenario; "no spec in the model without an equivalent in code".
-- [ ] **I10.4 Capability detection.** If a tool named `event_model_validate` (or config `event_model.provider != "builtin"`) exists, `/devsys-event-model` defers to it and the builtin tool is not registered. Document the handshake in `docs/event-model-extension-contract.md`.
-- [ ] **I10.5 Skill `event-modelling`** (≤ 250 lines): 7 steps, three slice patterns, GWT shape, completeness check, never invent policy to satisfy the validator (ask instead), recorded departure `artifact.skipped:event-model` when skipped.
+- [x] **I10.1 Schema v1** (Appendix D) as TypeBox in `src/planning/slice-schema.ts`; `parseSlice(json|yaml)`; validator codes ≤ 12 (missing-origin, missing-destination, gwt-without-when, orphan-event, duplicate-id, unknown-ref, …); `validateModel(slices): ValidationIssue[]` with the information-completeness check (every view field has an event origin; every command field has a source).
+- [x] **I10.2 Derivations.** `renderModelMarkdown(slices)` (swimlane table + per-slice GWT) and `renderMermaid(slices)`. Tool `devsys_event_model_check({dir})`.
+- [x] **I10.3 GWT → test skeleton skill** per profile (`skills/profile-rust/references/gwt-tests.md`, `skills/profile-typescript/references/gwt-tests.md`): one failing test per GWT scenario; "no spec in the model without an equivalent in code".
+- [x] **I10.4 Capability detection.** If a tool named `event_model_validate` (or config `event_model.provider != "builtin"`) exists, `/devsys-event-model` defers to it and the builtin tool is not registered. Document the handshake in `docs/event-model-extension-contract.md`.
+- [x] **I10.5 Skill `event-modelling`** (≤ 250 lines): 7 steps, three slice patterns, GWT shape, completeness check, never invent policy to satisfy the validator (ask instead), recorded departure `artifact.skipped:event-model` when skipped.
 
 Acceptance: a sample model under `test/fixtures/event-model/` validates; an intentionally orphaned view field fails with `missing-origin`.
 

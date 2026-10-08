@@ -1,0 +1,13 @@
+id: slice.register.c01
+pattern: state-change
+actor: user
+command: { name: Register, fields: { email: string, password: secret } }
+events:
+  - { name: UserRegistered, fields: { userId: id, email: string, at: timestamp } }
+gwt:
+  - given: []
+    when: { command: Register, let: { email: "a@b.c", password: "pw" } }
+    then: [{ event: UserRegistered }]
+  - given: [{ event: UserRegistered, let: { email: "a@b.c" } }]
+    when: { command: Register, let: { email: "a@b.c", password: "pw" } }
+    then: [{ error: email-taken }]

@@ -8,9 +8,11 @@ const DIR = new URL("../prompts/", import.meta.url);
 
 // A prompt template is a shortcut. Each must name at least one registered devsys tool, so the same
 // capability can be reached without the slash command (plan rule R12).
-const registered = (() => {
+// Some tools are registered at session start, once the repo's config and the other extensions are known.
+const registered = await (async () => {
   const fake = createFakePi();
   createDevelopmentSystem(fake.api);
+  await fake.emit({ type: "session_start" } as never);
   return new Set(fake.tools.keys());
 })();
 

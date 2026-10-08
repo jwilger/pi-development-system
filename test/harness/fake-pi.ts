@@ -30,6 +30,8 @@ export type FakePiOptions = {
   models?: { id: string; cost?: { input: number; output: number } }[];
   /** Names `pi.getActiveTools()` reports; add `codemode` to simulate codemode being on. */
   activeTools?: string[];
+  /** Names `pi.getAllTools()` reports: every tool registered by any extension, active or not. */
+  allTools?: string[];
   /** Answers every Jev `classify` call returns, by question name; unset means classify throws. */
   classifyAnswers?: Record<string, ClassifierAnswer> | undefined;
 };
@@ -138,6 +140,7 @@ export function createFakePi(init: FakePiOptions = {}) {
       tools.set(tool.name, tool);
     },
     getActiveTools: () => init.activeTools ?? [],
+    getAllTools: () => (init.allTools ?? []).map((name) => ({ name })),
     registerCommand: (name: string, options: Omit<RegisteredCommand, "name" | "sourceInfo">) => {
       commands.set(name, options);
     },

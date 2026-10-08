@@ -13,6 +13,7 @@ Read the reference you need, not all of them:
 - Errors: `references/errors.md`
 - Lints: `references/lints.md`
 - Tests and mutation testing: `references/tests.md`
+- Event-model scenarios as tests: `references/gwt-tests.md`
 
 ## Defaults
 

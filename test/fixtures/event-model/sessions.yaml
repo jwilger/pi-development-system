@@ -1,0 +1,8 @@
+id: slice.sessions.v01
+pattern: state-view
+actor: system
+views:
+  - { name: ActiveSessions, fields: { userId: id, at: timestamp }, sources: [SignedIn] }
+gwt:
+  - given: [{ event: SignedIn, let: { userId: u1 } }]
+    then: [{ view: ActiveSessions, let: { userId: u1 } }]
