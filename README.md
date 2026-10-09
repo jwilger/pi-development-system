@@ -109,13 +109,27 @@ resolves to, and the system recommends a model for a phase but never switches yo
   `--no-verify`, forbidden commit trailers, pushing onto a red trunk, breaking the delivery mode.
   Only the user can approve one, once, and only with a UI: a headless run refuses.
 - **Soft gates** guard the defaults (`principles/DEFAULTS.md`): weakening tests, commit rationale,
-  mixed commits, red-first, lint suppression, an unreviewed slice, scope, model for the phase, a
-  skipped planning artifact, a missing ADR. A soft gate is passed by recording a departure with
-  `devsys_record_departure` (what, why, cost if wrong, how long it applies).
+  mixed commits, red-first, lint suppression, an unreviewed slice, a missing ADR. A soft gate is
+  passed by recording a departure with `devsys_record_departure` (what, why, cost if wrong, how
+  long it applies). Scope drift, the model for the phase and a skipped planning artifact are
+  softer still: the system nudges or advises, and a skipped artifact is recorded when the agent
+  records it, not detected.
 - **Guidance** covers everything else: skills and the phase guide, never enforced.
 
 What the tiers do not cover, so you can decide what to trust:
 
+- **Not every non-negotiable is a hard stop.** Rewriting history, force-pushing, `--no-verify`,
+  trailers, a red trunk and the delivery mode are stopped by code. A false claim of "done" is
+  checked by a Jev turn verifier that nudges (and only with Jev), an architecture decision without
+  an ADR is a soft gate (also Jev), and an evidence check on model-visible text is a CI test.
+- **Secrets are not scanned for.** Nothing stops `git add .env && git commit`. Secrets are redacted
+  from the decision log and from what Jev sees, not from commits or subagent prompts.
+- **Some work-discarding commands are not stopped.** `git checkout -- .`, `git restore .` and
+  `git clean -fd` throw away uncommitted work like `reset --hard` does, but are classed ordinary.
+- **Reviewer effort is fixed.** Review and lens subagents run at `high` thinking on the `reviewer`
+  and `lens` slots; `devsys_route_task` routes the implementer, and the coordinator must pass its
+  result on to `agent_spawn`. A plain `agent_spawn` with no `model` uses the agent type's own list,
+  not the `[models]` matrix.
 - **Subagents run unguarded.** A child session is started without extensions, so none of the guards
   runs inside it. The coordinator commits, pushes and delivers; a subagent's prompt tells it not to,
   and the coordinator reviews what it produced.

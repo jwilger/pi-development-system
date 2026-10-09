@@ -66,8 +66,9 @@ less careful model than the one that wrote this):**
 - [x] I10 Event modelling lite (slice schema v1, validator, GWT → tests)
   - Intake autonomy (0.87.0): `devsys_intake` asks the human only when Jev is under 50% confident, accepts a `size` up front, and the status line caps the review count and hides it when idle (`test/planning/intake-tool.test.ts`, `test/context/status.test.ts`).
   - Structured reviewer results (0.88.0): reviewers submit through `devsys_submit_review` (TypeBox schema, stable error ids); `devsys_review_record` reads the submissions, markdown packets stay as the fallback (ADR 0006; `test/review/submit-tool.test.ts`, `test/core/review-submission.test.ts`).
-- [ ] I11 Design-system profile, threat modelling, skill lint, 1.0 readiness
+- [x] I11 Design-system profile, threat modelling, skill lint, 1.0 readiness
   - I11 hardening H1 (0.91.0): git alias/config indirection, shell-via-stdin and wrapper/interpreter forms are classified as unknown or hard stops; a push checks the unpushed commits' messages for AI trailers and rationale (readiness review B1-B3).
+  - I11.6 readiness review (1.0.0): a Sonnet and a strong reviewer judged all five §10 criteria against 0.91.0 (1494 tests passing, both ran the suite). Criteria 4 and 5 met; 1, 2 and 3 met with caveats. README now states what is nudged rather than stopped (scope, phase model, skipped artifact), that secrets are not scanned, and the unstopped work-discarding commands. Follow-ups filed in `work/items/`: scan commits for secrets, stop `checkout --`/`restore .`/`clean -f`, detect a skipped artifact, route reviewer effort and spawn model through config.
   - I11 groundwork (0.89.0): `profile-design-system` and `threat-modelling` skills, `test/jev/fixture-coverage.test.ts`, `test/headless-audit.test.ts`, README reference sections, `npm run changelog`, MIT license. The readiness review's guard-bypass findings are closed in the slices that follow, then 1.0.0.
 
 ---
@@ -502,12 +503,12 @@ Release + STOP.
 
 ### I11 — Design-system profile, threat modelling, skill lint, 1.0 readiness  (expect 1.0.0)
 
-- [ ] **I11.1 `skills/profile-design-system`** (Frost: tokens → components; AI constrained to DS materials; governance for 90 %-fit vs snowflake).
-- [ ] **I11.2 `skills/threat-modelling`** (proportional; trust the single-owner machine; checklist; when to write `docs/security/threat-model.md`).
-- [ ] **I11.3 Headless mode audit.** Test that every guard blocks safely with `hasUI:false`, including the nested-call paths from I8b.1.
-- [ ] **I11.4 Jev fixture coverage test.** Every file in `src/jev/questions/` has a fixture in `evals/jev/` and the question text hash in the fixture matches (forces re-evaluation when a question changes — non-negotiable 10).
-- [ ] **I11.5 README** (install, replace pi-subagent-manager, config reference, tiers, decision log, commands, agents), `CHANGELOG.md` generated from commits.
-- [ ] **I11.6 1.0 readiness review.** Two fresh reviewers (one Sonnet, one strong) over the whole package against synthesis §10, run through the I9.3 script path; fix blocking; record remaining items as follow-ups.
+- [x] **I11.1 `skills/profile-design-system`** (Frost: tokens → components; AI constrained to DS materials; governance for 90 %-fit vs snowflake).
+- [x] **I11.2 `skills/threat-modelling`** (proportional; trust the single-owner machine; checklist; when to write `docs/security/threat-model.md`).
+- [x] **I11.3 Headless mode audit.** Test that every guard blocks safely with `hasUI:false`, including the nested-call paths from I8b.1.
+- [x] **I11.4 Jev fixture coverage test.** Every file in `src/jev/questions/` has a fixture in `evals/jev/` and the question text hash in the fixture matches (forces re-evaluation when a question changes — non-negotiable 10).
+- [x] **I11.5 README** (install, replace pi-subagent-manager, config reference, tiers, decision log, commands, agents), `CHANGELOG.md` generated from commits.
+- [x] **I11.6 1.0 readiness review.** Two fresh reviewers (one Sonnet, one strong) over the whole package against synthesis §10, run through the I9.3 script path; fix blocking; record remaining items as follow-ups.
 
 Release (1.0.0) + STOP.
 
