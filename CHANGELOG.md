@@ -2,6 +2,26 @@
 
 Generated from the Conventional Commit history by `npm run changelog`, after the release commit; do not edit by hand.
 
+## 1.0.0 - 2026-10-08
+
+- **Other**
+  - **release:** 1.0.0, readiness review recorded and README stated honestly (I11.6) (`3750249`)
+
+## 0.91.0 - 2026-10-08
+
+- **Fixes**
+  - **guards:** close the readiness-review bypasses in git, commit and push reading (I11 hardening H1) (`7aa0b62`)
+
+## 0.90.0 - 2026-10-08
+
+- **Fixes**
+  - **subagents:** leave a live thread's leaf and token totals out of the registry signature (`977ee66`)
+
+## 0.89.0 - 2026-10-08
+
+- **Features**
+  - **release:** design-system and threat-modelling skills, headless audit, changelog, README honesty (I11 groundwork) (`3755f25`)
+
 ## 0.88.0 - 2026-10-08
 
 - **Features**
