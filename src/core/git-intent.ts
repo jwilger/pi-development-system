@@ -262,6 +262,55 @@ function classifyConfig(args: string[]): GitIntent {
   );
 }
 
+/** `push`: forcing, mirroring or deleting on the remote. */
+function classifyPush(intent: GitIntent, args: string[]): GitIntent {
+  const shortFlags = args.filter((a) => /^-[A-Za-z]+$/.test(a));
+  if (
+    args.some((a) =>
+      isLong(a, "--force", "--force-with-lease", "--force-if-includes", "--mirror"),
+    ) ||
+    shortFlags.some((a) => a.includes("f")) ||
+    args.some((a) => /^\+\S/.test(a))
+  ) {
+    return worst(intent, "force-push");
+  }
+  if (
+    args.some((a) => isLong(a, "--delete", "--prune")) ||
+    shortFlags.includes("-d") ||
+    args.some((a) => /^:\S/.test(a))
+  ) {
+    return worst(intent, "branch-delete-remote");
+  }
+  return intent;
+}
+
+/** Pathspecs that cover the whole working tree. */
+const WHOLE_TREE = new Set([".", "./", ":/", ":/.", "*"]);
+
+/** `checkout`/`restore`/`clean` forms that throw uncommitted work away, as `reset --hard` does. */
+function discardsWork(sub: "checkout" | "restore" | "clean", args: string[]): boolean {
+  const shortFlags = args.filter((a) => /^-[A-Za-z]+$/.test(a));
+  if (sub === "clean") {
+    if (args.some((a) => isLong(a, "--dry-run")) || shortFlags.some((a) => a.includes("n"))) {
+      return false;
+    }
+    return args.some((a) => isLong(a, "--force")) || shortFlags.some((a) => a.includes("f"));
+  }
+  const wholeTree = args.some((a) => WHOLE_TREE.has(a));
+  if (sub === "restore") {
+    // `restore --staged .` only unstages; naming the worktree too restores it.
+    const staged =
+      args.some((a) => isLong(a, "--staged")) || shortFlags.some((a) => a.includes("S"));
+    const worktree =
+      args.some((a) => isLong(a, "--worktree")) || shortFlags.some((a) => a.includes("W"));
+    const stagedOnly = staged && !worktree;
+    return wholeTree && !stagedOnly;
+  }
+  return (
+    wholeTree || args.some((a) => isLong(a, "--force")) || shortFlags.some((a) => a.includes("f"))
+  );
+}
+
 function classifyGitArgs(globals: string[], sub: string | undefined, args: string[]): GitIntent {
   let intent: GitIntent = "ordinary";
   for (const g of globals) {
@@ -276,26 +325,8 @@ function classifyGitArgs(globals: string[], sub: string | undefined, args: strin
   }
   if (args.some((a) => isLong(a, "--no-verify"))) intent = worst(intent, "no-verify");
   switch (sub) {
-    case "push": {
-      const shortFlags = args.filter((a) => /^-[A-Za-z]+$/.test(a));
-      if (
-        args.some((a) =>
-          isLong(a, "--force", "--force-with-lease", "--force-if-includes", "--mirror"),
-        ) ||
-        shortFlags.some((a) => a.includes("f")) ||
-        args.some((a) => /^\+\S/.test(a))
-      ) {
-        return worst(intent, "force-push");
-      }
-      if (
-        args.some((a) => isLong(a, "--delete", "--prune")) ||
-        shortFlags.includes("-d") ||
-        args.some((a) => /^:\S/.test(a))
-      ) {
-        return worst(intent, "branch-delete-remote");
-      }
-      return intent;
-    }
+    case "push":
+      return classifyPush(intent, args);
     case "commit":
       if (args.some((a) => isLong(a, "--amend"))) return worst(intent, "history-rewrite");
       if (args.some((a) => /^-[A-Za-z]*n[A-Za-z]*$/.test(a))) return worst(intent, "no-verify");
@@ -314,6 +345,10 @@ function classifyGitArgs(globals: string[], sub: string | undefined, args: strin
       return worst(intent, "history-rewrite");
     case "reset":
       return args.some((a) => isLong(a, "--hard")) ? worst(intent, "destructive-reset") : intent;
+    case "checkout":
+    case "restore":
+    case "clean":
+      return discardsWork(sub, args) ? worst(intent, "destructive-reset") : intent;
     default:
       return intent;
   }

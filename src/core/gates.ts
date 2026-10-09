@@ -9,7 +9,8 @@ const GATES: Readonly<Record<string, GateInfo>> = {
   "git.branch-delete-remote": { tier: "hard", default: "never delete remote branches" },
   "git.destructive-reset": {
     tier: "hard",
-    default: "never discard uncommitted work with reset --hard",
+    default:
+      "never discard uncommitted work (reset --hard, checkout/restore of the tree, clean -f)",
   },
   "git.no-verify": { tier: "hard", default: "never skip commit hooks" },
   "tests.weaken": { tier: "soft", default: "never weaken, skip or delete tests to get green" },
@@ -19,6 +20,7 @@ const GATES: Readonly<Record<string, GateInfo>> = {
     default: "structural and behavioural changes go in separate commits",
   },
   "commit.forbidden-trailer": { tier: "hard", default: "no Co-Authored-By or AI trailers" },
+  "commit.secret": { tier: "hard", default: "never commit credentials" },
   "push.red-trunk": { tier: "hard", default: "do not push unrelated work onto a red trunk" },
   "push.delivery-mode": { tier: "hard", default: "follow the repository's delivery mode" },
   "tdd.red-first": { tier: "soft", default: "write a failing test before changing behaviour" },

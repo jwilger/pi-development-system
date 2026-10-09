@@ -83,7 +83,7 @@ machine can use.
 | Table | Keys | Meaning |
 | --- | --- | --- |
 | `[delivery]` | `mode` (`trunk`, `pull-request`, `local-only`), `trunk`, `remote` | Where work lands; the push guard follows it. `local-only` blocks every push. |
-| `[review]` | `required_clean_rounds` (3), `min_rounds` (1) | The clean streak a slice needs before commit. |
+| `[review]` | `required_clean_rounds` (3), `min_rounds` (1), `thinking_level` (`high`) | The clean streak a slice needs before commit, and the effort of the reviewer and lens agents. |
 | `[tracker]` | `kind` (`repo-files`, `github`; `jira` and `linear` are not implemented), `repo` | Backlog for `devsys_work_item`. |
 | `[profiles]` | `override` | Languages to apply (`rust`, `typescript`); empty means detect. |
 | `[models]` | one ordered candidate list per slot | See Model tiers below. |
@@ -105,15 +105,16 @@ resolves to, and the system recommends a model for a phase but never switches yo
 ## Enforcement tiers
 
 - **Hard stops** fire for the non-negotiables (`principles/NON-NEGOTIABLES.md`): rewriting
-  published history, force-pushing, deleting remote branches, discarding work with `reset --hard`,
-  `--no-verify`, forbidden commit trailers, pushing onto a red trunk, breaking the delivery mode.
+  published history, force-pushing, deleting remote branches, discarding work (`reset --hard`,
+  `checkout`/`restore` of the whole tree, `clean -f`), `--no-verify`, forbidden commit trailers,
+  committing a credential, pushing onto a red trunk, breaking the delivery mode.
   Only the user can approve one, once, and only with a UI: a headless run refuses.
 - **Soft gates** guard the defaults (`principles/DEFAULTS.md`): weakening tests, commit rationale,
   mixed commits, red-first, lint suppression, an unreviewed slice, a missing ADR. A soft gate is
   passed by recording a departure with `devsys_record_departure` (what, why, cost if wrong, how
-  long it applies). Scope drift, the model for the phase and a skipped planning artifact are
-  softer still: the system nudges or advises, and a skipped artifact is recorded when the agent
-  records it, not detected.
+  long it applies). Scope drift and the model for the phase are softer still: the system nudges or
+  advises. A skipped planning artifact is recorded when the agent records it; `devsys_begin_work`
+  lists the recommended ones that have neither a file nor a recorded skip, and does not block.
 - **Guidance** covers everything else: skills and the phase guide, never enforced.
 
 What the tiers do not cover, so you can decide what to trust:
@@ -122,14 +123,21 @@ What the tiers do not cover, so you can decide what to trust:
   trailers, a red trunk and the delivery mode are stopped by code. A false claim of "done" is
   checked by a Jev turn verifier that nudges (and only with Jev), an architecture decision without
   an ADR is a soft gate (also Jev), and an evidence check on model-visible text is a CI test.
-- **Secrets are not scanned for.** Nothing stops `git add .env && git commit`. Secrets are redacted
-  from the decision log and from what Jev sees, not from commits or subagent prompts.
-- **Some work-discarding commands are not stopped.** `git checkout -- .`, `git restore .` and
-  `git clean -fd` throw away uncommitted work like `reset --hard` does, but are classed ordinary.
-- **Reviewer effort is fixed.** Review and lens subagents run at `high` thinking on the `reviewer`
-  and `lens` slots; `devsys_route_task` routes the implementer, and the coordinator must pass its
-  result on to `agent_spawn`. A plain `agent_spawn` with no `model` uses the agent type's own list,
-  not the `[models]` matrix.
+- **The secret stop reads known formats, not every secret.** A commit that adds a private key, a
+  GitHub, AWS, Stripe, Google, Slack, GitLab or npm token, a JSON web token, a password inside a URL,
+  a quoted literal assigned to a `secret`/`token`/`password`/`api_key` name, or a file such as `.env`
+  or `*.pem` is a hard stop (`commit.secret`) that the user can approve once, for a test fixture that
+  merely looks like a credential. An `agent_spawn` task carrying one is refused outright, with no
+  approval, because a task is text the agent writes and can reword. A secret in another shape passes.
+  Only content the commit adds is read; an untracked file is read only when the command stages it,
+  and only when it is a regular file under 200 KB (a larger one is still checked by name).
+  The scan runs before the command does, so a file the same command creates, or a repository it
+  initialises with `git init`, is not seen.
+- **Reviewer effort is configured, not judged.** Review and lens subagents run at the `[review]`
+  `thinking_level` (default `high`) on the `reviewer` and `lens` slots; it is not routed by risk.
+  `devsys_route_task` routes the implementer, and the coordinator must pass its result on. A plain
+  `agent_spawn` with no `model` gets the model of the agent type's slot when the project configured
+  that slot in `[models]`; an unconfigured slot leaves the agent type's own list in force.
 - **Subagents run unguarded.** A child session is started without extensions, so none of the guards
   runs inside it. The coordinator commits, pushes and delivers; a subagent's prompt tells it not to,
   and the coordinator reviews what it produced.

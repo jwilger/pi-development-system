@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import type { ClassifierAnswer } from "@earendil-works/pi-ai";
@@ -8,6 +8,7 @@ import { err, ok } from "../../src/core/result.ts";
 import { addRound, startReview } from "../../src/core/review.ts";
 import { splitDiffByFile, upsertReview } from "../../src/core/review-flow.ts";
 import type { SliceRef } from "../../src/core/types.ts";
+import { createApprovalStore } from "../../src/gates/approvals.ts";
 import { registerCommitGuard } from "../../src/gates/commit-guard.ts";
 import { createExcusedMessages, type ExcusedMessages } from "../../src/gates/excused-messages.ts";
 import { createRecordDepartureTool } from "../../src/gates/record-departure-tool.ts";
@@ -49,19 +50,31 @@ const jevArchitectural = (architecture: number): Jev => ({
 
 const DIFF = "diff --git a/a.ts b/a.ts\n+1\n";
 const sectionA = new Map(Object.entries(splitDiffByFile(DIFF))).get("a.ts") ?? "";
-type Names = { staged?: string; unstaged?: string; fail?: boolean; untracked?: string };
+type Names = {
+  staged?: string;
+  unstaged?: string;
+  fail?: boolean;
+  untracked?: string;
+  hasUI?: boolean;
+  /** A repository with no commit yet: `git diff HEAD` fails. */
+  noHead?: boolean;
+};
 const setup = (jev: Jev, diff = "a.ts | 2 +-", names: Names = {}, excused?: ExcusedMessages) => {
   const cwd = mkdtempSync(join(tmpdir(), "devsys-commit-"));
-  const fake = createFakePi({ hasUI: false, cwd });
+  const fake = createFakePi({ hasUI: names.hasUI ?? false, cwd });
   const state = createSessionState(fake.api);
+  const approvals = createApprovalStore(fake.api);
   const execCalls: string[][] = [];
+  const execDirs: (string | undefined)[] = [];
   registerCommitGuard({
     pi: fake.api,
     state,
     excused,
+    approvals,
     jev: () => jev,
-    exec: async (command, args) => {
+    exec: async (command, args, opts) => {
       execCalls.push([command, ...args]);
+      execDirs.push(opts?.cwd);
       const nameList = args.includes("--cached") ? names.staged : names.unstaged;
       let stdout = diff;
       if (args.includes("ls-files")) {
@@ -75,7 +88,9 @@ const setup = (jev: Jev, diff = "a.ts | 2 +-", names: Names = {}, excused?: Excu
           .map((f) => `${f}\n`)
           .join("");
       } else if (args.includes("--name-only")) stdout = nameList ?? "";
-      const failed = names.fail === true && args.includes("--name-only");
+      const failed =
+        (names.fail === true && args.includes("--name-only")) ||
+        (names.noHead === true && args.includes("HEAD") && args.includes("diff"));
       return { code: failed ? 1 : 0, stdout, stderr: "" };
     },
   });
@@ -101,7 +116,7 @@ const setup = (jev: Jev, diff = "a.ts | 2 +-", names: Names = {}, excused?: Excu
       undefined,
       fake.ctx as never,
     );
-  return { fake, state, bash, depart, cwd, execCalls };
+  return { fake, state, bash, depart, cwd, execCalls, execDirs, approvals };
 };
 
 const commit = (message: string) => `git commit -m '${message}'`;
@@ -247,27 +262,31 @@ test("a Signed-off-by AI trailer piped through stdin is blocked", async () => {
   assert.equal(result?.block, true);
 });
 
-test("the Jev diff is the staged one, or the whole tree when the command stages as it commits", async () => {
-  const diffArgs = async (command: string): Promise<string[]> => {
+test("the Jev diff is the staged one, the named paths, or the whole tree when the command stages as it commits", async () => {
+  const diffArgs = async (command: string): Promise<string[][]> => {
     const { bash, execCalls } = setup(jevJudging(0.9, 0.1));
     await bash(command);
-    return execCalls.find((c) => c[1] === "diff" && !c.includes("--stat")) ?? [];
+    return execCalls.filter((c) => c.includes("diff") && !c.includes("--stat"));
   };
-  const fixed = ["--no-ext-diff", "--no-color", "--src-prefix=a/", "--dst-prefix=b/"];
-  assert.deepEqual(await diffArgs(commit(GOOD)), ["git", "diff", ...fixed, "--cached"]);
+  const fixed = [
+    "git",
+    "-c",
+    "core.quotePath=false",
+    "diff",
+    "--no-ext-diff",
+    "--no-color",
+    "--src-prefix=a/",
+    "--dst-prefix=b/",
+  ];
+  assert.deepEqual(await diffArgs(commit(GOOD)), [[...fixed, "--cached"]]);
+  // A `git add <path>` commits what is staged plus that path, not every other uncommitted change.
   assert.deepEqual(await diffArgs(`git add src/a.ts && ${commit(GOOD)}`), [
-    "git",
-    "diff",
-    ...fixed,
-    "HEAD",
+    [...fixed, "--cached"],
+    [...fixed, "HEAD", "--", "src/a.ts"],
   ]);
-  assert.deepEqual(await diffArgs(`git add -A; ${commit(GOOD)}`), [
-    "git",
-    "diff",
-    ...fixed,
-    "HEAD",
-  ]);
-  assert.deepEqual(await diffArgs(`git commit -a -m '${GOOD}'`), ["git", "diff", ...fixed, "HEAD"]);
+  assert.deepEqual(await diffArgs(`git add -A; ${commit(GOOD)}`), [[...fixed, "HEAD"]]);
+  assert.deepEqual(await diffArgs(`git commit -a -m '${GOOD}'`), [[...fixed, "HEAD"]]);
+  assert.deepEqual(await diffArgs(`git add -u && ${commit(GOOD)}`), [[...fixed, "HEAD"]]);
 });
 
 test("a message built by a substitution cannot be checked, so it needs a departure", async () => {
@@ -685,4 +704,143 @@ test("Jev is told about untracked new files, ahead of a stat long enough to be c
   assert.ok(seen.length > 0);
   for (const stat of seen)
     assert.ok(stat.slice(0, 200).includes("src/queue/redis.ts"), stat.slice(0, 200));
+});
+
+// Built in pieces so this file never carries a credential-shaped literal itself.
+const TOKEN = `ghp_${"a1B2".repeat(9)}`;
+const stagedWith = (path: string, line: string) =>
+  `diff --git a/${path} b/${path}\n--- a/${path}\n+++ b/${path}\n@@ -1 +1 @@\n+${line}\n`;
+
+test("a commit that adds a credential is a hard stop that names the file and kind, never the value", async () => {
+  const { bash } = setup(jevJudging(0.9, 0.1), stagedWith("src/a.ts", `const t = "${TOKEN}";`));
+  const blocked = await bash(commit(GOOD));
+  assert.equal(blocked?.block, true);
+  assert.match(blocked?.reason ?? "", /commit\.secret/);
+  assert.match(blocked?.reason ?? "", /src\/a\.ts contains a GitHub token/);
+  assert.doesNotMatch(blocked?.reason ?? "", new RegExp(TOKEN));
+  assert.match(blocked?.reason ?? "", /requires user approval/);
+});
+
+test("a departure cannot answer the secret hard stop", async () => {
+  const { bash, depart } = setup(jevJudging(0.9, 0.1), stagedWith("src/a.ts", `t = "${TOKEN}"`));
+  await depart("commit.secret");
+  assert.equal((await bash(commit(GOOD)))?.block, true);
+});
+
+test("the user can approve a commit that adds a credential-shaped fixture once", async () => {
+  const { bash, fake } = setup(jevJudging(0.9, 0.1), stagedWith("t.ts", `t = "${TOKEN}"`), {
+    hasUI: true,
+  });
+  fake.ui.confirmResponses.push(true);
+  assert.equal(await bash(commit(GOOD)), undefined);
+  assert.doesNotMatch(JSON.stringify(fake.ui.calls), new RegExp(TOKEN));
+  assert.equal((await bash(commit(GOOD)))?.block, true, "the approval was single-use");
+});
+
+test("a declined secret stop says not to retry", async () => {
+  const { bash, fake } = setup(jevJudging(0.9, 0.1), stagedWith("t.ts", `t = "${TOKEN}"`), {
+    hasUI: true,
+  });
+  fake.ui.confirmResponses.push(false);
+  assert.match((await bash(commit(GOOD)))?.reason ?? "", /declined/);
+});
+
+test("a new untracked .env that the commit stages is found by name", async () => {
+  const { bash } = setup(jevJudging(0.9, 0.1), "a.ts | 2 +-", { untracked: ".env\nsrc/b.ts" });
+  const blocked = await bash(`git add -A && git commit -m '${GOOD}'`);
+  assert.equal(blocked?.block, true);
+  assert.match(blocked?.reason ?? "", /\.env is a file that holds credentials/);
+});
+
+test("a commit with no credential in its diff is not asked about secrets", async () => {
+  const { bash, fake } = setup(jevJudging(0.9, 0.1), stagedWith("a.ts", "const x = 1;"), {
+    hasUI: true,
+  });
+  assert.equal(await bash(commit(GOOD)), undefined);
+  assert.equal(fake.ui.calls.filter((c) => c.kind === "confirm").length, 0);
+});
+
+test("the first commit of a new repository is scanned, though there is no HEAD to diff against", async () => {
+  const { bash } = setup(jevJudging(0.9, 0.1), stagedWith("src/a.ts", `t = "${TOKEN}"`), {
+    noHead: true,
+  });
+  const blocked = await bash(`git add -A && git commit -m '${GOOD}'`);
+  assert.equal(blocked?.block, true);
+  assert.match(blocked?.reason ?? "", /a GitHub token/);
+});
+
+test("a commit that names files is scanned as the working copy, though nothing is staged", async () => {
+  const { bash, execCalls } = setup(
+    jevJudging(0.9, 0.1),
+    stagedWith("src/config.ts", `t = "${TOKEN}"`),
+  );
+  const blocked = await bash(`git commit -m '${GOOD}' src/config.ts`);
+  assert.equal(blocked?.block, true);
+  assert.match(blocked?.reason ?? "", /a GitHub token/);
+  assert.ok(execCalls.some((c) => c.includes("HEAD")));
+});
+
+test("every untracked file is checked by name, not just the first 200", async () => {
+  const many = Array.from({ length: 205 }, (_, i) => `f${i}.txt`);
+  const { bash } = setup(jevJudging(0.9, 0.1), "", {
+    untracked: [...many, ".env.production"].join("\n"),
+  });
+  const blocked = await bash(`git add -A && git commit -m '${GOOD}'`);
+  assert.equal(blocked?.block, true);
+  assert.match(blocked?.reason ?? "", /\.env\.production/);
+});
+
+test("a commit that names files scans only those files, not other uncommitted changes", async () => {
+  const { bash, execCalls } = setup(jevJudging(0.9, 0.1), "a.ts | 2 +-");
+  await bash(`git commit -m '${GOOD}' src/a.ts`);
+  const diffs = execCalls.filter((c) => c.includes("diff") && !c.includes("--stat"));
+  assert.ok(diffs.length > 0);
+  for (const call of diffs) assert.deepEqual(call.slice(call.indexOf("--") + 1), ["src/a.ts"]);
+});
+
+test("a force-added ignored file is listed, because the ignore rules would hide it", async () => {
+  const listing = async (command: string): Promise<string[]> => {
+    const { bash, execCalls } = setup(jevJudging(0.9, 0.1), "", { untracked: ".env" });
+    await bash(command);
+    return execCalls.find((c) => c.includes("ls-files")) ?? [];
+  };
+  assert.ok((await listing(`git add .env && ${commit(GOOD)}`)).includes("--exclude-standard"));
+  assert.ok(!(await listing(`git add -f .env && ${commit(GOOD)}`)).includes("--exclude-standard"));
+});
+
+test("the user is not asked about a credential in a commit the soft gates refuse", async () => {
+  const { bash, fake } = setup(jevJudging(0.9, 0.1), stagedWith("t.ts", `t = "${TOKEN}"`), {
+    hasUI: true,
+  });
+  const refused = await bash(commit("fix: x"));
+  assert.equal(refused?.block, true);
+  assert.doesNotMatch(refused?.reason ?? "", /commit\.secret/);
+  assert.equal(fake.ui.calls.length, 0);
+});
+
+test("--stat stays before the pathspec separator", async () => {
+  const { bash, execCalls } = setup(jevJudging(0.9, 0.1), "a.ts | 2 +-");
+  await bash(`git commit -m '${GOOD}' src/a.ts`);
+  const stat = execCalls.find((c) => c.includes("--stat")) ?? [];
+  assert.ok(stat.indexOf("--stat") < stat.indexOf("--"));
+});
+
+test("a commit that runs in another directory is read there, not in the session directory", async () => {
+  const { bash, execDirs, cwd } = setup(jevJudging(0.9, 0.1), "a.ts | 2 +-");
+  await bash(`cd sub && git commit -m '${GOOD}' src/a.ts`);
+  assert.ok(execDirs.length > 0);
+  for (const dir of execDirs) assert.equal(dir, join(cwd, "sub"));
+});
+
+test("a commit in a home-relative directory is read there, with the home directory expanded", async () => {
+  const { bash, execDirs } = setup(jevJudging(0.9, 0.1), "a.ts | 2 +-");
+  await bash(`cd ~/proj && git commit -m '${GOOD}' src/a.ts`);
+  assert.ok(execDirs.length > 0);
+  for (const dir of execDirs) assert.equal(dir, join(homedir(), "proj"));
+});
+
+test("a pre-granted approval does not answer the secret stop, because it never showed the findings", async () => {
+  const { bash, approvals } = setup(jevJudging(0.9, 0.1), stagedWith("t.ts", `t = "${TOKEN}"`));
+  approvals.grant("commit.secret", commit(GOOD), "a1");
+  assert.equal((await bash(commit(GOOD)))?.block, true);
 });

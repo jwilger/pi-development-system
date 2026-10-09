@@ -23,6 +23,7 @@ import {
   upsertReview,
 } from "../core/review-flow.ts";
 import { parseReviewPacket, type ReviewPacket } from "../core/review-packet.ts";
+import type { ThinkingLevel } from "../core/spawn-overrides.ts";
 import { isParseError, type SliceRef } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
 import { judgeLenses, judgeSeverity } from "../jev/questions/review.ts";
@@ -107,6 +108,7 @@ function spawnPayload(input: {
   lenses: Lens[];
   range: string;
   model: ReturnType<typeof resolveSlot>;
+  thinkingLevel: ThinkingLevel;
   now: Date;
 }): Record<string, unknown> {
   return {
@@ -120,7 +122,7 @@ function spawnPayload(input: {
       diffRange: input.range,
     }),
     ...(input.model.ok ? { model: input.model.value.model } : {}),
-    thinkingLevel: "high",
+    thinkingLevel: input.thinkingLevel,
     wait: true,
   };
 }
@@ -202,6 +204,7 @@ async function startRound(
     lenses,
     range: p.range,
     model: resolveSlot(p.config.models, "reviewer", availableModels(ctx.modelRegistry)),
+    thinkingLevel: p.config.review.thinkingLevel,
     now: deps.now?.() ?? new Date(),
   });
   const rangeArg = p.range === "HEAD" ? "" : ` and diffRange "${p.range}"`;

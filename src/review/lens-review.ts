@@ -5,6 +5,8 @@
  * `lens-review-tool.ts` supplies the date, models and lens choice.
  */
 
+import type { ThinkingLevel } from "../core/spawn-overrides.ts";
+
 export const PRODUCT_LENSES = ["cagan", "torres", "pichler", "perri", "rumelt"] as const;
 export type ProductLens = (typeof PRODUCT_LENSES)[number];
 
@@ -63,7 +65,7 @@ export type SpawnPayload = {
   path: string;
   type: string;
   task: string;
-  thinkingLevel: "high";
+  thinkingLevel: ThinkingLevel;
   wait: false;
   model?: string;
 };
@@ -75,6 +77,7 @@ export type PayloadInput = {
   date: string;
   /** Makes the agent paths fresh: a failed spawn must not leave a thread that blocks the retry. */
   suffix: string;
+  thinkingLevel: ThinkingLevel;
   model?: string | undefined;
 };
 
@@ -85,7 +88,7 @@ export function lensPayloads(input: PayloadInput): SpawnPayload[] {
     path: `/lens-r${input.round}-${lens}-${input.suffix}`,
     type: `lens-${lens}`,
     task: lensTask({ lens, briefPath: input.briefPath, round: input.round, round1Path }),
-    thinkingLevel: "high" as const,
+    thinkingLevel: input.thinkingLevel,
     wait: false as const,
     ...(input.model === undefined ? {} : { model: input.model }),
   }));

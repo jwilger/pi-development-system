@@ -179,6 +179,7 @@ export function createLensReviewTool(deps: LensReviewDeps): ToolDefinition<typeo
         round,
         date,
         suffix: deps.now().getTime().toString(36),
+        thinkingLevel: config.value.review.thinkingLevel,
         model: resolved.ok ? resolved.value.model : undefined,
       });
       const file = reviewPath(date, round);

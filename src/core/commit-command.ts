@@ -153,3 +153,40 @@ export function extractCommits(command: string): CommitExtraction[] {
 export function extractCommit(command: string): CommitExtraction {
   return extractCommits(command)[0] ?? { kind: "not-commit" };
 }
+
+/** Value-taking `git commit` options other than the message ones `parseArg` reads. */
+const VALUE_OPTIONS = new Set(["-c", "-C", "-t", "--author", "--date", "--cleanup", "--template"]);
+const VALUE_PREFIXES = ["--reuse-message", "--reedit-message", "--fixup", "--squash"];
+
+/** The files a `git commit` argument list names (`commit -m x a.ts`, `-- a.ts`), which git commits as they are in the working tree. */
+function pathsOf(args: readonly string[]): string[] {
+  const paths: string[] = [];
+  let onlyPaths = false;
+  for (let i = 0; i < args.length; ) {
+    const a = args[i] ?? "";
+    const parsed = onlyPaths ? undefined : parseArg(args, i);
+    if (parsed !== undefined) i = parsed.next;
+    else if (!onlyPaths && a === "--") {
+      onlyPaths = true;
+      i += 1;
+    } else if (!onlyPaths && VALUE_OPTIONS.has(a)) i += 2;
+    else if (!onlyPaths && VALUE_PREFIXES.some((p) => a === p)) i += 2;
+    else {
+      if (onlyPaths || !a.startsWith("-")) paths.push(a);
+      i += 1;
+    }
+  }
+  return paths;
+}
+
+/** The directory the first `git commit` runs in (after `cd` or `git -C`), relative to the starting one. */
+export function commitDir(command: string): string | undefined {
+  const { rest } = stripHeredocs(command);
+  return resolveGit(rest).invocations.find((g) => g.sub === "commit")?.dir;
+}
+
+/** The files named by the `git commit` commands in a shell command. */
+export function commitPaths(command: string): string[] {
+  const { rest } = stripHeredocs(command);
+  return resolveGit(rest).invocations.flatMap((g) => (g.sub === "commit" ? pathsOf(g.args) : []));
+}

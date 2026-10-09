@@ -16,6 +16,7 @@ const input = {
   round: 1 as const,
   date: "2026-10-08",
   suffix: "abc",
+  thinkingLevel: "high" as const,
 };
 
 test("the review file is dated and named by round", () => {
@@ -165,6 +166,7 @@ test("a packet longer than one agent_output page is read to the end, so its verd
     round: 1,
     date: "2026-10-08",
     suffix: "t",
+    thinkingLevel: "high",
   });
   const packet = `## Review — x — round 1\n${"finding line\n".repeat(3000)}### Verdict\nblocking\n`;
   const written: Record<string, string> = {};
@@ -192,4 +194,10 @@ test("a packet longer than one agent_output page is read to the end, so its verd
   const out = await new AsyncFunction("tools", script)(tools);
   assert.match(out, /cagan: blocking/);
   assert.ok((written[reviewPath("2026-10-08", 1)] ?? "").includes("### Verdict\nblocking"));
+});
+
+test("each lens payload carries the effort it was given", () => {
+  for (const p of lensPayloads({ ...input, thinkingLevel: "xhigh" })) {
+    assert.equal(p.thinkingLevel, "xhigh");
+  }
 });

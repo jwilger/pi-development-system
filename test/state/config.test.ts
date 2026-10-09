@@ -23,6 +23,7 @@ test("an empty file yields the defaults", () => {
   assert.equal(c.delivery.trunk, "main");
   assert.equal(c.delivery.remote, "origin");
   assert.equal(c.review.requiredCleanRounds, 3);
+  assert.equal(c.review.thinkingLevel, "high");
   assert.equal(c.tracker.kind, "repo-files");
   assert.equal(c.verifier.maxPerSession, 6);
   assert.equal(c.cadence.pushMinutes, 60);
@@ -38,6 +39,7 @@ mode = "pull-request"
 trunk = "master"
 [review]
 required_clean_rounds = 2
+thinking_level = "xhigh"
 [tracker]
 kind = "github"
 repo = "o/n"
@@ -50,6 +52,7 @@ max_per_session = 2
   assert.equal(c.delivery.trunk, "master");
   assert.equal(c.delivery.remote, "origin");
   assert.equal(c.review.requiredCleanRounds, 2);
+  assert.equal(c.review.thinkingLevel, "xhigh");
   assert.equal(c.tracker.repo, "o/n");
   assert.deepEqual(c.profiles.override, ["typescript"]);
   assert.equal(c.verifier.maxPerSession, 2);
@@ -137,4 +140,8 @@ test("a routing key that names no difficulty or risk is an error", () => {
     "routing.complex/hgh",
   );
   assert.equal(failure('[routing]\n"complex" = ["strong", "high"]\n').key, "routing.complex");
+});
+
+test("review.thinking_level must be a thinking level pi accepts", () => {
+  assert.equal(failure('[review]\nthinking_level = "maximum"\n').key, "review.thinking_level");
 });

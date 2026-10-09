@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -107,6 +107,13 @@ test("start picks Jev lenses, returns an agent_spawn payload and shows 0/3 clean
   const review = t.state.get().reviews?.[0];
   assert.equal(review?.required, 3);
   assert.equal(review?.rounds.length, 0);
+});
+
+test("the reviewer's effort comes from [review] thinking_level, high by default", async () => {
+  const t = setup(offline);
+  assert.match(text(await t.start()), /"thinkingLevel":"high"/);
+  writeFileSync(join(t.cwd, ".development-system.toml"), '[review]\nthinking_level = "xhigh"\n');
+  assert.match(text(await t.start()), /"thinkingLevel":"xhigh"/);
 });
 
 test("with Jev offline start falls back to the default lenses and says so", async () => {

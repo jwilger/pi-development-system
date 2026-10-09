@@ -25,6 +25,7 @@ import { registerPushGuard } from "../src/gates/push-guard.ts";
 import { createRecordDepartureTool } from "../src/gates/record-departure-tool.ts";
 import { registerRedFirstGuard } from "../src/gates/red-first-guard.ts";
 import { createRequestApprovalTool } from "../src/gates/request-approval-tool.ts";
+import { registerSpawnGuard } from "../src/gates/spawn-guard.ts";
 import { registerTestGuard } from "../src/gates/test-guard.ts";
 import { createJevHolder } from "../src/jev/holder.ts";
 import { createJudgeTools } from "../src/jev/judge-tools.ts";
@@ -124,6 +125,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
 
   const exec: Exec = async (command, args, options) =>
     timeoutAsFailure(await pi.exec(command, args, options));
+  registerSpawnGuard({ pi });
   registerGitGuard({ pi, approvals, jev: (ctx) => jevHolder.forContext(ctx) });
   const excused = createExcusedMessages();
   registerCommitGuard({
@@ -131,6 +133,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
     state,
     jev: (ctx) => jevHolder.forContext(ctx),
     exec,
+    approvals,
     excused,
   });
   registerCiCommand({

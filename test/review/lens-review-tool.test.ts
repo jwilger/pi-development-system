@@ -65,6 +65,15 @@ test("a product-sized brief gets all five lenses, as a codemode script plus fall
   assert.ok(out.includes("## <lens> — round 1"));
 });
 
+test("the lens agents' effort comes from [review] thinking_level, high by default", async () => {
+  const { run, cwd } = setup(jevWith({}), "product");
+  assert.match(text(await run({})), /"thinkingLevel":\s*"high"/);
+  writeFileSync(join(cwd, ".development-system.toml"), '[review]\nthinking_level = "max"\n');
+  const out = text(await run({}));
+  assert.match(out, /"thinkingLevel":\s*"max"/);
+  assert.doesNotMatch(out, /"thinkingLevel":\s*"high"/);
+});
+
 test("a capability-sized brief gets only the lenses Jev picks", async () => {
   const { run } = setup(jevWith({ cagan: 0.9, rumelt: 0.8 }), "capability");
   const out = text(await run({}));

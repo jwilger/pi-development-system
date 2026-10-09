@@ -1,22 +1,30 @@
 import { readFileSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import {
   type ExtensionAPI,
   type ExtensionContext,
   isToolCallEventType,
 } from "@earendil-works/pi-coding-agent";
-import { type CommitExtraction, extractCommits } from "../core/commit-command.ts";
+import {
+  type CommitExtraction,
+  commitDir,
+  commitPaths,
+  extractCommits,
+} from "../core/commit-command.ts";
 import { findForbiddenTrailerKeys, findForbiddenTrailers } from "../core/commit-message.ts";
 import type { Exec } from "../core/exec.ts";
 import { resolveGit } from "../core/git-invocations.ts";
 import { messageProblem } from "../core/message-problem.ts";
 import { DECISION_LOG, reviewGap } from "../core/review-flow.ts";
+import { filesOfDiff, findSecrets, type PendingFile } from "../core/secrets.ts";
 import { type GateId, isParseError, parseGateId } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
 import { ARCHITECTURE_THRESHOLD, judgeArchitectureShaping } from "../jev/questions/architecture.ts";
 import { judgeCommit, MIX_THRESHOLD, RATIONALE_FLOOR } from "../jev/questions/commit.ts";
 import { snapshotDiff } from "../review/digest.ts";
 import type { SessionState } from "../state/session-state.ts";
+import { type ApprovalStore, requestHardStop } from "./approvals.ts";
 import { departureUse } from "./departure-use.ts";
 import type { ExcusedMessages } from "./excused-messages.ts";
 
@@ -25,6 +33,8 @@ export type CommitGuardDeps = {
   state: SessionState;
   jev: (ctx: ExtensionContext) => Jev;
   exec: Exec;
+  approvals: ApprovalStore;
+  now?: (() => Date) | undefined;
   /** Messages whose missing rationale a departure excused here, so the push does not ask again. */
   excused?: ExcusedMessages | undefined;
 };
@@ -71,7 +81,6 @@ function messageNeeds(message: string): Need[] {
 
 /** `-a`/`--all`, or a `git add` in the same command, widen the commit beyond what is staged. */
 const stagesEverything = (command: string): boolean =>
-  /\bgit\s+add\b/.test(command) ||
   /\bgit\b[^;&|\n]*\bcommit\b[^;&|\n]*\s(?:-[a-zA-Z]*a[a-zA-Z]*|--all|--include)(?=\s|$|[;&|])/.test(
     command,
   );
@@ -93,31 +102,127 @@ const addedPathspecs = (command: string): string[] =>
     return paths.map((p) => p.replace(/^\.\//, "").replace(/\/$/, "") || ".");
   });
 
-type PendingDiff = { stat: string; diff: string; untrackedAdr: boolean };
+/** The option words of every `git add` in the command. */
+const addWords = (command: string): string[] =>
+  [...command.matchAll(/\bgit\s+add\b([^;&|\n]*)/g)].flatMap((m) =>
+    (m[1] ?? "").trim().split(/\s+/).filter(Boolean),
+  );
+
+/** `git add -u` stages every change to tracked files, wherever it is. */
+const updatesTracked = (command: string): boolean =>
+  addWords(command).some((w) => w === "-u" || w === "--update");
+
+/** `git add -f` stages a file the ignore rules would hide. */
+const forcesIgnored = (command: string): boolean =>
+  addWords(command).some((w) => w === "-f" || w === "--force" || /^-[A-Za-z]*f[A-Za-z]*$/.test(w));
+
+/** `--stat` goes before any `--`, or git would read it as a file name. */
+const withStat = (base: readonly string[]): string[] => {
+  const at = base.indexOf("--");
+  return at < 0 ? [...base, "--stat"] : [...base.slice(0, at), "--stat", ...base.slice(at)];
+};
+
+type PendingDiff = {
+  stat: string;
+  diff: string;
+  untrackedAdr: boolean;
+  /** Files the commit would add that git does not track yet. */
+  untracked: readonly string[];
+  /** Directory the paths of `untracked` are relative to. */
+  root: string;
+};
+
+/** A leading `~` is the home directory, as the shell reads it. */
+const homeExpanded = (dir: string): string =>
+  dir === "~" || dir.startsWith("~/") ? join(homedir(), dir.slice(1)) : dir;
+
+/** Which changes the commit takes: all tracked ones, only the paths it names or adds, or what is staged. */
+function diffBases(o: {
+  fixed: string[];
+  all: boolean;
+  named: string[];
+  specs: string[];
+}): string[][] {
+  const { fixed, all, named, specs } = o;
+  if (all) return [[...fixed, "HEAD"]];
+  if (named.length > 0) return [[...fixed, "HEAD", "--", ...named]];
+  if (specs.length > 0) {
+    return [
+      [...fixed, "--cached"],
+      [...fixed, "HEAD", "--", ...new Set(specs)],
+    ];
+  }
+  return [[...fixed, "--cached"]];
+}
 
 /** What is about to be committed: the staged changes, or every tracked change when the commit stages them itself. */
 async function pendingDiff(
   exec: Exec,
-  cwd: string,
+  startDir: string,
   command: string,
 ): Promise<PendingDiff | undefined> {
   try {
-    const widened = stagesEverything(command);
+    // The repository the commit runs in: `cd repo && git commit` or `git -C repo commit` is not the session's own.
+    const moved = commitDir(command);
+    const cwd = moved === undefined ? startDir : resolve(startDir, homeExpanded(moved));
     const specs = addedPathspecs(command);
+    const named = commitPaths(command);
+    const all = stagesEverything(command) || updatesTracked(command) || specs.includes(".");
     // Fixed prefixes and no external driver: `addsAdr` reads the headers, and git config can change them.
-    const fixed = ["--no-ext-diff", "--no-color", "--src-prefix=a/", "--dst-prefix=b/"];
-    const base = widened ? ["diff", ...fixed, "HEAD"] : ["diff", ...fixed, "--cached"];
-    const [stat, diff, untracked] = await Promise.all([
-      exec("git", [...base, "--stat"], { cwd, timeout: 10_000 }),
-      exec("git", base, { cwd, timeout: 10_000 }),
+    // `core.quotePath=false` keeps a non-ASCII path readable instead of a quoted, escaped one.
+    const fixed = [
+      "-c",
+      "core.quotePath=false",
+      "diff",
+      "--no-ext-diff",
+      "--no-color",
+      "--src-prefix=a/",
+      "--dst-prefix=b/",
+    ];
+    // Which changes the commit takes: all tracked ones, only the paths it names or adds, or what is staged.
+    const bases = diffBases({ fixed, all, named, specs });
+    const run = async (list: string[][]) => {
+      const parts = await Promise.all(
+        list.flatMap((base) => [
+          exec("git", withStat(base), { cwd, timeout: 10_000 }),
+          exec("git", base, { cwd, timeout: 10_000 }),
+        ]),
+      );
+      const stats = parts.filter((_, i) => i % 2 === 0);
+      const diffs = parts.filter((_, i) => i % 2 === 1);
+      const ok = parts.every((r) => r.code === 0);
+      return {
+        code: ok ? 0 : 1,
+        stat: stats.map((r) => r.stdout).join(""),
+        diff: diffs.map((r) => r.stdout).join(""),
+      };
+    };
+    const [first, untracked] = await Promise.all([
+      run(bases),
       // `git diff HEAD` leaves out files git does not track yet, such as a new module or an ADR just created.
       specs.length > 0
-        ? exec("git", ["ls-files", "--others", "--exclude-standard", "--", ...new Set(specs)], {
-            cwd,
-            timeout: 10_000,
-          })
+        ? exec(
+            "git",
+            [
+              "-c",
+              "core.quotePath=false",
+              "ls-files",
+              "--others",
+              ...(forcesIgnored(command) ? [] : ["--exclude-standard"]),
+              "--",
+              ...new Set(specs),
+            ],
+            { cwd, timeout: 10_000 },
+          )
         : Promise.resolve(undefined),
     ]);
+    // A repository with no commit yet has no HEAD to diff against; everything it holds is staged or untracked.
+    const done =
+      first.code !== 0 && bases.some((b) => b.includes("HEAD"))
+        ? await run([[...fixed, "--cached"]])
+        : first;
+    const stat = { code: done.code, stdout: done.stat };
+    const diff = { code: done.code, stdout: done.diff };
     if (stat.code !== 0 || diff.code !== 0) return undefined;
     const added = untracked?.code === 0 ? untracked.stdout.trim() : "";
     if (diff.stdout.trim() === "" && added === "") return undefined;
@@ -129,6 +234,8 @@ async function pendingDiff(
             `New files this commit adds (untracked):\n${added}\n\n${stat.stdout}`,
       diff: diff.stdout,
       untrackedAdr: /^docs\/adr\/\d{4}-\S+\.md$/m.test(added),
+      untracked: added === "" ? [] : added.split("\n"),
+      root: cwd,
     };
   } catch {
     return undefined;
@@ -160,9 +267,8 @@ async function jevNeeds(
   ctx: ExtensionContext,
   message: string,
   bodyPresent: boolean,
-  command: string,
+  pending: PendingDiff | undefined,
 ): Promise<Need[]> {
-  const pending = await pendingDiff(deps.exec, ctx.cwd, command);
   if (pending === undefined) return [];
   // Both ask Jev; run them together so a hung provider costs one timeout, not two.
   const [judged, adr] = await Promise.all([
@@ -349,11 +455,11 @@ async function needsOf(
   deps: CommitGuardDeps,
   ctx: ExtensionContext,
   message: string,
-  command: string,
+  pending: PendingDiff | undefined,
 ): Promise<Need[]> {
   const needs = messageNeeds(message);
   const bodyPresent = !needs.some((n) => n.why.startsWith("the message has no body"));
-  const viaJev = await jevNeeds(deps, ctx, message, bodyPresent, command);
+  const viaJev = await jevNeeds(deps, ctx, message, bodyPresent, pending);
   return [...needs, ...viaJev.filter((n) => !needs.some((m) => m.gate === n.gate))];
 }
 
@@ -361,6 +467,61 @@ async function needsOf(
 function rememberExcused(deps: CommitGuardDeps, needs: readonly Need[], messages: string[]): void {
   if (!needs.some((n) => n.gate === RATIONALE)) return;
   for (const message of messages) deps.excused?.add(message);
+}
+
+const SECRET = gateId("commit.secret");
+
+/** The untracked files a commit would add, as far as their content can be read (small regular files). */
+function untrackedFiles(cwd: string, names: readonly string[]): PendingFile[] {
+  return names.map((path) => {
+    try {
+      const file = resolve(cwd, path);
+      const stat = statSync(file);
+      if (!stat.isFile() || stat.size > 200_000) return { path, added: [] };
+      return { path, added: readFileSync(file, "utf8").split("\n") };
+    } catch {
+      return { path, added: [] };
+    }
+  });
+}
+
+/**
+ * Non-negotiable 7: a commit that adds a credential is a hard stop. The user may approve one commit
+ * (a test fixture that merely looks like a credential); a departure recorded by the agent cannot.
+ */
+async function secretStop(
+  deps: CommitGuardDeps,
+  ctx: ExtensionContext,
+  toolCallId: string,
+  command: string,
+  pending: PendingDiff | undefined,
+): Promise<{ block: true; reason: string } | undefined> {
+  if (pending === undefined) return undefined;
+  const found = findSecrets([
+    ...filesOfDiff(pending.diff),
+    ...untrackedFiles(pending.root, pending.untracked),
+  ]);
+  if (found.length === 0) return undefined;
+  // No pre-granted approval: `devsys_request_approval` shows only the command, and this dialog names the findings.
+  const list = found.slice(0, 5).join("; ");
+  const outcome = await requestHardStop({
+    pi: deps.pi,
+    ctx,
+    gate: SECRET,
+    command: `${command}\nThis commit would add: ${list}`,
+    why: `approved interactively: ${list}`,
+    toolCallId,
+    costIfWrong: "a credential is committed and, once pushed, cannot be taken back",
+    now: deps.now,
+  });
+  if (outcome.kind === "approved") return undefined;
+  return {
+    block: true,
+    reason:
+      outcome.kind === "unavailable"
+        ? `hard stop ${SECRET}: requires user approval, run interactively. ${list}. Remove the credential (use an environment variable or an ignored file) and commit again.`
+        : `hard stop ${SECRET}: the user declined this commit (${list}). Do not retry it; remove the credential from the change.`,
+  };
 }
 
 /** Soft gates on `git commit`: rationale, Conventional shape, structural/behavioural separation; AI trailers are refused. */
@@ -374,6 +535,8 @@ export function registerCommitGuard(deps: CommitGuardDeps): void {
 
     const forbidden = forbiddenIn(command, extractions, messages);
     if (forbidden.length > 0) return { block: true, reason: forbiddenReason(forbidden) };
+
+    const pending = await pendingDiff(deps.exec, ctx.cwd, command);
 
     const known = messages.flatMap((m) => (m === undefined ? [] : [m]));
     const all: Need[] = await reviewNeeds(deps, ctx, command);
@@ -391,13 +554,16 @@ export function registerCommitGuard(deps: CommitGuardDeps): void {
       });
     }
     for (const message of known) {
-      for (const need of await needsOf(deps, ctx, message, command)) {
+      for (const need of await needsOf(deps, ctx, message, pending)) {
         if (!all.some((n) => n.gate === need.gate)) all.push(need);
       }
     }
     const uses = all.map((need) => ({ need, use: departureUse(deps.state, need.gate) }));
     const uncovered = uses.find(({ use }) => !use.hasOpen());
     if (uncovered !== undefined) return { block: true, reason: blockReason(uncovered.need) };
+    // Asked last, so a commit the soft gates refuse is not approved (and logged) before it can run.
+    const stop = await secretStop(deps, ctx, event.toolCallId, command, pending);
+    if (stop !== undefined) return stop;
     for (const { use } of uses) use.consume();
     rememberExcused(deps, all, known);
     return undefined;

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { extractCommit, extractCommits } from "../../src/core/commit-command.ts";
+import { commitPaths, extractCommit, extractCommits } from "../../src/core/commit-command.ts";
 
 const msg = (command: string) => {
   const r = extractCommit(command);
@@ -178,4 +178,20 @@ test("each chained heredoc commit gets its own body", () => {
     "git commit -m \"$(cat <<'EOF'\nwip\nEOF\n)\" && git commit -m \"$(cat <<'EOF'\nfeat: A\n\nBecause prod broke.\nEOF\n)\"";
   const all = extractCommits(c).map((e) => (e.kind === "message" ? e.message : e.kind));
   assert.deepEqual(all, ["wip", "feat: A\n\nBecause prod broke."]);
+});
+
+test("the files a commit names are read, other arguments are not", () => {
+  assert.deepEqual(commitPaths("git commit -m 'fix: x' src/config.ts"), ["src/config.ts"]);
+  assert.deepEqual(commitPaths("git commit -m x -- a.ts b.ts"), ["a.ts", "b.ts"]);
+  assert.deepEqual(commitPaths("git commit --only -m x a.ts"), ["a.ts"]);
+  for (const c of [
+    "git commit -m 'fix: x'",
+    "git commit -am x",
+    "git commit --amend --no-edit",
+    "git commit -m x --author 'A <a@b.c>'",
+    "git commit -C HEAD",
+    "git commit -m x --fixup HEAD~1",
+    "git status a.ts",
+  ])
+    assert.deepEqual(commitPaths(c), [], c);
 });

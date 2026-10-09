@@ -4,7 +4,7 @@ import { parse as parseToml } from "smol-toml";
 import { defaultMatrix, isSlot, type ModelMatrix, SLOTS, type Slot } from "../core/models.ts";
 import { err, ok, type Result } from "../core/result.ts";
 import type { Route } from "../core/routing.ts";
-import { THINKING_LEVELS } from "../core/spawn-overrides.ts";
+import { THINKING_LEVELS, type ThinkingLevel } from "../core/spawn-overrides.ts";
 
 export const CONFIG_FILE = ".development-system.toml";
 
@@ -26,7 +26,12 @@ export type DevsysConfig = {
     readonly trunk: string;
     readonly remote: string;
   };
-  readonly review: { readonly requiredCleanRounds: number; readonly minRounds: number };
+  readonly review: {
+    readonly requiredCleanRounds: number;
+    readonly minRounds: number;
+    /** Effort of the reviewer and lens agents that devsys_review_start and devsys_lens_review spawn. */
+    readonly thinkingLevel: ThinkingLevel;
+  };
   readonly tracker: { readonly kind: TrackerKind; readonly repo?: string };
   readonly profiles: { readonly override: readonly string[] };
   readonly models: ModelMatrix;
@@ -217,7 +222,7 @@ function deliveryAndReview(
   root: Table,
 ): Result<Pick<DevsysConfig, "delivery" | "review" | "tracker">, ConfigError> {
   const d = section(root, "delivery", ["mode", "trunk", "remote"]);
-  const r = section(root, "review", ["required_clean_rounds", "min_rounds"]);
+  const r = section(root, "review", ["required_clean_rounds", "min_rounds", "thinking_level"]);
   const t = section(root, "tracker", ["kind", "repo"]);
   if (!d.ok) return d;
   if (!r.ok) return r;
@@ -227,15 +232,23 @@ function deliveryAndReview(
   const remote = text(d.value, "delivery", "remote", "origin");
   const required = number(r.value, "review", "required_clean_rounds", 3, POSITIVE);
   const min = number(r.value, "review", "min_rounds", 1, POSITIVE);
+  const effort = choice(r.value, "review", "thinking_level", THINKING_LEVELS, "high");
   const kind = choice(t.value, "tracker", "kind", TRACKER_KINDS, "repo-files");
   const repo = t.value.repo === undefined ? ok(undefined) : text(t.value, "tracker", "repo", "");
-  for (const field of [mode, trunk, remote, required, min, kind, repo]) if (!field.ok) return field;
-  if (!(mode.ok && trunk.ok && remote.ok && required.ok && min.ok && kind.ok && repo.ok)) {
+  for (const field of [mode, trunk, remote, required, min, effort, kind, repo])
+    if (!field.ok) return field;
+  if (
+    !(mode.ok && trunk.ok && remote.ok && required.ok && min.ok && effort.ok && kind.ok && repo.ok)
+  ) {
     return fail("unreachable");
   }
   return ok({
     delivery: { mode: mode.value, trunk: trunk.value, remote: remote.value },
-    review: { requiredCleanRounds: required.value, minRounds: min.value },
+    review: {
+      requiredCleanRounds: required.value,
+      minRounds: min.value,
+      thinkingLevel: effort.value,
+    },
     tracker:
       repo.value === undefined ? { kind: kind.value } : { kind: kind.value, repo: repo.value },
   });
