@@ -162,7 +162,10 @@ export class ThreadManager {
         inputTokens: record.view.inputTokens ?? 0,
         outputTokens: record.view.outputTokens ?? 0,
       };
-      const sessionLeafId = this.sessionLeafId(record);
+      // A live thread is not written per turn (see orch/persist-signature.ts), so its saved
+      // leaf would be stale by the time a reload restores it; without one, resuming opens
+      // the session file at its latest leaf, which is the right place.
+      const sessionLeafId = active(view) ? undefined : this.sessionLeafId(record);
       if (sessionLeafId !== undefined) view.sessionLeafId = sessionLeafId;
       if (active(view)) view.status = view.state === "running" ? "Working" : "Starting";
       return {

@@ -48,3 +48,25 @@ test("a new thread changes the signature", () => {
   const two = registrySignature([thread("running"), thread("running", { path: "/review-2" })]);
   assert.notEqual(one, two);
 });
+
+test("per-turn bookkeeping on a live thread does not change the signature", () => {
+  const before = registrySignature([
+    thread("running", { sessionLeafId: "leaf-1", inputTokens: 10, outputTokens: 2, elapsedMs: 5 }),
+  ]);
+  const after = registrySignature([
+    thread("running", {
+      sessionLeafId: "leaf-2",
+      inputTokens: 900,
+      outputTokens: 40,
+      elapsedMs: 9,
+    }),
+  ]);
+  assert.equal(before, after);
+});
+
+test("the leaf and totals of a settled thread are part of the signature", () => {
+  const a = registrySignature([thread("completed", { sessionLeafId: "leaf-1", inputTokens: 1 })]);
+  const b = registrySignature([thread("completed", { sessionLeafId: "leaf-2", inputTokens: 1 })]);
+  const c = registrySignature([thread("completed", { sessionLeafId: "leaf-2", inputTokens: 2 })]);
+  assert.equal(new Set([a, b, c]).size, 3);
+});
