@@ -9,6 +9,7 @@ import { addRound, startReview } from "../../src/core/review.ts";
 import { splitDiffByFile, upsertReview } from "../../src/core/review-flow.ts";
 import type { SliceRef } from "../../src/core/types.ts";
 import { registerCommitGuard } from "../../src/gates/commit-guard.ts";
+import { createExcusedMessages, type ExcusedMessages } from "../../src/gates/excused-messages.ts";
 import { createRecordDepartureTool } from "../../src/gates/record-departure-tool.ts";
 import type { Jev } from "../../src/jev/client.ts";
 import { digestOf, snapshotDiff } from "../../src/review/digest.ts";
@@ -49,7 +50,7 @@ const jevArchitectural = (architecture: number): Jev => ({
 const DIFF = "diff --git a/a.ts b/a.ts\n+1\n";
 const sectionA = new Map(Object.entries(splitDiffByFile(DIFF))).get("a.ts") ?? "";
 type Names = { staged?: string; unstaged?: string; fail?: boolean; untracked?: string };
-const setup = (jev: Jev, diff = "a.ts | 2 +-", names: Names = {}) => {
+const setup = (jev: Jev, diff = "a.ts | 2 +-", names: Names = {}, excused?: ExcusedMessages) => {
   const cwd = mkdtempSync(join(tmpdir(), "devsys-commit-"));
   const fake = createFakePi({ hasUI: false, cwd });
   const state = createSessionState(fake.api);
@@ -57,6 +58,7 @@ const setup = (jev: Jev, diff = "a.ts | 2 +-", names: Names = {}) => {
   registerCommitGuard({
     pi: fake.api,
     state,
+    excused,
     jev: () => jev,
     exec: async (command, args) => {
       execCalls.push([command, ...args]);
@@ -140,6 +142,22 @@ test("a commit without a body is blocked naming gate commit.rationale; a departu
   assert.match(blocked?.reason ?? "", /devsys_record_departure/);
   await depart("commit.rationale");
   assert.equal(await bash(commit("fix: tiny")), undefined);
+});
+
+test("a message a rationale departure let through is remembered for the push", async () => {
+  const excused = createExcusedMessages();
+  const { bash, depart } = setup(offlineJev, "a.ts | 2 +-", {}, excused);
+  await depart("commit.rationale");
+  assert.equal(await bash(commit("fix: tiny")), undefined);
+  assert.equal(excused.has("fix: tiny\n"), true);
+  assert.equal(excused.has("fix: other"), false);
+});
+
+test("a message that needed no departure is not remembered", async () => {
+  const excused = createExcusedMessages();
+  const { bash } = setup(jevJudging(0.9, 0.1), "a.ts | 2 +-", {}, excused);
+  assert.equal(await bash(commit(GOOD)), undefined);
+  assert.equal(excused.has(GOOD), false);
 });
 
 test("a non-conventional subject is blocked under commit.rationale", async () => {

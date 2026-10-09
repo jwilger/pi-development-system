@@ -124,6 +124,19 @@ What the tiers do not cover, so you can decide what to trust:
 - **A departure is the agent's own call.** `devsys_record_departure` waives a soft gate (also with no
   UI) and is written to the decision log; it is never available for a hard stop.
 - **Gating starts at `devsys_intake`.** With no slice open, the review and red-first gates are off.
+- **Command shape is read, not run.** The git guards classify the command text: aliases and
+  `git config` that redirect a later command, shells reading stdin, and `python -c` or `node -e`
+  that mention git are all treated as unclassifiable, so the user decides (headless: refused). A
+  command the classifier cannot see into at all (a script file, another tool) is not covered.
+  Commit messages are checked again at push time against what the remote lacks, so a commit made by
+  `-C`, `--fixup`, `commit-tree` or an alias cannot carry an AI trailer or skip the rationale; a push
+  in the same call as such a commit is refused, because the commit does not exist yet when it is checked.
+- **A push source the shell builds is checked loosely.** `git push origin "$(cat sha)":refs/heads/x`
+  checks every local branch for AI trailers, not the unnamed commit the expression may name (one made
+  with `commit-tree` and on no branch). The unclassified-command prompt is the only stop there.
+- **A push after a ref moves in the same call is checked against the refs as they were.**
+  `git merge --ff-only feature && git push origin main` publishes commits on `feature` that the
+  push check read before the call ran. Make the merge, switch or reset in one call and push in the next.
 - **Editing gate configuration is not guarded** (`biome.json`, hooks, CI files); review catches it.
 
 ## Decision log

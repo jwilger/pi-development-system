@@ -6,14 +6,10 @@ import {
   isToolCallEventType,
 } from "@earendil-works/pi-coding-agent";
 import { type CommitExtraction, extractCommits } from "../core/commit-command.ts";
-import {
-  findForbiddenTrailerKeys,
-  findForbiddenTrailers,
-  hasRationaleBody,
-  parseConventionalCommit,
-} from "../core/commit-message.ts";
+import { findForbiddenTrailerKeys, findForbiddenTrailers } from "../core/commit-message.ts";
 import type { Exec } from "../core/exec.ts";
 import { resolveGit } from "../core/git-invocations.ts";
+import { messageProblem } from "../core/message-problem.ts";
 import { DECISION_LOG, reviewGap } from "../core/review-flow.ts";
 import { type GateId, isParseError, parseGateId } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
@@ -22,12 +18,15 @@ import { judgeCommit, MIX_THRESHOLD, RATIONALE_FLOOR } from "../jev/questions/co
 import { snapshotDiff } from "../review/digest.ts";
 import type { SessionState } from "../state/session-state.ts";
 import { departureUse } from "./departure-use.ts";
+import type { ExcusedMessages } from "./excused-messages.ts";
 
 export type CommitGuardDeps = {
   pi: ExtensionAPI;
   state: SessionState;
   jev: (ctx: ExtensionContext) => Jev;
   exec: Exec;
+  /** Messages whose missing rationale a departure excused here, so the push does not ask again. */
+  excused?: ExcusedMessages | undefined;
 };
 
 type Need = { gate: GateId; why: string };
@@ -66,11 +65,8 @@ const messageOf = (extracted: CommitExtraction, cwd: string): string | undefined
 
 /** Deterministic checks: Conventional subject and a prose rationale body. */
 function messageNeeds(message: string): Need[] {
-  const parsed = parseConventionalCommit(message);
-  if (!parsed.ok) return [{ gate: RATIONALE, why: parsed.error.message }];
-  return hasRationaleBody(message)
-    ? []
-    : [{ gate: RATIONALE, why: "the message has no body explaining why the change was made" }];
+  const problem = messageProblem(message);
+  return problem === undefined ? [] : [{ gate: RATIONALE, why: problem }];
 }
 
 /** `-a`/`--all`, or a `git add` in the same command, widen the commit beyond what is staged. */
@@ -361,6 +357,12 @@ async function needsOf(
   return [...needs, ...viaJev.filter((n) => !needs.some((m) => m.gate === n.gate))];
 }
 
+/** A message let through under a rationale departure is remembered, so its push is not asked again. */
+function rememberExcused(deps: CommitGuardDeps, needs: readonly Need[], messages: string[]): void {
+  if (!needs.some((n) => n.gate === RATIONALE)) return;
+  for (const message of messages) deps.excused?.add(message);
+}
+
 /** Soft gates on `git commit`: rationale, Conventional shape, structural/behavioural separation; AI trailers are refused. */
 export function registerCommitGuard(deps: CommitGuardDeps): void {
   deps.pi.on("tool_call", async (event, ctx) => {
@@ -397,6 +399,7 @@ export function registerCommitGuard(deps: CommitGuardDeps): void {
     const uncovered = uses.find(({ use }) => !use.hasOpen());
     if (uncovered !== undefined) return { block: true, reason: blockReason(uncovered.need) };
     for (const { use } of uses) use.consume();
+    rememberExcused(deps, all, known);
     return undefined;
   });
 }

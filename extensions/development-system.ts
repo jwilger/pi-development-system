@@ -17,6 +17,7 @@ import { type Exec, timeoutAsFailure } from "../src/core/exec.ts";
 import { defaultMatrix } from "../src/core/models.ts";
 import { createApprovalStore } from "../src/gates/approvals.ts";
 import { registerCommitGuard } from "../src/gates/commit-guard.ts";
+import { createExcusedMessages } from "../src/gates/excused-messages.ts";
 import { declareWithoutCodemode } from "../src/gates/exposure.ts";
 import { registerGitGuard } from "../src/gates/git-guard.ts";
 import { registerLintSuppressionGuard } from "../src/gates/lint-suppression-guard.ts";
@@ -124,11 +125,13 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   const exec: Exec = async (command, args, options) =>
     timeoutAsFailure(await pi.exec(command, args, options));
   registerGitGuard({ pi, approvals, jev: (ctx) => jevHolder.forContext(ctx) });
+  const excused = createExcusedMessages();
   registerCommitGuard({
     pi,
     state,
     jev: (ctx) => jevHolder.forContext(ctx),
     exec,
+    excused,
   });
   registerCiCommand({
     pi,
@@ -141,6 +144,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
     approvals,
     jev: (ctx) => jevHolder.forContext(ctx),
     exec,
+    excused,
   });
   registerTestGuard({ pi, state, approvals, jev: (ctx) => jevHolder.forContext(ctx) });
   registerTestEvidence({ pi, state });

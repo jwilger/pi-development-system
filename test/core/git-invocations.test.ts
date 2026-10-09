@@ -9,6 +9,14 @@ test("simple, chained and wrapped git commands are all found", () => {
   assert.deepEqual(subs("timeout 5 git push"), ["push"]);
   assert.deepEqual(subs("bash -c 'git push origin main'"), ["push"]);
   assert.deepEqual(subs("echo git push"), []);
+  assert.deepEqual(subs('timeout 300 bash -c "git commit -m x && git push origin main"'), [
+    "commit",
+    "push",
+  ]);
+  assert.deepEqual(subs("sudo -E bash -c 'git push origin main'"), ["push"]);
+  assert.deepEqual(subs("env -S 'git push origin main'"), ["push"]);
+  assert.deepEqual(subs('gh pr create --title "fix: git push origin main asks first"'), []);
+  assert.deepEqual(subs("/usr/lib/git-core/git-commit -m x"), ["commit"]);
 });
 
 test("an apostrophe inside a heredoc body does not hide a later push", () => {

@@ -9,19 +9,51 @@ test("no push means no targets", () => {
 
 test("bare push has no remote and no branches", () => {
   assert.deepEqual(pushTargets("git push"), [
-    { remote: undefined, branches: [], allBranches: false, usesHead: false, tagsOnly: false },
+    {
+      remote: undefined,
+      branches: [],
+      sources: [],
+      allBranches: false,
+      usesHead: false,
+      tagsOnly: false,
+      deleteOnly: false,
+    },
   ]);
 });
 
 test("remote and branch, with options and refspecs", () => {
   assert.deepEqual(pushTargets("git push -u origin main"), [
-    { remote: "origin", branches: ["main"], allBranches: false, usesHead: false, tagsOnly: false },
+    {
+      remote: "origin",
+      branches: ["main"],
+      sources: ["main"],
+      allBranches: false,
+      usesHead: false,
+      tagsOnly: false,
+      deleteOnly: false,
+    },
   ]);
   assert.deepEqual(pushTargets("git push origin HEAD:main"), [
-    { remote: "origin", branches: ["main"], allBranches: false, usesHead: false, tagsOnly: false },
+    {
+      remote: "origin",
+      branches: ["main"],
+      sources: ["HEAD"],
+      allBranches: false,
+      usesHead: false,
+      tagsOnly: false,
+      deleteOnly: false,
+    },
   ]);
   assert.deepEqual(pushTargets("git push origin feature:refs/heads/trunk"), [
-    { remote: "origin", branches: ["trunk"], allBranches: false, usesHead: false, tagsOnly: false },
+    {
+      remote: "origin",
+      branches: ["trunk"],
+      sources: ["feature"],
+      allBranches: false,
+      usesHead: false,
+      tagsOnly: false,
+      deleteOnly: false,
+    },
   ]);
   assert.deepEqual(pushTargets("git push origin HEAD").at(0)?.branches, []);
 });
@@ -30,6 +62,21 @@ test("--all and --mirror target every branch; value options are skipped", () => 
   assert.equal(pushTargets("git push --all origin").at(0)?.allBranches, true);
   assert.equal(pushTargets("git push --mirror").at(0)?.allBranches, true);
   assert.deepEqual(pushTargets("git push -o ci.skip origin main").at(0)?.branches, ["main"]);
+});
+
+test("the matching refspec pushes every branch; --tags beside a branch pushes tags too", () => {
+  assert.equal(pushTargets("git push origin :").at(0)?.allBranches, true);
+  assert.equal(pushTargets("git push origin :").at(0)?.deleteOnly, false);
+  assert.equal(pushTargets("git push origin +:").at(0)?.allBranches, true);
+  assert.equal(pushTargets("git push origin :old").at(0)?.deleteOnly, true);
+  assert.equal(pushTargets("git push --tags origin :old").at(0)?.deleteOnly, false);
+  assert.equal(pushTargets("git push origin main --tags").at(0)?.withTags, true);
+  assert.equal(pushTargets("git push --tags").at(0)?.withTags, undefined);
+});
+
+test("a git-<sub> program and a shell-built source are still push targets", () => {
+  assert.equal(pushTargets("/usr/lib/git-core/git-push origin main").length, 1);
+  assert.equal(pushTargets('git push origin "$SHA":refs/heads/feature').at(0)?.allBranches, true);
 });
 
 test("pushes inside chains and after cd are found", () => {
@@ -52,6 +99,13 @@ test("pushes inside shells, keywords and wrappers are found", () => {
   ]) {
     assert.equal(pushTargets(c).at(0)?.branches.at(0), "main", c);
   }
+});
+
+test("a push through an alias is assumed to hit every branch", () => {
+  assert.equal(pushTargets("git -c alias.p=push p origin main").at(0)?.allBranches, true);
+  assert.deepEqual(pushTargets("git status"), []);
+  // An alias from the user's own configuration is not this command's doing.
+  assert.deepEqual(pushTargets("git st"), []);
 });
 
 test("a push through an opaque runner is assumed to hit every branch", () => {
@@ -123,4 +177,19 @@ test("an unrelated opaque segment does not make an explicit push hit every branc
     pushTargets("$GIT push origin feat").some((t) => t.allBranches),
     true,
   );
+});
+
+test("a refspec names the local ref it sends apart from the branch it updates", () => {
+  const t = pushTargets("git push origin HEAD:feature/x +topic:main :gone").at(0);
+  assert.deepEqual(t?.sources, ["HEAD", "topic"]);
+  assert.deepEqual(t?.branches, ["feature/x", "main", "gone"]);
+});
+
+test("a push that only deletes refs sends no commit, and an option-like source is no ref", () => {
+  assert.equal(pushTargets("git push origin --delete old").at(0)?.deleteOnly, true);
+  assert.equal(pushTargets("git push origin :old").at(0)?.deleteOnly, true);
+  assert.equal(pushTargets("git push --tags origin :old").at(0)?.deleteOnly, false);
+  assert.equal(pushTargets("git push origin :old main").at(0)?.deleteOnly, false);
+  assert.equal(pushTargets("git push origin main").at(0)?.deleteOnly, false);
+  assert.deepEqual(pushTargets("git push origin +--output=/tmp/x").at(0)?.sources, []);
 });
