@@ -2,6 +2,13 @@
 
 Generated from the Conventional Commit history by `npm run changelog`, after the release commit; do not edit by hand.
 
+## 1.1.0 - 2026-10-09
+
+- **Features**
+  - close the four 1.0 readiness gaps (secret stop, work-discard stop, missing-artifact nudge, configured effort and models) (`4696bdc`)
+- **Other**
+  - **changelog:** regenerate for 1.0.0 (`19cda8e`)
+
 ## 1.0.0 - 2026-10-08
 
 - **Other**
