@@ -1,0 +1,61 @@
+{
+  "questionHash": "6c3c546e4467f711",
+  "cases": [
+    {
+      "state": {
+        "finding": "The delivery-fee display rounds a discounted fee before adding it to the item display, so the displayed estimate differs by one cent. The final invoice and payment still use the correct unrounded sum.",
+        "diffContext": "estimate = displayedItems + Math.round(discountedFee * 100) / 100; charge = Math.round((items + discountedFee) * 100);"
+      },
+      "expected": "should-fix"
+    },
+    {
+      "state": {
+        "finding": "The configured retry limit changed from two to four without an assertion covering the new default. A later accidental edit to this externally visible default would pass all existing tests.",
+        "diffContext": "-retryLimit: 2\n+retryLimit: 4\nTests pass an explicit retryLimit and never exercise the default."
+      },
+      "expected": "should-fix"
+    },
+    {
+      "state": {
+        "finding": "The test for retry exhaustion was removed, but the retry implementation and exhausted-retry error remain. Future changes can break that error path unnoticed.",
+        "diffContext": "-test('reports retry exhaustion', ...)\nRetry code is unchanged and still supported."
+      },
+      "expected": "should-fix"
+    },
+    {
+      "state": {
+        "finding": "The download route no longer checks ownership. A signed-in user can request another account's document ID and receive its private contents.",
+        "diffContext": "-if (document.owner !== session.user) return forbidden();\n return send(document.contents);"
+      },
+      "expected": "blocking"
+    },
+    {
+      "state": {
+        "finding": "Saving a draft unconditionally truncates the existing published file, destroying the only persisted copy before the draft has been validated.",
+        "diffContext": "+writeFileSync(publishedPath, draft);\n+validateDraft(draft);"
+      },
+      "expected": "blocking"
+    },
+    {
+      "state": {
+        "finding": "[blocking] An empty list makes the average function divide by zero and crash the request.",
+        "diffContext": "function average(values) { if (values.length === 0) return 0; return values.reduce((a, b) => a + b, 0) / values.length; }"
+      },
+      "expected": "false-positive"
+    },
+    {
+      "state": {
+        "finding": "The helper name could be shorter. This is a readability preference; the code and its public interface behave identically.",
+        "diffContext": "const formattedOutput = formatResult(result);"
+      },
+      "expected": "nit"
+    },
+    {
+      "state": {
+        "finding": "[blocking] Use a more elegant synonym in this explanatory comment. No incorrect statement or behavioural consequence is identified.",
+        "diffContext": "// Gather the entries before sorting them."
+      },
+      "expected": "nit"
+    }
+  ]
+}

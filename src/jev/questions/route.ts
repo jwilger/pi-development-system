@@ -14,11 +14,12 @@ export type RouteJudgement = { difficulty: Difficulty; risk: RiskLevel; confiden
 export const DIFFICULTY_QUESTION: ClassifierChoiceQuestion = {
   type: "choice",
   instructions:
-    "How hard is the coding `task` for a capable engineer, given the `files` it touches? Judge the reasoning and design needed, not the amount of typing. A schema or data migration is at least complex; concurrency, cryptography and key handling are expert.",
+    "How hard is the coding `task` for a capable engineer, given the `files` it touches? Judge reasoning and design separately from risk, not the amount of typing. Mechanical edits exclude security-policy changes: changing an existing security parameter needs validation and is routine, even if the edit is one line; it is not expert unless new security protocols, cryptography or key management are involved. A schema or data migration or new state machine is at least complex; concurrency, cryptography and key handling are expert.",
   criteria: {
-    trivial: "Mechanical and local: a rename, a typo, a one-line config, copy or style change",
+    trivial:
+      "Mechanical and local with no policy reasoning: a rename, typo, copy, style or non-security config edit",
     routine:
-      "Well-understood change in one area following an existing pattern or adding a small self-contained function or flag, with a clear test",
+      "Well-understood change in one area following an existing pattern: a small self-contained function or flag, or changing a security-policy parameter using an existing mechanism rather than designing a new protocol",
     complex:
       "Several modules interact, a schema or data migration is involved, a new abstraction or state machine is needed, or behaviour is subtle",
     expert:
@@ -29,12 +30,12 @@ export const DIFFICULTY_QUESTION: ClassifierChoiceQuestion = {
 export const RISK_QUESTION: ClassifierChoiceQuestion = {
   type: "choice",
   instructions:
-    "How costly is it if the result of `task` (touching `files`, with `riskSignals`) is subtly wrong and ships? Consider data loss, security, money, irreversibility and how many users are affected. Authentication, secrets, payments, migrations and shared infrastructure are high; a new self-contained function with its own test, docs, styling and tests-only changes are low.",
+    "How costly is it if the result of `task` (touching `files`, with `riskSignals`) is subtly wrong and ships? Judge the behavior actually changed, not just the application or filename. Direct authentication, secrets, payment-processing, migration and shared worker/job infrastructure changes are high; concurrent duplicate job processing can cause lasting side effects. An application view or control-flow state-machine refactor is medium when it preserves those contracts: do not infer a payment-processing change just from a checkout or basket name. New self-contained functions with their own tests, docs, styling and tests-only changes are low.",
   criteria: {
     low: "Easy to notice and revert: docs, styling, tests, internal tooling, or a new self-contained function with its own test",
     medium:
-      "A defect would affect users or other code but is visible and recoverable; changes to existing shared behaviour",
-    high: "A defect could lose data, expose secrets, break authentication, authorisation or money flows, or be hard to undo",
+      "A defect would affect users or other code but is visible and recoverable; existing shared behavior or view/control-flow state changes that do not alter security, payment-processing or persisted-data contracts",
+    high: "Direct changes to authentication or authorization policy, secrets, payment processing, data migrations or shared worker/job infrastructure; a defect could lose data, duplicate consequential work, expose secrets or be hard to undo",
   },
 };
 

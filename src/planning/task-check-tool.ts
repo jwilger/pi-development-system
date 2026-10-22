@@ -4,6 +4,7 @@ import type { ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding
 import { type Static, Type } from "typebox";
 import { isParseError } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
+import { withJevToolUsage } from "../jev/execution.ts";
 import { judgeTaskReadiness } from "../jev/questions/readiness.ts";
 import { parseTaskRecord } from "./task-record.ts";
 
@@ -39,10 +40,10 @@ const SECTION_OF: Readonly<Record<string, string>> = {
 };
 
 /** `devsys_task_check`: structural readiness is deterministic; Jev adds "specific enough" and "one task". */
-export function createTaskCheckTool(deps: {
+export function createTaskCheckTool(baseDeps: {
   jev: (ctx: ExtensionContext) => Jev;
 }): ToolDefinition<typeof Parameters> {
-  return {
+  return withJevToolUsage(baseDeps, (deps) => ({
     name: "devsys_task_check",
     label: "Check task record",
     description:
@@ -84,5 +85,5 @@ export function createTaskCheckTool(deps: {
       const named = missing.map((m) => SECTION_OF[m] ?? m).join(", ");
       return reply(`${record.id}: needs-detail. Make these more specific: ${named}.`);
     },
-  };
+  }));
 }

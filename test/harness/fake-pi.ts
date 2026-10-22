@@ -1,4 +1,4 @@
-import type { ClassifierAnswer } from "@earendil-works/pi-ai";
+import type { ClassifierAnswer, Usage } from "@earendil-works/pi-ai";
 import type {
   ExtensionAPI,
   ExtensionContext,
@@ -34,6 +34,7 @@ export type FakePiOptions = {
   allTools?: string[];
   /** Answers every Jev `classify` call returns, by question name; unset means classify throws. */
   classifyAnswers?: Record<string, ClassifierAnswer> | undefined;
+  classifyUsage?: Usage;
 };
 
 /**
@@ -95,6 +96,7 @@ export function createFakePi(init: FakePiOptions = {}) {
           answers,
           stopReason: "stop",
           timestamp: 0,
+          usage: init.classifyUsage,
         };
       },
     },

@@ -1,0 +1,47 @@
+{
+  "questionHash": "4b1bd1e2507a1c353ef6d7fa102c52c9",
+  "cases": [
+    {
+      "state": {
+        "task": "Shorten email verification link validity from twelve hours to thirty minutes using the existing expiry setting",
+        "files": "src/auth/verification.ts"
+      },
+      "expected": "routine/high"
+    },
+    {
+      "state": {
+        "task": "Prevent concurrent import workers from claiming and processing the same database job twice",
+        "files": "src/import/queue.ts,src/import/worker.ts"
+      },
+      "expected": "expert/high"
+    },
+    {
+      "state": {
+        "task": "Replace shopping basket view boolean flags with an explicit view-state machine; preserve all payment processing",
+        "files": "src/basket/view.ts,src/basket/state.ts"
+      },
+      "expected": "complex/medium"
+    },
+    {
+      "state": {
+        "task": "Add a pure function for normalizing whitespace with a unit test",
+        "files": "src/text/normalize.ts,test/text/normalize.test.ts"
+      },
+      "expected": "routine/low"
+    },
+    {
+      "state": {
+        "task": "Rename the local variable record to entry without changing behavior",
+        "files": "src/output.ts"
+      },
+      "expected": "trivial/low"
+    },
+    {
+      "state": {
+        "task": "Migrate existing customer identifiers to a new database column and backfill every persisted record",
+        "files": "migrations/0050_customer.sql,src/customers.ts"
+      },
+      "expected": "complex/high"
+    }
+  ]
+}

@@ -202,6 +202,18 @@ test("an unknown command that Jev judges ordinary is allowed", async () => {
   assert.equal(await bash("xargs git status"), undefined);
 });
 
+test("a cancelled unknown-command classification blocks without opening an approval dialog", async () => {
+  const { fake, bash } = setupJev(true, {
+    ...offlineJev,
+    ask: async () => err({ kind: "aborted" }),
+  });
+  fake.ui.confirmResponses.push(true);
+  const result = (await bash("xargs git push")) as { block: boolean; reason: string };
+  assert.equal(result.block, true);
+  assert.match(result.reason, /cancelled/);
+  assert.equal(fake.ui.calls.length, 0);
+});
+
 test("unknown + Jev offline + UI → confirm dialog; approval allows", async () => {
   const { fake, bash } = setupJev(true, offlineJev);
   fake.ui.confirmResponses.push(true);

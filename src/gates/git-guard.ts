@@ -36,6 +36,9 @@ async function resolveUnknown(
 ): Promise<Resolved> {
   const judged =
     deps.jev === undefined ? undefined : await judgeShellIntent(deps.jev(ctx), command);
+  if (ctx.signal?.aborted || (judged?.ok === false && judged.error.kind === "aborted")) {
+    return { block: true, reason: "command classification cancelled; retry after cancellation" };
+  }
   if (judged?.ok === true && judged.value.intent !== "unknown") {
     return { intent: judged.value.intent };
   }

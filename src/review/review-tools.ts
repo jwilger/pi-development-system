@@ -26,6 +26,7 @@ import { parseReviewPacket, type ReviewPacket } from "../core/review-packet.ts";
 import type { ThinkingLevel } from "../core/spawn-overrides.ts";
 import { isParseError, type SliceRef } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
+import { withJevToolUsage } from "../jev/execution.ts";
 import { judgeLenses, judgeSeverity } from "../jev/questions/review.ts";
 import { CONFIG_FILE, loadConfig } from "../state/config.ts";
 import { availableModels } from "../state/models-command.ts";
@@ -195,12 +196,14 @@ async function startRound(
   deps: ReviewToolDeps,
   ctx: ExtensionContext,
   p: Prepared,
+  signal: AbortSignal | undefined,
 ): Promise<Reply> {
   const judged = await judgeLenses(deps.jev(ctx), {
     diffStat: p.snap.stat,
     diffSample: p.snap.sample,
     profiles: deps.state.get().profiles ?? [],
   });
+  if (signal?.aborted) return reply("Review start cancelled; nothing changed.", true);
   if (!p.isCurrent()) return changedReview();
   const { lenses, basis } = chooseLenses(judged);
   const required = requiredRounds(p.config);
@@ -235,9 +238,7 @@ async function startRound(
 }
 
 /** `devsys_review_start`: Jev picks lenses for the diff; the reply carries the agent_spawn payload for a fresh reviewer. */
-export function createReviewStartTool(
-  deps: ReviewToolDeps,
-): ToolDefinition<typeof StartParameters> {
+function buildReviewStartTool(deps: ReviewToolDeps): ToolDefinition<typeof StartParameters> {
   return {
     name: "devsys_review_start",
     executionMode: "sequential",
@@ -263,7 +264,7 @@ export function createReviewStartTool(
       if (!prepared.ok) return prepared.reply;
       if (prepared.value.snap.stat.trim() === "")
         return reply(`the diff for ${prepared.value.range} is empty; nothing to review`, true);
-      return startRound(deps, ctx, prepared.value);
+      return startRound(deps, ctx, prepared.value, _signal);
     },
   };
 }
@@ -367,6 +368,7 @@ async function recordRound(
   ctx: ExtensionContext,
   p: Prepared,
   packets: readonly ReviewPacket[],
+  signal: AbortSignal | undefined,
 ): Promise<Reply> {
   const required = requiredRounds(p.config);
   const current = reviewOf(deps.state.get(), p.slice);
@@ -376,6 +378,7 @@ async function recordRound(
 
   const merged = combinePackets(packets);
   const { findings, notes } = await adjusted(deps, ctx, merged.findings, p.snap.sample);
+  if (signal?.aborted) return reply("Review recording cancelled; nothing changed.", true);
   if (!p.isCurrent()) return changedReview();
   const review = addRound(
     { ...before, required },
@@ -393,9 +396,7 @@ async function recordRound(
 }
 
 /** `devsys_review_record`: parse packets, let Jev adjust severities, record the round. */
-export function createReviewRecordTool(
-  deps: ReviewToolDeps,
-): ToolDefinition<typeof RecordParameters> {
+function buildReviewRecordTool(deps: ReviewToolDeps): ToolDefinition<typeof RecordParameters> {
   return {
     name: "devsys_review_record",
     executionMode: "sequential",
@@ -442,7 +443,7 @@ export function createReviewRecordTool(
           true,
         );
       }
-      const recorded = await recordRound(deps, ctx, prepared.value, packets);
+      const recorded = await recordRound(deps, ctx, prepared.value, packets, _signal);
       if (recorded.isError === true) return recorded;
       deps.submissions.clear(slice);
       return dropped === 0
@@ -452,4 +453,16 @@ export function createReviewRecordTool(
           );
     },
   };
+}
+
+export function createReviewStartTool(
+  deps: ReviewToolDeps,
+): ToolDefinition<typeof StartParameters> {
+  return withJevToolUsage(deps, buildReviewStartTool);
+}
+
+export function createReviewRecordTool(
+  deps: ReviewToolDeps,
+): ToolDefinition<typeof RecordParameters> {
+  return withJevToolUsage(deps, buildReviewRecordTool);
 }

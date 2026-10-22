@@ -56,14 +56,15 @@ export const LENS_QUESTIONS: Readonly<Record<Lens, ClassifierBoolQuestion>> = {
 export const SEVERITY_QUESTION: ClassifierChoiceQuestion = {
   type: "choice",
   instructions:
-    "Given the review `finding` and the surrounding `diffContext`, how severe is it? Judge by the consequence of shipping it, and by whether the reviewer showed a realistic triggering input. A finding with no demonstrated trigger, or one the code already guards against, is a false positive.",
+    "Classify the review `finding` using the evidence in `diffContext`, not its proposed bracketed severity. Judge the demonstrated consequence, not just the topic. Distinguish material harm from a limited-impact defect. A concrete regression-test gap for changed or still-supported behaviour is actionable even when no production failure has occurred. If the code contradicts the claim or already guards the stated case, choose false-positive.",
   criteria: {
     blocking:
-      "A demonstrable defect or broken principle: wrong behaviour, data loss, security hole, or a defeated safeguard on a realistic input",
+      "A demonstrated serious defect or broken non-negotiable safeguard on a realistic input: authentication bypass, exposed private data, irreversible data loss, or a failure that prevents ordinary use. Wrong behaviour with only limited impact belongs to should-fix instead.",
     "should-fix":
-      "A real defect or missing test with a realistic trigger, but limited impact or easy workaround",
-    nit: "Style, naming, a contrived trigger, or a suggestion with no demonstrated impact",
-    "false-positive": "The claim is wrong or the code already handles the case",
+      "An actionable but limited-impact defect, or a concrete missing regression test for changed or supported behaviour. Includes small numerical discrepancies and untested observable defaults. A test gap need not demonstrate a production failure. Serious harm or a broken safeguard belongs to blocking instead.",
+    nit: "Style, naming or readability preferences without behavioural or test-coverage impact, or a contrived risk with no concrete defect or coverage gap. A missing regression test for changed or supported behaviour is should-fix, not nit.",
+    "false-positive":
+      "The specific claim is contradicted by the evidence or the code already handles its stated trigger. A genuine regression-test gap is not false merely because no runtime failure has occurred.",
   },
 };
 

@@ -2,6 +2,7 @@ import type { ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding
 import { type Static, Type } from "typebox";
 import { recommendRoute } from "../core/routing.ts";
 import type { Jev } from "../jev/client.ts";
+import { withJevToolUsage } from "../jev/execution.ts";
 import { judgeTaskRouting } from "../jev/questions/route.ts";
 import { CONFIG_FILE, loadConfig } from "./config.ts";
 import { availableModels } from "./models-command.ts";
@@ -26,10 +27,10 @@ const reply = (payload: string, isError = false) => ({
 });
 
 /** `devsys_route_task`: Jev judges difficulty and risk; the project's routing table picks slot and effort. */
-export function createRouteTaskTool(deps: {
+export function createRouteTaskTool(baseDeps: {
   jev: (ctx: ExtensionContext) => Jev;
 }): ToolDefinition<typeof Parameters> {
-  return {
+  return withJevToolUsage(baseDeps, (deps) => ({
     name: "devsys_route_task",
     label: "Route task",
     description:
@@ -70,5 +71,5 @@ export function createRouteTaskTool(deps: {
       };
       return reply(`${basis} ${rec.note}\nPass to agent_spawn: ${JSON.stringify(spawn)}`);
     },
-  };
+  }));
 }

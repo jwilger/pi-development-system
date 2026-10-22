@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { LENSES, selectLenses } from "../../src/core/review.ts";
-import { judgeLenses, judgeSeverity } from "../../src/jev/questions/review.ts";
-import { loadFixture, rateShortfall, realJev } from "../jev/fixture-runner.ts";
+import { judgeLenses, judgeSeverity, SEVERITY_QUESTION } from "../../src/jev/questions/review.ts";
+import { loadFixture, questionHash, rateShortfall, realJev } from "../jev/fixture-runner.ts";
 
 test("lens fixture: per-lens accuracy ≥ 0.85 with a real Jev", async () => {
   const jev = await realJev();
@@ -46,4 +46,22 @@ test("severity fixture reaches 0.8 with a real Jev", async () => {
       );
   }
   assert.equal(rateShortfall(passed, fixture.cases.length, 0.8, misses), undefined);
+});
+
+test("severity boundaries hold across three fresh classifier caches", async () => {
+  const fixtures = [loadFixture("finding-severity"), loadFixture("finding-severity-boundaries")];
+  for (const fixture of fixtures) {
+    assert.equal(fixture.questionHash, questionHash({ ...SEVERITY_QUESTION }));
+  }
+  for (let round = 1; round <= 3; round++) {
+    const jev = await realJev();
+    for (const c of fixtures.flatMap((fixture) => fixture.cases)) {
+      const result = await judgeSeverity(jev, {
+        finding: c.state.finding ?? "",
+        diffContext: c.state.diffContext ?? "",
+      });
+      assert.ok(result.ok, `round ${round}: classifier returned an error`);
+      assert.equal(result.value.severity, c.expected, `round ${round}: ${c.state.finding}`);
+    }
+  }
 });

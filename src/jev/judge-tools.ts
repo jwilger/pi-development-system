@@ -4,6 +4,7 @@ import type { Result } from "../core/result.ts";
 import { isParseError } from "../core/types.ts";
 import { parseTaskRecord } from "../planning/task-record.ts";
 import type { Jev, JevError } from "./client.ts";
+import { withJevToolUsage } from "./execution.ts";
 import { judgeTaskReadiness } from "./questions/readiness.ts";
 import { judgeLenses } from "./questions/review.ts";
 import { judgeSizing } from "./questions/sizing.ts";
@@ -39,12 +40,12 @@ function judgeTool<P extends TSchema>(
   run: (deps: Deps, params: Static<P>, ctx: ExtensionContext) => Promise<ReturnType<typeof reply>>,
   deps: Deps,
 ): ToolDefinition<P> {
-  return {
+  return withJevToolUsage(deps, (scoped) => ({
     ...spec,
     exposure: "codemode",
     namespace: JUDGE_NAMESPACE,
-    execute: (_id, params, _signal, _onUpdate, ctx) => run(deps, params, ctx),
-  };
+    execute: (_id, params, _signal, _onUpdate, ctx) => run(scoped, params, ctx),
+  }));
 }
 
 export function createJudgeTools(deps: Deps): ToolDefinition[] {

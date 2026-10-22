@@ -10,6 +10,7 @@ import { parseSizing } from "../core/sizing.ts";
 import { type DevsysState, isParseError, type Sizing, type SliceRef } from "../core/types.ts";
 import { DEPARTURE_ENTRY_TYPE } from "../gates/record-departure-tool.ts";
 import type { Jev } from "../jev/client.ts";
+import { withJevToolUsage } from "../jev/execution.ts";
 import { judgeSizing } from "../jev/questions/sizing.ts";
 import { appendDecision } from "../state/decision-log.ts";
 import type { SessionState } from "../state/session-state.ts";
@@ -44,6 +45,26 @@ const reply = (text: string, isError = false) => ({
   details: undefined,
   isError,
 });
+
+function sizingCancelled(
+  signal: AbortSignal | undefined,
+  judgement: Awaited<ReturnType<typeof judgeSizing>> | undefined,
+): boolean {
+  return (
+    signal?.aborted === true || (judgement?.ok === false && judgement.error.kind === "aborted")
+  );
+}
+
+function sizingDecision(
+  given: Sizing | undefined,
+  judgement: Awaited<ReturnType<typeof judgeSizing>> | undefined,
+): SizeDecision {
+  return decideSize(
+    given,
+    judgement?.ok ? judgement.value : undefined,
+    judgement?.ok === false ? judgement.error.kind : "not asked",
+  );
+}
 
 /** Proposed size first, so the default selection is the proposal. */
 const sizeChoices = (proposed: Sizing): string[] => [
@@ -162,7 +183,7 @@ async function reviewWaiver(
 }
 
 /** `devsys_intake`: Jev (or the caller) sizes the work; only a doubtful Jev asks the user; state moves to the first phase. */
-export function createIntakeTool(deps: {
+function buildIntakeTool(deps: {
   pi: ExtensionAPI;
   state: SessionState;
   jev: (ctx: ExtensionContext) => Jev;
@@ -187,11 +208,10 @@ export function createIntakeTool(deps: {
         given === undefined
           ? await judgeSizing(deps.jev(ctx), { request, repoSummary: params.repoSummary ?? "" })
           : undefined;
-      const decision = decideSize(
-        given,
-        judged?.ok ? judged.value : undefined,
-        judged?.ok === false ? judged.error.kind : "not asked",
-      );
+      if (sizingCancelled(_signal, judged)) {
+        return reply("Intake cancelled; nothing changed.", true);
+      }
+      const decision = sizingDecision(given, judged);
       const artifactNeed = judged?.ok ? judged.value.artifactNeed : {};
       const proposalFor = (size: Sizing) => proposeArtifacts(size, artifactNeed);
       const chosen = await chooseSize(ctx, decision, proposalFor);
@@ -230,4 +250,10 @@ export function createIntakeTool(deps: {
       return reply(`${final}\nPhase: ${phaseFor(sizing)}. Active slice: ${slice}.${note}`);
     },
   };
+}
+
+export function createIntakeTool(
+  deps: Parameters<typeof buildIntakeTool>[0],
+): ReturnType<typeof buildIntakeTool> {
+  return withJevToolUsage(deps, buildIntakeTool);
 }

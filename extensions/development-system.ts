@@ -27,6 +27,7 @@ import { registerRedFirstGuard } from "../src/gates/red-first-guard.ts";
 import { createRequestApprovalTool } from "../src/gates/request-approval-tool.ts";
 import { registerSpawnGuard } from "../src/gates/spawn-guard.ts";
 import { registerTestGuard } from "../src/gates/test-guard.ts";
+import { hookJev } from "../src/jev/execution.ts";
 import { createJevHolder } from "../src/jev/holder.ts";
 import { createJudgeTools } from "../src/jev/judge-tools.ts";
 import { createAdrNewTool } from "../src/planning/adr-tool.ts";
@@ -112,7 +113,11 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
     }
     const intentLine =
       event.messageType === "user"
-        ? await intentLineFor(event.prompt, current, jevHolder.forContext(ctx))
+        ? await intentLineFor(
+            event.prompt,
+            current,
+            hookJev(pi, jevHolder.forContext(ctx), ctx, "intent"),
+          )
         : undefined;
     const nudge = renderNudge(current, Date.now(), pushMinutes, intentLine, lastCadence);
     if (nudge === undefined) return undefined;
@@ -129,12 +134,16 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   const exec: Exec = async (command, args, options) =>
     timeoutAsFailure(await pi.exec(command, args, options));
   registerSpawnGuard({ pi });
-  registerGitGuard({ pi, approvals, jev: (ctx) => jevHolder.forContext(ctx) });
+  registerGitGuard({
+    pi,
+    approvals,
+    jev: (ctx) => hookJev(pi, jevHolder.forContext(ctx), ctx, "git-guard"),
+  });
   const excused = createExcusedMessages();
   registerCommitGuard({
     pi,
     state,
-    jev: (ctx) => jevHolder.forContext(ctx),
+    jev: (ctx) => hookJev(pi, jevHolder.forContext(ctx), ctx, "commit-guard"),
     exec,
     approvals,
     excused,
@@ -148,11 +157,16 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
     pi,
     state,
     approvals,
-    jev: (ctx) => jevHolder.forContext(ctx),
+    jev: (ctx) => hookJev(pi, jevHolder.forContext(ctx), ctx, "push-guard"),
     exec,
     excused,
   });
-  registerTestGuard({ pi, state, approvals, jev: (ctx) => jevHolder.forContext(ctx) });
+  registerTestGuard({
+    pi,
+    state,
+    approvals,
+    jev: (ctx) => hookJev(pi, jevHolder.forContext(ctx), ctx, "test-guard"),
+  });
   registerTestEvidence({ pi, state });
   registerModelAdvice({
     pi,
@@ -165,7 +179,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   registerTurnVerifier({
     pi,
     state,
-    jev: (ctx) => jevHolder.forContext(ctx),
+    jev: (ctx) => hookJev(pi, jevHolder.forContext(ctx), ctx, "turn-verifier"),
     maxPerSession: async (ctx) => {
       const config = await loadConfig(ctx.cwd);
       return config.ok ? config.value.verifier.maxPerSession : DEFAULT_VERIFIER_MAX;

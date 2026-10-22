@@ -1,6 +1,6 @@
 # ADR 0007: Execution-local classifier cancellation and usage ownership
 
-- **Status:** proposed
+- **Status:** accepted
 - **Date:** 2026-10-22
 
 ## Context

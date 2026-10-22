@@ -5,6 +5,7 @@ import type { ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding
 import { type Static, Type } from "typebox";
 import { resolveSlot } from "../core/models.ts";
 import type { Jev } from "../jev/client.ts";
+import { withJevToolUsage } from "../jev/execution.ts";
 import { judgeProductLenses } from "../jev/questions/product-lenses.ts";
 import {
   judgeSolutionDetail,
@@ -124,7 +125,7 @@ const parseRound = (given: number | undefined): ReviewRound | undefined => {
  * primary form (the packets go to a file, not into the coordinator's context) and the fresh
  * `agent_spawn` payloads as the fallback.
  */
-export function createLensReviewTool(deps: LensReviewDeps): ToolDefinition<typeof Parameters> {
+function buildLensReviewTool(deps: LensReviewDeps): ToolDefinition<typeof Parameters> {
   return {
     name: "devsys_lens_review",
     label: "Lens review",
@@ -203,4 +204,8 @@ export function createLensReviewTool(deps: LensReviewDeps): ToolDefinition<typeo
       );
     },
   };
+}
+
+export function createLensReviewTool(deps: LensReviewDeps): ReturnType<typeof buildLensReviewTool> {
+  return withJevToolUsage(deps, buildLensReviewTool);
 }
