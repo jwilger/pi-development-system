@@ -71,6 +71,18 @@ the public sources listed at the end.
 | researcher | researcher agents | **@fast** (local first, when it fits) | bounded codebase lookups suit jw-coder; web research overflows the window and falls back to cloud |
 | jev | judge tools | unchanged | out of scope |
 
+Task-routing cells (`devsys_route_task`, shipped `[routing]` defaults, which
+this repo keeps unchanged; the change is in which model each slot resolves to):
+
+| Difficulty / risk | Route | Resolves to here | Local? |
+|---|---|---|---|
+| `trivial/low` | fast · low | jw-coder:30b when the estimate fits, else gpt-6-luna | yes, when it fits |
+| `trivial/medium`, `trivial/high` | implementer · medium | gpt-6.1-sol | no; any risk needs a model that keeps red-first discipline |
+| `routine/low` | implementer · medium | gpt-6.1-sol | no; local failed the multi-step TDD trial |
+| `routine/medium`, `routine/high` | strong · high | gpt-6.1-sol | no |
+| `complex/*` | strong · high | gpt-6.1-sol | no; needs reasoning and more than 32K |
+| `expert/*` | frontier · high | gpt-6-astra | no |
+
 jw-fast:8b is **not** put in any agentic slot. It claimed a TDD task was done
 without doing it, which breaks non-negotiable 3. The extension makes no
 single-shot text completions today, so the 8B has no consumer here. It
