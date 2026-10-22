@@ -9,6 +9,7 @@ import type { Jev } from "../../src/jev/client.ts";
 import { ARTIFACT_QUESTIONS } from "../../src/jev/questions/sizing.ts";
 import { createIntakeTool } from "../../src/planning/intake-tool.ts";
 import { createSessionState } from "../../src/state/session-state.ts";
+import { deferred } from "../harness/deferred.ts";
 import { createFakePi } from "../harness/fake-pi.ts";
 
 const choice = (label: string, confidence = 0.9): ClassifierAnswer => ({
@@ -49,6 +50,75 @@ const setup = (jev: Jev, hasUI = true) => {
 };
 const textOf = (r: { content: readonly { type: string; text?: string }[] }): string =>
   r.content.map((c) => c.text ?? "").join("\n");
+
+test("intake delayed during sizing cannot replace a newer workflow", async () => {
+  const entered = deferred();
+  const release = deferred();
+  const slow: Jev = {
+    ...online("change"),
+    ask: async (...args) => {
+      entered.resolve();
+      await release.promise;
+      return online("change").ask(...args);
+    },
+  };
+  const { state, run } = setup(slow);
+  const pending = run({ request: "older request" });
+  await entered.promise;
+  const newer = { ...state.get(), phase: "implementing" as const };
+  state.update(() => newer);
+  release.resolve();
+  const result = await pending;
+  assert.equal(result.isError, true);
+  assert.match(textOf(result), /workflow changed/i);
+  assert.equal(state.get(), newer);
+});
+
+test("a replacement approval cannot authorize replacing a workflow that changed while asking", async () => {
+  const { fake, state, run } = setup(offline);
+  await run({ request: "original", size: "change" });
+  const entered = deferred();
+  const release = deferred<boolean>();
+  fake.ctx.ui.confirm = async () => {
+    entered.resolve();
+    return release.promise;
+  };
+  const pending = run({ request: "stale replacement", size: "change" });
+  await entered.promise;
+  const newer = { ...state.get(), phase: "reviewing" as const };
+  state.update(() => newer);
+  release.resolve(true);
+  const result = await pending;
+  assert.equal(result.isError, true);
+  assert.match(textOf(result), /workflow changed/i);
+  assert.equal(state.get(), newer);
+});
+
+test("status updates during confirmation do not invalidate intake or get overwritten", async () => {
+  const { fake, state, run } = setup(offline);
+  await run({ request: "original", size: "change" });
+  const entered = deferred();
+  const release = deferred<boolean>();
+  fake.ctx.ui.confirm = async () => {
+    entered.resolve();
+    return release.promise;
+  };
+  const pending = run({ request: "replacement", size: "change" });
+  await entered.promise;
+  const lastTestRun = {
+    status: "green" as const,
+    command: "npm test",
+    at: new Date().toISOString(),
+    exitCode: 0,
+    summary: "passed",
+  };
+  state.update((s) => ({ ...s, lastTestRun }));
+  release.resolve(true);
+  const result = await pending;
+  assert.notEqual(result.isError, true);
+  assert.equal(state.get().activeSlice, "replacement");
+  assert.equal(state.get().lastTestRun, lastTestRun);
+});
 
 test("the confirmed size sets sizing, phase and a slice named after the request", async () => {
   const { fake, state, run } = setup(unsure("capability"));

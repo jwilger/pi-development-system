@@ -30,6 +30,7 @@ import { judgeLenses, judgeSeverity } from "../jev/questions/review.ts";
 import { CONFIG_FILE, loadConfig } from "../state/config.ts";
 import { availableModels } from "../state/models-command.ts";
 import type { SessionState } from "../state/session-state.ts";
+import { sameWorkflow } from "../state/workflow.ts";
 import { snapshotDiff } from "./digest.ts";
 import type { SubmissionStore } from "./submissions.ts";
 
@@ -131,7 +132,16 @@ type Reply = ReturnType<typeof reply>;
 const replyText = (r: Reply): string => r.content.map((c) => c.text).join("\n");
 type Config = Extract<Awaited<ReturnType<typeof loadConfig>>, { ok: true }>["value"];
 type Snapshot = Extract<Awaited<ReturnType<typeof snapshotDiff>>, { ok: true }>["value"];
-type Prepared = { slice: SliceRef; config: Config; range: string; snap: Snapshot };
+type Prepared = {
+  slice: SliceRef;
+  config: Config;
+  range: string;
+  snap: Snapshot;
+  isCurrent: () => boolean;
+};
+
+const changedReview = (): Reply =>
+  reply("Workflow or review changed while waiting; start or record the current round again.", true);
 
 const requiredRounds = (config: Config): number =>
   Math.max(config.review.requiredCleanRounds, config.review.minRounds);
@@ -147,13 +157,18 @@ async function prepare(
 ): Promise<{ ok: true; value: Prepared } | { ok: false; reply: Reply }> {
   const slice = sliceOf(given.slice, deps.state);
   if (slice === undefined) return { ok: false, reply: reply(NO_SLICE, true) };
+  const before = deps.state.get();
+  const review = reviewOf(before, slice);
+  const isCurrent = () =>
+    sameWorkflow(before, deps.state.get()) && reviewOf(deps.state.get(), slice) === review;
   const config = await loadConfig(ctx.cwd);
   if (!config.ok)
     return { ok: false, reply: reply(`${CONFIG_FILE}: ${config.error.message}`, true) };
   const range = rangeOf(given.diffRange);
   const snap = await snapshotDiff(deps.exec, ctx.cwd, range);
   if (!snap.ok) return { ok: false, reply: reply(failure(range, snap.error), true) };
-  return { ok: true, value: { slice, config: config.value, range, snap: snap.value } };
+  if (!isCurrent()) return { ok: false, reply: changedReview() };
+  return { ok: true, value: { slice, config: config.value, range, snap: snap.value, isCurrent } };
 }
 
 const rangeNote = (range: string): string => (range === "HEAD" ? "" : ` ${GATE_RANGE_NOTE}`);
@@ -186,6 +201,7 @@ async function startRound(
     diffSample: p.snap.sample,
     profiles: deps.state.get().profiles ?? [],
   });
+  if (!p.isCurrent()) return changedReview();
   const { lenses, basis } = chooseLenses(judged);
   const required = requiredRounds(p.config);
   const existing = reviewOf(deps.state.get(), p.slice) ?? startReview(p.slice, required);
@@ -224,6 +240,7 @@ export function createReviewStartTool(
 ): ToolDefinition<typeof StartParameters> {
   return {
     name: "devsys_review_start",
+    executionMode: "sequential",
     label: "Start review round",
     description:
       "Begin a review round for a slice: computes the diff digest, chooses review lenses, and returns the agent_spawn payload for a fresh-context reviewer. Run that spawn, then call devsys_review_record (the reviewer submits its result with devsys_submit_review).",
@@ -352,12 +369,14 @@ async function recordRound(
   packets: readonly ReviewPacket[],
 ): Promise<Reply> {
   const required = requiredRounds(p.config);
-  const before = reviewOf(deps.state.get(), p.slice) ?? startReview(p.slice, required);
+  const current = reviewOf(deps.state.get(), p.slice);
+  const before = current ?? startReview(p.slice, required);
   const refusal = wrongPacket(packets, p.slice, before.rounds.length + 1);
   if (refusal !== undefined) return refusal;
 
   const merged = combinePackets(packets);
   const { findings, notes } = await adjusted(deps, ctx, merged.findings, p.snap.sample);
+  if (!p.isCurrent()) return changedReview();
   const review = addRound(
     { ...before, required },
     {
@@ -379,6 +398,7 @@ export function createReviewRecordTool(
 ): ToolDefinition<typeof RecordParameters> {
   return {
     name: "devsys_review_record",
+    executionMode: "sequential",
     label: "Record review round",
     description:
       "Record one review round from the reviewer's submitted result (or markdown packets): reads findings, lets Jev adjust severity when confident, and returns the clean-round count and the next action.",

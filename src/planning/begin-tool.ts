@@ -51,6 +51,7 @@ export function createBeginWorkTool(deps: {
     promptSnippet: "Start implementing after the plan is approved",
     parameters: Parameters,
     exposure: "model-only",
+    executionMode: "sequential",
     execute(_id, _params: Static<typeof Parameters>, _signal, _update, ctx) {
       const { phase, activeSlice } = deps.state.get();
       if (phase === "implementing" && activeSlice !== undefined) {

@@ -78,6 +78,7 @@ export function createSubmitReviewTool(deps: SubmitDeps): ToolDefinition<typeof 
     promptSnippet: "Submit a review result (reviewer subagents)",
     parameters: SubmitParameters,
     exposure: "direct",
+    executionMode: "sequential",
     execute(_id, params: Static<typeof SubmitParameters>) {
       return Promise.resolve(submit(deps, params));
     },

@@ -13,6 +13,7 @@ import { snapshotDiff } from "../../src/review/digest.ts";
 import { createReviewRecordTool, createReviewStartTool } from "../../src/review/review-tools.ts";
 import { createSubmissionStore } from "../../src/review/submissions.ts";
 import { createSessionState } from "../../src/state/session-state.ts";
+import { deferred } from "../harness/deferred.ts";
 import { createFakePi } from "../harness/fake-pi.ts";
 
 const bool = (probability: number): ClassifierAnswer => ({ type: "bool", probability });
@@ -55,7 +56,13 @@ const exec =
   });
 
 const DIFF = "diff --git a/x b/x\n+1\n";
-const setup = (jev: Jev, diff = DIFF, withSlice = true, untracked = "") => {
+const setup = (
+  jev: Jev,
+  diff = DIFF,
+  withSlice = true,
+  untracked = "",
+  runGit = exec(diff, untracked),
+) => {
   const cwd = mkdtempSync(join(tmpdir(), "devsys-review-"));
   const fake = createFakePi({ cwd });
   const state = createSessionState(fake.api);
@@ -65,26 +72,23 @@ const setup = (jev: Jev, diff = DIFF, withSlice = true, untracked = "") => {
     state,
     submissions,
     jev: () => jev,
-    exec: exec(diff, untracked),
+    exec: runGit,
     now: () => new Date("2026-10-06T10:00:00Z"),
   };
+  const recordRaw = (p: Record<string, unknown>) =>
+    createReviewRecordTool(deps).execute("c", p as never, undefined, undefined, fake.ctx as never);
   return {
     cwd,
     state,
     submissions,
+    recordRaw,
     start: (p: Record<string, unknown> = {}) =>
       createReviewStartTool(deps).execute("c", p as never, undefined, undefined, fake.ctx as never),
     // Fills diffDigest the way the coordinator copies it from devsys_review_start's reply.
     record: async (p: Record<string, unknown>) => {
       const snap = await snapshotDiff(deps.exec, cwd, "HEAD");
       const digest = snap.ok ? snap.value.digest : "";
-      return createReviewRecordTool(deps).execute(
-        "c",
-        { diffDigest: digest, ...p } as never,
-        undefined,
-        undefined,
-        fake.ctx as never,
-      );
+      return recordRaw({ diffDigest: digest, ...p });
     },
     snapshot: () => snapshotDiff(deps.exec, cwd, "HEAD"),
   };
@@ -94,6 +98,139 @@ const text = (r: { content: readonly { type: string }[] }): string =>
 
 const packet = (findings: string, verdict: string, round = 1, lenses = "types, tests") =>
   `## Review — s1 — round ${round} — lenses: ${lenses}\n### Sources inspected\n- a.ts:1-5\n### Findings\n${findings}\n### Verdict\n${verdict}\n`;
+
+test("a delayed review record cannot overwrite a competing recorded round", async () => {
+  const entered = deferred();
+  const release = deferred();
+  let delayed = false;
+  const fast = jevWith({}, "nit");
+  const slow: Jev = {
+    ...fast,
+    ask: async (...args) => {
+      if ("severity" in args[1] && !delayed) {
+        delayed = true;
+        entered.resolve();
+        await release.promise;
+      }
+      return fast.ask(...args);
+    },
+  };
+  const t = setup(slow);
+  await t.start();
+  const params = { packets: [packet("- [nit] types `a.ts:2` — rename — clearer", "no-blocking")] };
+  const pending = t.record(params);
+  await entered.promise;
+  const winner = await t.record(params);
+  assert.notEqual(winner.isError, true);
+  const newer = t.state.get();
+  const nextPacket = {
+    slice: "s1" as SliceRef,
+    round: 2,
+    lenses: ["types"],
+    sources: [],
+    findings: [],
+    verdict: "no-blocking" as const,
+  };
+  t.submissions.put(nextPacket);
+  release.resolve();
+  const stale = await pending;
+  assert.equal(stale.isError, true);
+  assert.match(text(stale), /changed/i);
+  assert.equal(t.state.get(), newer);
+  assert.equal(newer.reviews?.[0]?.rounds.length, 1);
+  assert.deepEqual(t.submissions.forRound("s1", 2), [nextPacket]);
+});
+
+test("a delayed review start preserves a newer workflow and pending reviewer submissions", async () => {
+  const entered = deferred();
+  const release = deferred();
+  const slow: Jev = {
+    ...offline,
+    ask: async () => {
+      entered.resolve();
+      await release.promise;
+      return err({ kind: "no-model" });
+    },
+  };
+  const t = setup(slow);
+  const pending = t.start();
+  await entered.promise;
+  const newer = { ...t.state.get(), activeSlice: "s2" as SliceRef, phase: "implementing" as const };
+  t.state.update(() => newer);
+  const submission = {
+    slice: "s1" as SliceRef,
+    round: 1,
+    lenses: ["types"],
+    sources: [],
+    findings: [],
+    verdict: "no-blocking" as const,
+  };
+  t.submissions.put(submission);
+  release.resolve();
+  const result = await pending;
+  assert.equal(result.isError, true);
+  assert.match(text(result), /changed/i);
+  assert.equal(t.state.get(), newer);
+  assert.deepEqual(t.submissions.forRound("s1", 1), [submission]);
+});
+
+test("record refuses a workflow changed during git reads without clearing its submission", async () => {
+  const entered = deferred();
+  const release = deferred();
+  const gates = new Set<string>();
+  const runGit: Exec = async (...args) => {
+    if (gates.delete("diff")) {
+      entered.resolve();
+      await release.promise;
+    }
+    return exec(DIFF)(...args);
+  };
+  const t = setup(offline, DIFF, true, "", runGit);
+  await t.start();
+  const snap = await t.snapshot();
+  assert.ok(snap.ok);
+  const submission = {
+    slice: "s1" as SliceRef,
+    round: 1,
+    lenses: ["types"],
+    sources: [],
+    findings: [],
+    verdict: "no-blocking" as const,
+  };
+  t.submissions.put(submission);
+  gates.add("diff");
+  const pending = t.recordRaw({ diffDigest: snap.value.digest });
+  await entered.promise;
+  const newer = { ...t.state.get(), activeSlice: "s2" as SliceRef, phase: "implementing" as const };
+  t.state.update(() => newer);
+  release.resolve();
+  const result = await pending;
+  assert.equal(result.isError, true);
+  assert.match(text(result), /changed/i);
+  assert.equal(t.state.get(), newer);
+  assert.deepEqual(t.submissions.forRound("s1", 1), [submission]);
+});
+
+test("review checkpoints preserve independent status updates", async () => {
+  const entered = deferred();
+  const release = deferred();
+  const slow: Jev = {
+    ...offline,
+    ask: async () => {
+      entered.resolve();
+      await release.promise;
+      return err({ kind: "no-model" });
+    },
+  };
+  const t = setup(slow);
+  const pending = t.start();
+  await entered.promise;
+  t.state.update((s) => ({ ...s, profiles: ["rust"], lastPushAt: "2026-10-22T00:00:00Z" }));
+  release.resolve();
+  assert.notEqual((await pending).isError, true);
+  assert.deepEqual(t.state.get().profiles, ["rust"]);
+  assert.equal(t.state.get().lastPushAt, "2026-10-22T00:00:00Z");
+});
 
 test("start picks Jev lenses, returns an agent_spawn payload and shows 0/3 clean", async () => {
   const t = setup(jevWith({ security: 0.9, types: 0.7 }));

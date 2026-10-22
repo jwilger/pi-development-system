@@ -151,6 +151,7 @@ export function createFinishSliceTool(
     promptSnippet: "Close the active slice once it is delivered, or abandon it",
     parameters: Parameters,
     exposure: "model-only",
+    executionMode: "sequential",
     async execute(
       _id,
       params: Static<typeof Parameters>,

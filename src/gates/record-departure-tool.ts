@@ -52,6 +52,7 @@ export function createRecordDepartureTool(
     promptSnippet: "Record a departure from a development-system default (soft gates only)",
     parameters: Parameters,
     exposure: "direct",
+    executionMode: "sequential",
     async execute(toolCallId, params: Static<typeof Parameters>, _signal, _onUpdate, ctx) {
       const gate = parseGateId(params.gate);
       const info = isParseError(gate) ? undefined : lookupGate(gate);

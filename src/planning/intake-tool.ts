@@ -13,6 +13,7 @@ import type { Jev } from "../jev/client.ts";
 import { judgeSizing } from "../jev/questions/sizing.ts";
 import { appendDecision } from "../state/decision-log.ts";
 import type { SessionState } from "../state/session-state.ts";
+import { sameWorkflow } from "../state/workflow.ts";
 import {
   decideSize,
   phaseFor,
@@ -147,6 +148,19 @@ async function fixWithoutReview(
   return path;
 }
 
+async function reviewWaiver(
+  deps: { pi: ExtensionAPI; state: SessionState },
+  ctx: ExtensionContext,
+  sizing: Sizing,
+  request: string,
+  slice: SliceRef,
+): Promise<string | undefined> {
+  if (sizing !== "fix" || !ctx.hasUI) return undefined;
+  return (await askToWaiveReview(ctx, request, slice))
+    ? fixWithoutReview(deps, ctx, slice)
+    : undefined;
+}
+
 /** `devsys_intake`: Jev (or the caller) sizes the work; only a doubtful Jev asks the user; state moves to the first phase. */
 export function createIntakeTool(deps: {
   pi: ExtensionAPI;
@@ -162,11 +176,13 @@ export function createIntakeTool(deps: {
     promptSnippet: "Size new work and propose the planning artifacts it needs",
     parameters: Parameters,
     exposure: "model-only",
+    executionMode: "sequential",
     async execute(_id, params: Static<typeof Parameters>, _signal, _onUpdate, ctx) {
       const request = params.request.trim();
       if (request === "") return reply("request must not be empty", true);
       const given = params.size === undefined ? undefined : parseSizing(params.size.trim());
       if (given !== undefined && isParseError(given)) return reply(given.message, true);
+      const initial = deps.state.get();
       const judged =
         given === undefined
           ? await judgeSizing(deps.jev(ctx), { request, repoSummary: params.repoSummary ?? "" })
@@ -181,8 +197,14 @@ export function createIntakeTool(deps: {
       const chosen = await chooseSize(ctx, decision, proposalFor);
       if ("stop" in chosen) return reply(chosen.stop, chosen.isError);
       const { sizing } = chosen;
+      if (!sameWorkflow(initial, deps.state.get())) {
+        return reply("Workflow changed while intake was waiting; run intake again.", true);
+      }
       const before = deps.state.get();
       const keep = await declinedToReplace(ctx, before);
+      if (!sameWorkflow(before, deps.state.get())) {
+        return reply("Workflow changed while intake was waiting; run intake again.", true);
+      }
       if (keep !== undefined) {
         const proposal = renderProposal({
           sizing,
@@ -198,9 +220,7 @@ export function createIntakeTool(deps: {
         sizing,
         activeSlice: slice,
       }));
-      const waived =
-        sizing === "fix" && ctx.hasUI ? await askToWaiveReview(ctx, request, slice) : false;
-      const departed = waived ? await fixWithoutReview(deps, ctx, slice) : undefined;
+      const departed = await reviewWaiver(deps, ctx, sizing, request, slice);
       const final = renderProposal({
         sizing,
         basis: decision.basis,
