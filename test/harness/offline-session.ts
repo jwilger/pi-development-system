@@ -24,6 +24,19 @@ export async function offlineSession(
   respond: (context: TranscriptContext, request: number) => ToolCall[],
 ) {
   const root = mkdtempSync(join(tmpdir(), "devsys-sdk-"));
+  const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = root;
+  let cleanupSession: (() => void) | undefined;
+  let disposed = false;
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    cleanupSession?.();
+    if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
+    rmSync(root, { recursive: true, force: true });
+  };
+  t.after(dispose);
   const settings = SettingsManager.inMemory({
     compaction: { enabled: false },
     retry: { enabled: false },
@@ -40,17 +53,15 @@ export async function offlineSession(
     api: "offline-devsys-api",
     apiKey: "not-a-real-credential",
     baseUrl: "https://offline.invalid",
-    models: [
-      {
-        id: "scripted",
-        name: "Scripted offline test model",
-        reasoning: false,
-        input: ["text"],
-        contextWindow: 32000,
-        maxTokens: 1000,
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-      },
-    ],
+    models: ["scripted", "pinned"].map((id) => ({
+      id,
+      name: `Offline test model ${id}`,
+      reasoning: false,
+      input: ["text"],
+      contextWindow: 32000,
+      maxTokens: 1000,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    })),
     streamSimple(requestModel, context) {
       const stream = createAssistantMessageEventStream();
       const calls = respond(context, requests++);
@@ -96,20 +107,14 @@ export async function offlineSession(
     model,
     modelRuntime: runtime,
     resourceLoader: loader,
-    sessionManager: SessionManager.inMemory(root),
+    sessionManager: SessionManager.create(root, join(root, "sessions")),
     settingsManager: settings,
     noTools: "builtin",
     thinkingLevel: "off",
   });
+  cleanupSession = () => session.dispose();
   t.assert.deepEqual(extensionsResult.errors, []);
   const errors: unknown[] = [];
   await session.bindExtensions({ onError: (error) => errors.push(error) });
-  return {
-    session,
-    errors,
-    dispose() {
-      session.dispose();
-      rmSync(root, { recursive: true, force: true });
-    },
-  };
+  return { session, errors, root, dispose };
 }
