@@ -1,0 +1,30 @@
+```typescript
+function fitsContext(windowTokens: number, estimateTokens: number, marginRatio: number): boolean {
+    if (windowTokens <= 0 || estimateTokens <= 0 || marginRatio < 0 || marginRatio > 1) {
+        return false;
+    }
+    const margin = windowTokens * marginRatio;
+    const available = windowTokens - margin;
+    return estimateTokens <= available;
+}
+
+// Test cases
+import { test } from 'node:test';
+import { strict as assert } from 'node:assert';
+
+test('fitsContext - estimate fits within window with margin', () => {
+    assert.ok(fitsContext(100, 80, 0.2));
+});
+
+test('fitsContext - estimate exceeds available space', () => {
+    assert.notOk(fitsContext(100, 90, 0.2));
+});
+
+test('fitsContext - margin ratio 0', () => {
+    assert.ok(fitsContext(100, 100, 0));
+});
+
+test('fitsContext - invalid margin ratio', () => {
+    assert.notOk(fitsContext(100, 50, 1.1));
+});
+```

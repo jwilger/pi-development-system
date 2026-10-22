@@ -1,0 +1,9 @@
+- **Imports and Types**: The code imports types and functions from other modules (`models.ts` and `spawn-overrides.ts`) and defines types for `Difficulty`, `RiskLevel`, `Route`, `RoutingTable`, `Recommendation`, and `ModelMatrix`.
+
+- **Route Selection**: The `pickRoute` function selects the most specific routing entry based on `difficulty` and `risk`, prioritizing exact matches, then wildcards.
+
+- **Recommendation Logic**: The `recommendRoute` function determines a model recommendation by combining routing rules with available models. It resolves a slot to a concrete model and provides notes if resolution fails.
+
+- **Agent Type to Slot Mapping**: The `slotForAgentType` function maps agent types to their respective model slots, with special handling for "lens-" types.
+
+- **Default Spawn Model**: The `spawnModelFor` function determines the default model an agent should use when no explicit model is specified, based on the agent type and available models in the matrix.

@@ -1,0 +1,5 @@
+- This TypeScript code defines a routing and recommendation system for selecting appropriate AI models based on difficulty, risk, and agent type, using a flexible key-based lookup in a routing table.
+- It includes functions to pick the best matching route from a routing table using wildcard support (`*`) and to recommend a concrete model by resolving a slot against available models and a model matrix.
+- The `recommendRoute` function returns a detailed recommendation including the resolved model, source, and a note explaining how the result was determined, falling back to a default "implementer" slot if no route matches.
+- It provides utilities for determining which model slot corresponds to an agent type (e.g., "reviewer", "coder") and for selecting a spawn model that aligns with project configurations, only returning a model if it differs from the shipped default.
+- The code integrates with model resolution logic (`resolveSlot`) and uses types like `ModelMatrix`, `Available`, and `Slot` to ensure type safety and maintainability across different AI agent spawning scenarios.

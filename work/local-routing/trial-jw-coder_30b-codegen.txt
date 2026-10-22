@@ -1,0 +1,34 @@
+```typescript
+function fitsContext(windowTokens: number, estimateTokens: number, marginRatio: number): boolean {
+    if (windowTokens <= 0 || estimateTokens < 0 || marginRatio < 0 || marginRatio > 1) {
+        return false;
+    }
+    
+    const reservedTokens = windowTokens * marginRatio;
+    const availableTokens = windowTokens - reservedTokens;
+    
+    return estimateTokens <= availableTokens;
+}
+
+// Test cases
+import { test } from 'node:test';
+import { strict as assert } from 'node:assert';
+
+test('fitsContext should return true when estimateTokens fits within available space', () => {
+    assert.equal(fitsContext(100, 80, 0.1), true);
+});
+
+test('fitsContext should return false when estimateTokens exceeds available space', () => {
+    assert.equal(fitsContext(100, 90, 0.1), false);
+});
+
+test('fitsContext should return true when estimateTokens equals available space', () => {
+    assert.equal(fitsContext(100, 90, 0.1), false);
+    assert.equal(fitsContext(100, 80, 0.2), true);
+});
+
+test('fitsContext should handle edge cases with zero margin', () => {
+    assert.equal(fitsContext(100, 100, 0), true);
+    assert.equal(fitsContext(100, 101, 0), false);
+});
+```
