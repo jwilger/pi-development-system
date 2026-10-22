@@ -1,4 +1,3 @@
-// @ts-nocheck: vendored upstream pi-subagent-manager 0.14.0 compiled under looser options; see src/subagents/VENDORED.md
 import type {
   ExtensionAPI,
   ExtensionToolContext,
@@ -43,19 +42,26 @@ export function createInheritedToolSource(pi: ExtensionAPI) {
       for (const tool of loadout.registered) {
         const exposure = loadout.getExposure(tool.name);
         // Inactive direct tools and hidden tools are not available in the root either.
-        if (!callable.has(tool.name) && !active.has(tool.name)) continue;
+        if (!(callable.has(tool.name) || active.has(tool.name))) continue;
         if (exposure === "hidden") continue;
         const metadata = info.get(tool.name);
-        tools.push({
+        const namespace = loadout.getNamespace(tool.name);
+        // The root execution pipeline applies argument preparation. Remove any
+        // child-side shim so non-idempotent preparation runs only once.
+        const { prepareArguments: _preparation, ...inherited } = {
           ...tool,
-          // The root execution pipeline applies argument preparation. Running it in
-          // the child too would corrupt non-idempotent preparation shims.
           prepareArguments: undefined,
+        };
+        tools.push({
+          ...inherited,
           label: tool.label,
           exposure,
-          namespace: loadout.getNamespace(tool.name),
-          annotations: metadata?.annotations,
-          promptGuidelines: metadata?.promptGuidelines,
+          ...(namespace === undefined ? {} : { namespace }),
+          ...(metadata?.annotations === undefined ? {} : { annotations: metadata.annotations }),
+          ...(metadata?.promptGuidelines === undefined
+            ? {}
+            : { promptGuidelines: metadata.promptGuidelines }),
+          ...(metadata?.reachesTools === undefined ? {} : { reachesTools: metadata.reachesTools }),
           defaultActive: active.has(tool.name),
           async execute(_id, args, signal, onUpdate) {
             if (!callable.has(tool.name)) {
@@ -64,17 +70,20 @@ export function createInheritedToolSource(pi: ExtensionAPI) {
               // SDK orchestrators are instead recreated locally by runtime.
               throw new Error(
                 `Cannot safely inherit model-only tool ${tool.name}: the SDK does not ` +
-                "provide a hook-preserving execution bridge. Run it in the main session.",
+                  "provide a hook-preserving execution bridge. Run it in the main session.",
               );
             }
             const bridge = rootContext ?? context;
             if (!bridge) {
               throw new Error(
                 "Inherited tool execution needs a main-session agent_* tool call first. " +
-                "Use agent_steer to resume this child instead of the thread dialog.",
+                  "Use agent_steer to resume this child instead of the thread dialog.",
               );
             }
-            const outcome = await bridge.executeTool(tool.name, args, { signal, onUpdate });
+            const outcome = await bridge.executeTool(tool.name, args, {
+              ...(signal === undefined ? {} : { signal }),
+              ...(onUpdate === undefined ? {} : { onUpdate }),
+            });
             return { ...outcome.result, isError: outcome.isError };
           },
         });

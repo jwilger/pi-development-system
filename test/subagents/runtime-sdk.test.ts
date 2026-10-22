@@ -8,7 +8,16 @@ import type { AgentDriver, DriverOptions } from "../../src/subagents/types.ts";
 import { deferred } from "../harness/deferred.ts";
 import { offlineSession } from "../harness/offline-session.ts";
 
-async function childHarness(t: TestContext, waitForAbort = false) {
+const inheritedUsage = {
+  input: 10,
+  output: 2,
+  cacheRead: 0,
+  cacheWrite: 0,
+  totalTokens: 12,
+  cost: { input: 0.1, output: 0.02, cacheRead: 0, cacheWrite: 0, total: 0.12 },
+};
+
+async function childHarness(t: TestContext, waitForAbort = false, block = false) {
   let child: AgentDriver | undefined;
   let factory: ReturnType<typeof createDriverFactory> | undefined;
   let options: DriverOptions | undefined;
@@ -24,7 +33,11 @@ async function childHarness(t: TestContext, waitForAbort = false) {
         root = ctx;
       });
       pi.on("tool_call", (event) => {
-        if (event.toolName === "inherited_probe") trace.push("parent permission");
+        if (event.toolName === "inherited_probe") {
+          trace.push("parent permission");
+          if (block) return { block: true, reason: "fixture parent policy" };
+        }
+        return undefined;
       });
       pi.on("tool_result", (event) => {
         if (event.toolName === "inherited_probe") trace.push("parent result");
@@ -48,7 +61,11 @@ async function childHarness(t: TestContext, waitForAbort = false) {
               else signal.addEventListener("abort", aborted, { once: true });
             });
           }
-          return { content: [{ type: "text", text: "inherited success" }], details: undefined };
+          return {
+            content: [{ type: "text", text: "inherited success" }],
+            details: undefined,
+            usage: inheritedUsage,
+          };
         },
       });
       pi.registerTool({
@@ -114,6 +131,11 @@ test("detached SDK children inherit tools through parent hooks and resume their 
   await h.child.prompt("Run inherited probe, detached from the spawning tool.");
   assert.deepEqual(h.trace, ["parent permission", "execute", "parent result"]);
   assert.equal(h.child.output(), "done");
+  const inheritedResult = h.child.snapshot().find((message) => message.role === "toolResult");
+  assert.ok(inheritedResult?.role === "toolResult");
+  assert.deepEqual(inheritedResult.usage, inheritedUsage);
+  assert.equal(h.host.session.getSessionStats().tokens.total, 0);
+  assert.equal(h.host.session.getSessionStats().cost, 0);
   assert.ok(
     h.child.snapshot().some((m) => m.role === "toolResult" && m.toolName === "inherited_probe"),
   );
@@ -145,6 +167,18 @@ test("detached SDK children inherit tools through parent hooks and resume their 
   assert.equal(assistant?.provider, "offline-devsys");
   assert.equal(assistant?.model, "pinned");
   assert.equal(h.host.session.model?.id, "scripted", "the root must use a different model");
+  assert.deepEqual(h.host.errors, []);
+});
+
+test("detached inherited execution cannot bypass a parent permission block", async (t) => {
+  const h = await childHarness(t, false, true);
+  await h.child.prompt("Try the operation denied by the parent policy.");
+  assert.ok(h.trace.includes("parent permission"));
+  assert.equal(h.trace.includes("execute"), false);
+  const result = h.child.snapshot().find((message) => message.role === "toolResult");
+  assert.ok(result?.role === "toolResult");
+  assert.equal(result.isError, true);
+  assert.match(JSON.stringify(result.content), /fixture parent policy/);
   assert.deepEqual(h.host.errors, []);
 });
 
