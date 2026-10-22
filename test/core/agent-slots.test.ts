@@ -48,3 +48,13 @@ test("configuring a tier reaches the slots that point at it", () => {
   const matrix = { ...defaultMatrix(), strong: ["acme/big-2"] };
   assert.equal(spawnModelFor("implementer", matrix, available), "acme/big-2");
 });
+
+test("a spawn too large for the configured slot's first model gets the next one that fits", () => {
+  const local = [
+    { provider: "local", id: "coder-30", contextWindow: 32_768 },
+    { provider: "acme", id: "big-2", contextWindow: 272_000 },
+  ];
+  const matrix = pinned("researcher", "local/coder-*", "acme/big-*");
+  assert.equal(spawnModelFor("researcher", matrix, local, 10_000), "local/coder-30");
+  assert.equal(spawnModelFor("researcher", matrix, local, 30_000), "acme/big-2");
+});

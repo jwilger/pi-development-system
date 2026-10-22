@@ -212,3 +212,64 @@ test("flattenSlot stops at reference cycles instead of looping", async () => {
   const cyclic = { ...defaultMatrix(), planning: ["@advisor", "a/p-*"], advisor: ["@planning"] };
   assert.deepEqual(flattenSlot(cyclic, "planning"), ["a/p-*"]);
 });
+
+const sized = (ref: string, contextWindow?: number): Available => {
+  const [provider = "", id = ""] = ref.split("/");
+  return contextWindow === undefined ? { provider, id } : { provider, id, contextWindow };
+};
+
+test("resolveSlot with an estimate skips a model whose window is too small and names it", () => {
+  const m = matrix({ fast: ["local/coder-*", "cloud/luna-*"] });
+  const r = resolveSlot(
+    m,
+    "fast",
+    [sized("local/coder-30", 32_768), sized("cloud/luna-6", 272_000)],
+    25_000,
+  );
+  assert.deepEqual(r, {
+    ok: true,
+    value: { model: "cloud/luna-6", via: "cloud/luna-*", skipped: ["local/coder-30"] },
+  });
+});
+
+test("resolveSlot with a small estimate keeps the small-window model first", () => {
+  const m = matrix({ fast: ["local/coder-*", "cloud/luna-*"] });
+  const r = resolveSlot(
+    m,
+    "fast",
+    [sized("local/coder-30", 32_768), sized("cloud/luna-6", 272_000)],
+    12_000,
+  );
+  assert.deepEqual(r, { ok: true, value: { model: "local/coder-30", via: "local/coder-*" } });
+});
+
+test("resolveSlot without an estimate ignores context windows", () => {
+  const m = matrix({ fast: ["local/coder-*"] });
+  const r = resolveSlot(m, "fast", [sized("local/coder-30", 1_000)]);
+  assert.deepEqual(r, { ok: true, value: { model: "local/coder-30", via: "local/coder-*" } });
+});
+
+test("a family pattern falls back to an older member that fits before the next candidate", () => {
+  const m = matrix({ fast: ["local/coder-*", "cloud/luna-*"] });
+  const r = resolveSlot(
+    m,
+    "fast",
+    [sized("local/coder-31", 8_000), sized("local/coder-30", 64_000), sized("cloud/luna-6")],
+    20_000,
+  );
+  assert.deepEqual(r, {
+    ok: true,
+    value: { model: "local/coder-30", via: "local/coder-*", skipped: ["local/coder-31"] },
+  });
+});
+
+test("skipped models are named across @slot indirection, and nothing fitting is unresolvable", () => {
+  const m = matrix({ fast: ["local/coder-*"], researcher: ["@fast", "cloud/luna-*"] });
+  const both = [sized("local/coder-30", 32_768), sized("cloud/luna-6", 272_000)];
+  assert.deepEqual(resolveSlot(m, "researcher", both, 30_000), {
+    ok: true,
+    value: { model: "cloud/luna-6", via: "cloud/luna-*", skipped: ["local/coder-30"] },
+  });
+  const r = resolveSlot(m, "fast", both.slice(0, 1), 30_000);
+  assert.equal(r.ok, false);
+});

@@ -61,6 +61,12 @@ function priceOf(model: string, available: readonly CatalogModel[]): string {
     : ` · ${perMillion(hit.cost.input)}/${perMillion(hit.cost.output)} per M`;
 }
 
+/** ` · 32768-token window` (the same wording devsys_route_task uses) for a model whose window the registry knows, else nothing. */
+function windowOf(model: string, available: readonly Available[]): string {
+  const window = available.find((m) => `${m.provider}/${m.id}` === model)?.contextWindow;
+  return window === undefined ? "" : ` · ${window}-token window`;
+}
+
 /** One line per slot: `slot → provider/id (via candidate) · $in/$out per M`, or `UNRESOLVED`. */
 function renderModelsTable(rows: readonly SlotRow[], available: readonly CatalogModel[]): string {
   const width = Math.max(...SLOTS.map((s) => s.length));
@@ -68,7 +74,7 @@ function renderModelsTable(rows: readonly SlotRow[], available: readonly Catalog
     .map(({ slot, resolution }) =>
       resolution === undefined
         ? `${slot.padEnd(width)}  → UNRESOLVED (no candidate matches a model with credentials)`
-        : `${slot.padEnd(width)}  → ${resolution.model} (via ${resolution.via})${priceOf(resolution.model, available)}`,
+        : `${slot.padEnd(width)}  → ${resolution.model} (via ${resolution.via})${windowOf(resolution.model, available)}${priceOf(resolution.model, available)}`,
     )
     .join("\n");
 }
@@ -221,7 +227,7 @@ export function createModelsTool(): ToolDefinition<typeof Parameters> {
           .map((r) =>
             r.resolution === undefined
               ? `${r.slot}: unresolved`
-              : `${r.slot}: ${r.resolution.model} (via ${r.resolution.via})`,
+              : `${r.slot}: ${r.resolution.model} (via ${r.resolution.via})${windowOf(r.resolution.model, available)}`,
           )
           .join("\n"),
         rows.some((r) => r.resolution === undefined),

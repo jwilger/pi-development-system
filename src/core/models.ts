@@ -1,3 +1,4 @@
+import { fitsWindow } from "./context-fit.ts";
 import { err, ok, type Result } from "./result.ts";
 
 /** Capability tiers and roles the system asks models for (plan Appendix B `[models]`). */
@@ -24,13 +25,23 @@ export type ModelRef = `${string}/${string}`;
 /** Ordered candidates per slot: `provider/id`, `provider/family-*`, or `@slot` indirection. */
 export type ModelMatrix = Readonly<Record<Slot, readonly string[]>>;
 
-export type Available = { readonly provider: string; readonly id: string };
+export type Available = {
+  readonly provider: string;
+  readonly id: string;
+  /** Tokens the model accepts per request, when the registry knows it. */
+  readonly contextWindow?: number;
+};
 
 export type ModelError =
   | { readonly kind: "unresolvable"; readonly slot: Slot }
   | { readonly kind: "cycle"; readonly path: readonly Slot[] };
 
-export type Resolution = { readonly model: ModelRef; readonly via: string };
+export type Resolution = {
+  readonly model: ModelRef;
+  readonly via: string;
+  /** Matching models passed over because the estimate does not fit their window; absent when none were. */
+  readonly skipped?: readonly ModelRef[];
+};
 
 type VersionKey = { readonly numbers: readonly number[]; readonly date: number | undefined };
 
@@ -118,34 +129,72 @@ export function resolveCandidate(
   return best === undefined ? undefined : `${ref.provider}/${best}`;
 }
 
+/** Newest matching model that fits the estimate, and the newer matches it passed over. */
+function fittingCandidate(
+  candidate: string,
+  available: readonly Available[],
+  estimate: number | undefined,
+): { readonly model: ModelRef | undefined; readonly skipped: readonly ModelRef[] } {
+  const ref = splitRef(candidate);
+  if (ref === undefined) return { model: undefined, skipped: [] };
+  const matches = available
+    .filter((m) => m.provider === ref.provider && matchesPattern(ref.id, m.id))
+    .sort((a, b) => compareModelVersions(b.id, a.id));
+  const skipped: ModelRef[] = [];
+  for (const m of matches) {
+    const model: ModelRef = `${ref.provider}/${m.id}`;
+    if (estimate === undefined || fitsWindow(estimate, m.contextWindow)) return { model, skipped };
+    skipped.push(model);
+  }
+  return { model: undefined, skipped };
+}
+
+type Walk = {
+  readonly result: Result<Resolution, ModelError>;
+  readonly skipped: readonly ModelRef[];
+};
+
 function resolveFrom(
   matrix: ModelMatrix,
   slot: Slot,
   available: readonly Available[],
   trail: readonly Slot[],
-): Result<Resolution, ModelError> {
-  if (trail.includes(slot)) return err({ kind: "cycle", path: [...trail, slot] });
+  estimate: number | undefined,
+): Walk {
+  if (trail.includes(slot))
+    return { result: err({ kind: "cycle", path: [...trail, slot] }), skipped: [] };
+  const skipped: ModelRef[] = [];
   for (const candidate of matrix[slot]) {
     if (candidate.startsWith("@")) {
       const target = candidate.slice(1);
       if (!isSlot(target)) continue;
-      const inner = resolveFrom(matrix, target, available, [...trail, slot]);
-      if (inner.ok || inner.error.kind === "cycle") return inner;
+      const inner = resolveFrom(matrix, target, available, [...trail, slot], estimate);
+      skipped.push(...inner.skipped);
+      if (inner.result.ok || inner.result.error.kind === "cycle")
+        return { result: inner.result, skipped };
       continue;
     }
-    const model = resolveCandidate(candidate, available);
-    if (model !== undefined) return ok({ model, via: candidate });
+    const found = fittingCandidate(candidate, available, estimate);
+    skipped.push(...found.skipped);
+    if (found.model !== undefined)
+      return { result: ok({ model: found.model, via: candidate }), skipped };
   }
-  return err({ kind: "unresolvable", slot });
+  return { result: err({ kind: "unresolvable", slot }), skipped };
 }
 
-/** First candidate of the slot that resolves against what this machine can use; `via` is the matching candidate. */
+/**
+ * First candidate of the slot that resolves against what this machine can use; `via` is the matching candidate.
+ * With an `estimate` (tokens), models whose known context window cannot fit it are skipped and listed (ADR 0009).
+ */
 export function resolveSlot(
   matrix: ModelMatrix,
   slot: Slot,
   available: readonly Available[],
+  estimate?: number,
 ): Result<Resolution, ModelError> {
-  return resolveFrom(matrix, slot, available, []);
+  const { result, skipped } = resolveFrom(matrix, slot, available, [], estimate);
+  if (!result.ok || skipped.length === 0) return result;
+  return ok({ ...result.value, skipped: [...new Set(skipped)] });
 }
 
 /** Every candidate of a slot in order with `@slot` references expanded and duplicates dropped; cycles are skipped. */

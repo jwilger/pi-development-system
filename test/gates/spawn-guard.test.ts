@@ -75,3 +75,31 @@ test("an agent_steer message that carries a credential is refused, with no value
   assert.doesNotMatch(refused?.reason ?? "", new RegExp(TOKEN));
   assert.equal(await steer("carry on"), undefined);
 });
+
+test("a spawn too large for the slot's small-window model gets the next model that fits", async () => {
+  const cwd = mkdtempSync(join(tmpdir(), "devsys-spawn-"));
+  writeFileSync(
+    join(cwd, ".development-system.toml"),
+    '[models]\nresearcher = ["local/coder-*", "acme/big-*"]\n',
+  );
+  const fake = createFakePi({
+    cwd,
+    models: [
+      { id: "local/coder-30", contextWindow: 32_768 },
+      { id: "acme/big-2", contextWindow: 272_000 },
+    ],
+  });
+  registerSpawnGuard({ pi: fake.api });
+  const spawn = async (task: string) => {
+    const input: Record<string, unknown> = { path: "/r", type: "researcher", task };
+    await fake.emit({
+      type: "tool_call",
+      toolName: "agent_spawn",
+      toolCallId: "c",
+      input,
+    } as never);
+    return input.model;
+  };
+  assert.equal(await spawn("find where routing is defined"), "local/coder-30");
+  assert.equal(await spawn("x".repeat(60_000)), "acme/big-2");
+});

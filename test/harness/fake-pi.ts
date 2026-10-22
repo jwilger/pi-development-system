@@ -27,7 +27,7 @@ export type FakePiOptions = {
   /** `provider/id` classifier models that exist and have configured auth. */
   classifiers?: string[];
   /** Chat models available with credentials, as `provider/id` (optionally with a price). */
-  models?: { id: string; cost?: { input: number; output: number } }[];
+  models?: { id: string; cost?: { input: number; output: number }; contextWindow?: number }[];
   /** Names `pi.getActiveTools()` reports; add `codemode` to simulate codemode being on. */
   activeTools?: string[];
   /** Names `pi.getAllTools()` reports: every tool registered by any extension, active or not. */
@@ -78,7 +78,12 @@ export function createFakePi(init: FakePiOptions = {}) {
       getAvailable: () =>
         (init.models ?? []).map((m) => {
           const at = m.id.indexOf("/");
-          return { provider: m.id.slice(0, at), id: m.id.slice(at + 1), cost: m.cost };
+          return {
+            provider: m.id.slice(0, at),
+            id: m.id.slice(at + 1),
+            cost: m.cost,
+            ...(m.contextWindow === undefined ? {} : { contextWindow: m.contextWindow }),
+          };
         }),
       getModelsOfType: () =>
         (init.classifiers ?? []).map((c) => {

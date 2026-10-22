@@ -122,3 +122,28 @@ test("devsys_models resolves one slot, all slots, and rejects unknown slots", as
   const bad = await call({ slot: "nope" });
   assert.equal(bad.isError, true);
 });
+
+test("the models table and devsys_models show each resolved model's context window", async () => {
+  const { cwd, fake, run } = setup([
+    { id: "local/coder-30", contextWindow: 32_768 },
+    { id: "anthropic/claude-opus-5-5", contextWindow: 1_000_000 },
+  ]);
+  writeFileSync(join(cwd, CONFIG_FILE), '[models]\nfast = ["local/coder-*", "@strong"]\n');
+  const outcome = await run("--check");
+  assert.match(
+    outcome.table,
+    /^fast\s+→ local\/coder-30 \(via local\/coder-\*\) · 32768-token window/m,
+  );
+  const tool = createModelsTool();
+  const r = await tool.execute(
+    "c",
+    { slot: "fast" } as never,
+    undefined,
+    undefined,
+    fake.ctx as never,
+  );
+  assert.match(
+    JSON.stringify(r.content),
+    /fast: local\/coder-30 \(via local\/coder-\*\) · 32768-token window/,
+  );
+});

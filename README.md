@@ -104,7 +104,10 @@ and role slots built on them (`planning`, `advisor`, `implementer`, `reviewer`, 
 `researcher`, `jev`). A slot is an ordered list of candidates: `provider/id`, a family pattern
 such as `provider/gpt-*-sol` (the newest available id wins) or a slot reference such as `@strong`.
 The first candidate this machine has credentials for is used, so one committed file works across
-accounts. Pin an exact id to stop it rolling forward. `devsys_models` shows what each slot
+accounts. When routing a task or a spawn, a candidate whose known context window is too small is
+skipped: the estimated request (8K tokens of overhead plus the task text and named files) must be at
+most 60% of the window (ADR 0009). This lets a small local model come first in a slot and still
+fall back to a cloud model for large work; `devsys_route_task` says which models it skipped. Pin an exact id to stop it rolling forward. `devsys_models` shows what each slot
 resolves to, and the system recommends a model for a phase but never switches yours.
 
 ## Enforcement tiers
@@ -142,7 +145,8 @@ What the tiers do not cover, so you can decide what to trust:
   `thinking_level` (default `high`) on the `reviewer` and `lens` slots; it is not routed by risk.
   `devsys_route_task` routes the implementer, and the coordinator must pass its result on. A plain
   `agent_spawn` with no `model` gets the model of the agent type's slot when the project configured
-  that slot in `[models]`; an unconfigured slot leaves the agent type's own list in force.
+  that slot in `[models]`, passing over models whose context window the task text would already
+  crowd; an unconfigured slot leaves the agent type's own list in force.
 - **Subagents run unguarded.** A child session is started without extensions, so none of the guards
   runs inside it. The coordinator commits, pushes and delivers; a subagent's prompt tells it not to,
   and the coordinator reviews what it produced.
