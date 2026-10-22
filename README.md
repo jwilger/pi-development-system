@@ -71,8 +71,13 @@ confident, and the user is asked to pick only when it is less sure (or unavailab
 front, such as in a goal's planning, is passed as `size` and skips the sizing question entirely (a `fix` still asks whether to waive review).
 
 With `codemode` enabled (`"defaultTools": ["+codemode"]` in pi settings), rarely used tools are
-reached through scripts and the `judge_*` Jev wrappers exist for scripts only; without codemode
-the rarely used tools are declared directly and the wrappers are absent.
+reached through scripts. With `tool_search` instead, search activates them on demand. Without either
+discovery tool, the rarely used tools are declared directly. This fallback is refreshed before each
+model turn; enabling discovery withdraws only declarations added by the fallback, preserving tools
+that were independently active. The `judge_*` Jev wrappers remain registered for scripts or explicit
+search activation, never automatically added to the direct fallback. Sessions from before 1.7.0 lack
+fallback ownership records: their existing rare-tool selections are preserved on upgrade. Explicitly
+deactivate those selections if you want them available only through discovery.
 
 ## Configuration
 

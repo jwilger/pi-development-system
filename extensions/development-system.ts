@@ -18,7 +18,7 @@ import { defaultMatrix } from "../src/core/models.ts";
 import { createApprovalStore } from "../src/gates/approvals.ts";
 import { registerCommitGuard } from "../src/gates/commit-guard.ts";
 import { createExcusedMessages } from "../src/gates/excused-messages.ts";
-import { declareWithoutCodemode } from "../src/gates/exposure.ts";
+import { registerDiscoveryFallback } from "../src/gates/exposure.ts";
 import { registerGitGuard } from "../src/gates/git-guard.ts";
 import { registerLintSuppressionGuard } from "../src/gates/lint-suppression-guard.ts";
 import { registerPushGuard } from "../src/gates/push-guard.ts";
@@ -190,7 +190,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   registerLintSuppressionGuard({ pi, state });
   pi.registerTool(createRecordDepartureTool({ pi, state }));
   pi.registerTool(createRequestApprovalTool({ pi, approvals }));
-  // Rarely used tools: reached through codemode when it is on, declared directly when it is not.
+  // Rare tools stay discoverable through codemode/tool_search, with direct fallback otherwise.
   const rarelyUsed: ToolDefinition[] = [
     createModelsTool(),
     createRouteTaskTool({ jev: (ctx) => jevHolder.forContext(ctx) }),
@@ -198,7 +198,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
     createWorkItemTool({ exec }),
   ];
   for (const tool of rarelyUsed) pi.registerTool(tool);
-  pi.on("session_start", () => declareWithoutCodemode(pi, rarelyUsed));
+  registerDiscoveryFallback(pi, rarelyUsed);
   // The judge_* tools exist only for scripts: without codemode there is nothing to call them from.
   for (const tool of createJudgeTools({ jev: (ctx) => jevHolder.forContext(ctx) })) {
     pi.registerTool(tool);
