@@ -1,7 +1,7 @@
 /** Default Jev classifier candidates, tried in order; overridable by `[models] jev`. */
 export const DEFAULT_JEV_CANDIDATES: readonly string[] = [
   "typesafe/jev-latest",
-  "openrouter/typesafe/jev-latest",
+  "openrouter/~typesafe/jev-latest",
   "opencode/jev-1.13",
   "cloudflare-workers-ai/typesafe/jev",
   "vercel-ai-gateway/typesafe-ai/jev",

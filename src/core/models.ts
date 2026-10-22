@@ -207,7 +207,7 @@ export function defaultMatrix(): ModelMatrix {
     researcher: ["@fast"],
     jev: [
       "typesafe/jev-latest",
-      "openrouter/typesafe/jev-latest",
+      "openrouter/~typesafe/jev-latest",
       "opencode/jev-1.13",
       "cloudflare-workers-ai/typesafe/jev",
       "vercel-ai-gateway/typesafe-ai/jev",
