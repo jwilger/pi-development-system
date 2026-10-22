@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 import developmentSystem, { createDevelopmentSystem } from "../extensions/development-system.ts";
+import { IMPORT_REQUEST_PREFIX } from "../src/subagents/prefs/agent-import.ts";
 import { createFakePi } from "./harness/fake-pi.ts";
 
 test("loading registers devsys-status and the session_start/before_agent_start handlers", () => {
@@ -27,6 +31,7 @@ test("before_agent_start puts the non-negotiables into the development-system se
   const options = { sections: {} as Record<string, string> };
   await fake.emit({
     type: "before_agent_start",
+    messageType: "user",
     prompt: "hi",
     systemPrompt: "",
     systemPromptOptions: options,
@@ -35,6 +40,88 @@ test("before_agent_start puts the non-negotiables into the development-system se
     new Map(Object.entries(options.sections)).get("development-system") ?? "",
     /Never rewrite pushed history/,
   );
+});
+
+test("custom-triggered runs install all prompt sections without classifying a user request", async (t) => {
+  const agentDir = mkdtempSync(join(tmpdir(), "devsys-custom-"));
+  const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = agentDir;
+  t.after(() => {
+    if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
+    rmSync(agentDir, { recursive: true, force: true });
+  });
+  const fake = createFakePi({
+    hasUI: false,
+    cwd: agentDir,
+    classifiers: ["typesafe/jev-latest"],
+  });
+  createDevelopmentSystem(fake.api);
+  const options = { sections: {} as Record<string, string>, promptGuidelines: [] };
+  await fake.emitAll({
+    type: "before_agent_start",
+    messageType: "custom",
+    message: {
+      role: "custom",
+      customType: "subagent-summary",
+      content: "A detached agent completed.",
+      display: false,
+      timestamp: 0,
+    },
+    systemPrompt: "",
+    systemPromptOptions: options,
+  } as never);
+  const sections = new Map(Object.entries(options.sections));
+  assert.match(sections.get("development-system") ?? "", /Never rewrite pushed history/);
+  assert.match(sections.get("development-system-state") ?? "", /phase: idle/);
+  assert.ok(options.sections["pi-subagent"]);
+  assert.equal(fake.classifyCalls.count, 0);
+});
+
+test("only a user import request records onboarding, not a custom-triggered run", async (t) => {
+  const agentDir = mkdtempSync(join(tmpdir(), "devsys-import-"));
+  const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = agentDir;
+  t.after(() => {
+    if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
+    rmSync(agentDir, { recursive: true, force: true });
+  });
+  const fake = createFakePi({ hasUI: false, cwd: agentDir });
+  createDevelopmentSystem(fake.api);
+  const marker = join(agentDir, "subagent-manager", ".import-offered");
+  const options = { sections: {} as Record<string, string>, promptGuidelines: [] };
+  await fake.emitAll({
+    type: "before_agent_start",
+    messageType: "custom",
+    message: {
+      role: "custom",
+      customType: "import-notification",
+      content: IMPORT_REQUEST_PREFIX,
+      display: false,
+      timestamp: 0,
+    },
+    systemPrompt: "",
+    systemPromptOptions: options,
+  } as never);
+  assert.equal(existsSync(marker), false);
+  await fake.emitAll({
+    type: "before_agent_start",
+    messageType: "user",
+    prompt: "An unrelated request",
+    systemPrompt: "",
+    systemPromptOptions: options,
+  } as never);
+  assert.equal(existsSync(marker), false);
+  await fake.emitAll({
+    type: "before_agent_start",
+    messageType: "user",
+    prompt: `${IMPORT_REQUEST_PREFIX}\nSelected agent details`,
+    systemPrompt: "",
+    systemPromptOptions: options,
+  } as never);
+  assert.equal(existsSync(marker), true);
+  assert.ok(options.sections["pi-subagent"]);
 });
 
 test("/devsys-status notifies with the status report", async () => {
@@ -78,6 +165,7 @@ test("no context handler: nothing is appended to the request after the cache bre
 
 const promptEvent = () => ({
   type: "before_agent_start",
+  messageType: "user",
   prompt: "hi",
   systemPrompt: "",
   systemPromptOptions: { sections: {} as Record<string, string>, promptGuidelines: [] },
@@ -149,9 +237,6 @@ test("session_start on a resumed session keeps persisted phase and departures", 
 });
 
 test("session_start detects the repository's language profiles into state", async () => {
-  const { mkdtempSync, writeFileSync } = await import("node:fs");
-  const { tmpdir } = await import("node:os");
-  const { join } = await import("node:path");
   const cwd = mkdtempSync(join(tmpdir(), "devsys-ext-"));
   writeFileSync(join(cwd, "Cargo.toml"), "");
   const fake = createFakePi({ cwd });
@@ -161,9 +246,6 @@ test("session_start detects the repository's language profiles into state", asyn
 });
 
 test("a configured profiles.override wins over detection", async () => {
-  const { mkdtempSync, writeFileSync } = await import("node:fs");
-  const { tmpdir } = await import("node:os");
-  const { join } = await import("node:path");
   const cwd = mkdtempSync(join(tmpdir(), "devsys-ext-"));
   writeFileSync(join(cwd, "Cargo.toml"), "");
   writeFileSync(join(cwd, ".development-system.toml"), '[profiles]\noverride = ["typescript"]\n');

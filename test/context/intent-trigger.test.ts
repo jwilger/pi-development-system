@@ -50,6 +50,7 @@ const run = async (prompt: string, opts: Setup = {}) => {
   }
   const event = {
     type: "before_agent_start",
+    messageType: "user",
     prompt,
     systemPrompt: "",
     systemPromptOptions: { sections: {}, promptGuidelines: [] as string[] },
@@ -100,6 +101,7 @@ test("a Jev that is known to be offline costs no call; a failing one adds nothin
   await fake.emit({ type: "session_start" } as never);
   const event = () => ({
     type: "before_agent_start",
+    messageType: "user",
     prompt: "add a flag",
     systemPrompt: "",
     systemPromptOptions: { sections: {}, promptGuidelines: [] as string[] },

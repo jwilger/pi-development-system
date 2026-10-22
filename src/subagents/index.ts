@@ -438,7 +438,11 @@ export default function piSubagent(pi: ExtensionAPI): void {
   pi.on("before_agent_start", async (event, ctx) => {
     const prompt = subagentPrompt(limits);
     if (!prompt) return;
-    if (limits.subagentMode === "opportunistic" && event.prompt.startsWith(IMPORT_REQUEST_PREFIX)) {
+    if (
+      limits.subagentMode === "opportunistic" &&
+      event.messageType === "user" &&
+      event.prompt.startsWith(IMPORT_REQUEST_PREFIX)
+    ) {
       try {
         markImportOffered(getAgentDir());
       } catch (error) {

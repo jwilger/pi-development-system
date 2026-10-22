@@ -200,6 +200,18 @@ changes the version, so run it after that commit exists; the file lists what has
 
 ## Development
 
+The development lockfile and compatibility regression suite target **pi 1.4.0**.
+Host-provided pi packages remain wildcard peers, as pi's package contract requires;
+that declaration is not a claim that every older or future host release is tested.
+TypeBox follows the version supplied by the tested pi host rather than an independently
+upgraded copy.
+
 ```sh
 nix develop
+npm ci
+npm run typecheck
+npm test
+npm run lint
+npm run lint:knip
+npm run lint:md
 ```

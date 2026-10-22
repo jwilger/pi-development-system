@@ -110,7 +110,10 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
       cadenceFor = current.lastPushAt;
       lastCadence = undefined;
     }
-    const intentLine = await intentLineFor(event.prompt, current, jevHolder.forContext(ctx));
+    const intentLine =
+      event.messageType === "user"
+        ? await intentLineFor(event.prompt, current, jevHolder.forContext(ctx))
+        : undefined;
     const nudge = renderNudge(current, Date.now(), pushMinutes, intentLine, lastCadence);
     if (nudge === undefined) return undefined;
     lastCadence = nudge.cadence;
