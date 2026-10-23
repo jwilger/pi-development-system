@@ -6,6 +6,7 @@ import test from "node:test";
 import type { ClassifierAnswer } from "@earendil-works/pi-ai";
 import { err, ok } from "../../src/core/result.ts";
 import type { Jev } from "../../src/jev/client.ts";
+import { USER_CONFIG_FILE } from "../../src/state/config.ts";
 import { createRouteTaskTool } from "../../src/state/route-task-tool.ts";
 import { createFakePi } from "../harness/fake-pi.ts";
 
@@ -107,4 +108,29 @@ test("a named file that does not exist adds nothing to the estimate", async () =
     fake.ctx as never,
   );
   assert.match(textOf(r), /"model":"local\/coder-30"/);
+});
+
+test("a user-config candidate for the routed slot is the model returned", async () => {
+  const user = mkdtempSync(join(tmpdir(), "devsys-user-"));
+  writeFileSync(join(user, USER_CONFIG_FILE), '[models]\nfast = ["local/coder"]\n');
+  const previous = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = user;
+  try {
+    const fake = createFakePi({
+      cwd: mkdtempSync(join(tmpdir(), "devsys-route-")),
+      models: [...models, { id: "local/coder" }],
+    });
+    const tool = createRouteTaskTool({ jev: () => online("trivial", "low") });
+    const r = await tool.execute(
+      "c",
+      { task: "rename a variable" } as never,
+      undefined,
+      undefined,
+      fake.ctx as never,
+    );
+    assert.match(textOf(r), /"model":"local\/coder"/);
+  } finally {
+    if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previous;
+  }
 });

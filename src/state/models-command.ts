@@ -6,6 +6,7 @@ import type {
   ExtensionContext,
   ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { type Static, Type } from "typebox";
 import {
   type Available,
@@ -17,7 +18,14 @@ import {
   type Slot,
   upsertModelsTable,
 } from "../core/models.ts";
-import { CONFIG_FILE, loadConfig } from "./config.ts";
+import {
+  CONFIG_FILE,
+  configErrorText,
+  loadConfig,
+  loadUserModels,
+  USER_CONFIG_FILE,
+  withUserModels,
+} from "./config.ts";
 
 const CONFIG_ENTRY_TYPE = "devsys-config";
 
@@ -89,6 +97,11 @@ export type ModelsOutcome = {
 
 type Choice = "accept" | "accept-rest" | "pick" | "pin";
 
+/** Where a slot's current model comes from: the repo, the user config's own list, or an @slot into it. */
+type SlotOrigin = "repo" | "user-own" | "user-ref";
+
+type UserCandidates = Partial<Record<Slot, readonly string[]>>;
+
 const CHOICE_LABELS: Record<Choice, string> = {
   accept: "accept",
   "accept-rest": "accept this and all remaining slots",
@@ -96,17 +109,63 @@ const CHOICE_LABELS: Record<Choice, string> = {
   pin: "pin the current exact id (no auto-roll)",
 };
 
+function offeredChoices(current: string | undefined, origin: SlotOrigin): readonly Choice[] {
+  if (current === undefined) return ["pick"];
+  if (origin === "user-ref") return ["accept", "accept-rest", "pick"];
+  return ["accept", "accept-rest", "pick", "pin"];
+}
+
+/**
+ * The user's own list for a slot shadows any repo edit, even when both pick the same model,
+ * but only when that list resolves here; otherwise the repo's candidates are in charge. A slot
+ * whose model differs from the repo's resolution reaches the user config through an @slot.
+ */
+function slotOrigin(
+  slot: Slot,
+  row: SlotRow,
+  matrix: ModelMatrix,
+  local: UserCandidates,
+  available: readonly Available[],
+): SlotOrigin {
+  if (row.resolution === undefined) return "repo";
+  const own = local[slot];
+  const merged = withUserModels(matrix, local);
+  const ownResolves =
+    own !== undefined &&
+    resolveRows({ ...merged, [slot]: own }, available).find((r) => r.slot === slot)?.resolution !==
+      undefined;
+  if (ownResolves) return "user-own";
+  const repoModel = resolveRows(matrix, available).find((r) => r.slot === slot)?.resolution;
+  return row.resolution.model !== repoModel?.model ? "user-ref" : "repo";
+}
+
 async function chooseSlot(
   ctx: ExtensionCommandContext,
   slot: Slot,
   row: SlotRow,
   available: readonly CatalogModel[],
   matrix: ModelMatrix,
+  origin: SlotOrigin,
 ): Promise<{ matrix: ModelMatrix; acceptRest: boolean }> {
   const current = row.resolution?.model;
-  const labels = current === undefined ? [CHOICE_LABELS.pick] : Object.values(CHOICE_LABELS);
-  const picked = await ctx.ui.select(`${slot}: ${current ?? "unresolved"}`, labels);
-  const choice = (Object.keys(CHOICE_LABELS) as Choice[]).find((k) => CHOICE_LABELS[k] === picked);
+  // A slot the user config names keeps its model there: pinning would commit it and a pick
+  // would be shadowed by it, so only accepting is offered. A slot that reaches a user model
+  // through an @slot can still pick (a pick goes ahead of the reference), but not pin.
+  if (origin === "user-own") {
+    const picked = await ctx.ui.select(
+      `${slot}: ${current} (from the user config ${USER_CONFIG_FILE}; change it there)`,
+      [CHOICE_LABELS.accept, CHOICE_LABELS["accept-rest"]],
+    );
+    return { matrix, acceptRest: picked === CHOICE_LABELS["accept-rest"] };
+  }
+  const offered = offeredChoices(current, origin);
+  const labels = offered.map((c) => CHOICE_LABELS[c]);
+  const title =
+    origin === "user-ref"
+      ? `${slot}: ${current} (through the user config ${USER_CONFIG_FILE})`
+      : `${slot}: ${current ?? "unresolved"}`;
+  const picked = await ctx.ui.select(title, labels);
+  const choice = offered.find((k) => CHOICE_LABELS[k] === picked);
   if (choice === "accept-rest") return { matrix, acceptRest: true };
   if (choice === "pin" && current !== undefined) {
     return { matrix: { ...matrix, [slot]: [current, ...matrix[slot]] }, acceptRest: false };
@@ -136,14 +195,18 @@ export async function runModelsCommand(
   args: string,
   catalog: ModelCatalog,
 ): Promise<ModelsOutcome> {
-  const config = await loadConfig(ctx.cwd);
-  if (!config.ok) {
-    ctx.ui.notify(`${CONFIG_FILE}: ${config.error.message}`, "error");
+  // Edit and write only the repo's matrix; user-config candidates are shown, never committed.
+  const config = await loadConfig(ctx.cwd, { userDir: null });
+  const user = config.ok ? await loadUserModels(getAgentDir()) : config;
+  if (!user.ok) {
+    ctx.ui.notify(configErrorText(user.error), "error");
     return { ok: false, written: false, table: "" };
   }
+  if (!config.ok) return { ok: false, written: false, table: "" };
+  const local = user.value;
   const available = availableModels(catalog);
   let matrix = config.value.models;
-  let rows = resolveRows(matrix, available);
+  let rows = resolveRows(withUserModels(matrix, local), available);
   const check = args.split(/\s+/).includes("--check");
   if (!check && ctx.hasUI) {
     let acceptRest = false;
@@ -151,10 +214,11 @@ export async function runModelsCommand(
       if (acceptRest) break;
       const row = rows.find((r) => r.slot === slot);
       if (row === undefined) continue;
-      const next = await chooseSlot(ctx, slot, row, available, matrix);
+      const origin = slotOrigin(slot, row, matrix, local, available);
+      const next = await chooseSlot(ctx, slot, row, available, matrix, origin);
       matrix = next.matrix;
       acceptRest = next.acceptRest;
-      rows = resolveRows(matrix, available);
+      rows = resolveRows(withUserModels(matrix, local), available);
     }
   }
   const table = renderModelsTable(rows, available);
@@ -217,7 +281,7 @@ export function createModelsTool(): ToolDefinition<typeof Parameters> {
         return text(`unknown slot "${params.slot}". Slots: ${SLOTS.join(", ")}`, true);
       }
       const config = await loadConfig(ctx.cwd);
-      if (!config.ok) return text(`${CONFIG_FILE}: ${config.error.message}`, true);
+      if (!config.ok) return text(configErrorText(config.error), true);
       const available = availableModels(ctx.modelRegistry);
       const rows = resolveRows(config.value.models, available).filter(
         (r) => params.slot === undefined || r.slot === params.slot,

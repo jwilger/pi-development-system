@@ -12,7 +12,7 @@ import {
   SOLUTION_DETAIL_THRESHOLD,
 } from "../jev/questions/solution-detail.ts";
 import { lintBrief } from "../planning/brief-lint.ts";
-import { CONFIG_FILE, loadConfig } from "../state/config.ts";
+import { configErrorText, loadConfig } from "../state/config.ts";
 import { availableModels } from "../state/models-command.ts";
 import type { SessionState } from "../state/session-state.ts";
 import {
@@ -164,7 +164,7 @@ function buildLensReviewTool(deps: LensReviewDeps): ToolDefinition<typeof Parame
         );
       }
       const config = await loadConfig(ctx.cwd);
-      if (!config.ok) return reply(`${CONFIG_FILE}: ${config.error.message}`, true);
+      if (!config.ok) return reply(configErrorText(config.error), true);
       const resolved = resolveSlot(config.value.models, "lens", availableModels(ctx.modelRegistry));
       const earlier = round === 2 ? round1Lenses(ctx.cwd, date) : [];
       // Both ask Jev; run them together so a hung provider costs one timeout, not two.

@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { registerSpawnGuard } from "../../src/gates/spawn-guard.ts";
+import { USER_CONFIG_FILE } from "../../src/state/config.ts";
 import { createFakePi } from "../harness/fake-pi.ts";
 
 // Built in pieces so this file never carries a credential-shaped literal itself.
@@ -21,7 +22,7 @@ const setup = (toml?: string) => {
       | undefined;
     return { result, input };
   };
-  return { spawn };
+  return { spawn, fake };
 };
 
 test("an agent_spawn with no model gets its slot's model from the project's [models]", async () => {
@@ -102,4 +103,22 @@ test("a spawn too large for the slot's small-window model gets the next model th
   };
   assert.equal(await spawn("find where routing is defined"), "local/coder-30");
   assert.equal(await spawn("x".repeat(60_000)), "acme/big-2");
+});
+
+test("a broken user config falls back to the repository's slot model and says so once", async () => {
+  const userFile = join(process.env.PI_CODING_AGENT_DIR ?? "", USER_CONFIG_FILE);
+  writeFileSync(userFile, '[models]\nreviewer = "acme/small-1"\n');
+  try {
+    const { spawn, fake } = setup('[models]\nreviewer = ["acme/big-*"]\n');
+    const first = await spawn({ path: "/r", type: "reviewer", task: "look" });
+    await spawn({ path: "/r2", type: "reviewer", task: "look again" });
+    assert.equal(first.input.model, "acme/big-2");
+    const warnings = fake.ui.calls.filter(
+      (c) => c.kind === "notify" && String(c.args[0]).includes(USER_CONFIG_FILE),
+    );
+    assert.equal(warnings.length, 1);
+    assert.match(String(warnings[0]?.args[0]), /models\.reviewer/);
+  } finally {
+    rmSync(userFile);
+  }
 });

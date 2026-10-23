@@ -28,7 +28,7 @@ import { isParseError, type SliceRef } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
 import { withJevToolUsage } from "../jev/execution.ts";
 import { judgeLenses, judgeSeverity } from "../jev/questions/review.ts";
-import { CONFIG_FILE, loadConfig } from "../state/config.ts";
+import { configErrorText, type LoadOptions, loadConfig, POLICY_ONLY } from "../state/config.ts";
 import { availableModels } from "../state/models-command.ts";
 import type { SessionState } from "../state/session-state.ts";
 import { sameWorkflow } from "../state/workflow.ts";
@@ -155,6 +155,7 @@ async function prepare(
   ctx: ExtensionContext,
   given: { slice?: string | undefined; diffRange?: string | undefined },
   failure: (range: string, error: string) => string,
+  load: LoadOptions = {},
 ): Promise<{ ok: true; value: Prepared } | { ok: false; reply: Reply }> {
   const slice = sliceOf(given.slice, deps.state);
   if (slice === undefined) return { ok: false, reply: reply(NO_SLICE, true) };
@@ -162,9 +163,8 @@ async function prepare(
   const review = reviewOf(before, slice);
   const isCurrent = () =>
     sameWorkflow(before, deps.state.get()) && reviewOf(deps.state.get(), slice) === review;
-  const config = await loadConfig(ctx.cwd);
-  if (!config.ok)
-    return { ok: false, reply: reply(`${CONFIG_FILE}: ${config.error.message}`, true) };
+  const config = await loadConfig(ctx.cwd, load);
+  if (!config.ok) return { ok: false, reply: reply(configErrorText(config.error), true) };
   const range = rangeOf(given.diffRange);
   const snap = await snapshotDiff(deps.exec, ctx.cwd, range);
   if (!snap.ok) return { ok: false, reply: reply(failure(range, snap.error), true) };
@@ -435,6 +435,8 @@ function buildReviewRecordTool(deps: ReviewToolDeps): ToolDefinition<typeof Reco
         ctx,
         params,
         (_range, error) => `cannot read the diff: ${error}`,
+        // Recording reads only review policy, never the models, so the user config is skipped.
+        POLICY_ONLY,
       );
       if (!prepared.ok) return prepared.reply;
       if (params.diffDigest !== prepared.value.snap.digest) {

@@ -7,7 +7,7 @@ import { recommendRoute } from "../core/routing.ts";
 import type { Jev } from "../jev/client.ts";
 import { withJevToolUsage } from "../jev/execution.ts";
 import { judgeTaskRouting } from "../jev/questions/route.ts";
-import { CONFIG_FILE, loadConfig } from "./config.ts";
+import { configErrorText, loadConfig } from "./config.ts";
 import { availableModels } from "./models-command.ts";
 
 const Parameters = Type.Object({
@@ -63,7 +63,7 @@ export function createRouteTaskTool(baseDeps: {
     ) {
       if (params.task.trim() === "") return reply("task must not be empty", true);
       const config = await loadConfig(ctx.cwd);
-      if (!config.ok) return reply(`${CONFIG_FILE}: ${config.error.message}`, true);
+      if (!config.ok) return reply(configErrorText(config.error), true);
       const judged = await judgeTaskRouting(deps.jev(ctx), {
         task: params.task,
         filesTouched: params.files ?? [],

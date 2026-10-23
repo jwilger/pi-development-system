@@ -6,7 +6,7 @@ import {
 import { spawnModelFor } from "../core/agent-slots.ts";
 import { estimateRequestTokens } from "../core/context-fit.ts";
 import { credentialKinds } from "../core/secrets.ts";
-import { loadConfig } from "../state/config.ts";
+import { configErrorText, loadModels } from "../state/config.ts";
 import { availableModels } from "../state/models-command.ts";
 
 export type SpawnGuardDeps = { pi: ExtensionAPI };
@@ -16,12 +16,21 @@ async function configuredModel(
   ctx: ExtensionContext,
   type: string,
   task: string,
+  warned: Set<string>,
 ): Promise<string | undefined> {
-  const config = await loadConfig(ctx.cwd);
-  if (!config.ok) return undefined;
+  const loaded = await loadModels(ctx.cwd);
+  if (!loaded.ok) return undefined;
+  const { models, userError } = loaded.value;
+  if (userError !== undefined) {
+    const message = `${configErrorText(userError)}. Ignoring the user config; using the repository's models.`;
+    if (!warned.has(message)) {
+      warned.add(message);
+      ctx.ui.notify(message, "warning");
+    }
+  }
   // Only the task text is known here; files the subagent reads later are not (ADR 0009).
   const estimate = estimateRequestTokens({ taskChars: task.length, fileBytes: 0 });
-  return spawnModelFor(type, config.value.models, availableModels(ctx.modelRegistry), estimate);
+  return spawnModelFor(type, models, availableModels(ctx.modelRegistry), estimate);
 }
 
 /** A block when the text a subagent would receive carries a credential; kinds only, never the value. */
@@ -44,6 +53,7 @@ function refuseCredentials(
  * models whose context window the task text alone would already crowd.
  */
 export function registerSpawnGuard(deps: SpawnGuardDeps): void {
+  const warned = new Set<string>();
   deps.pi.on("tool_call", async (event, ctx) => {
     if (isToolCallEventType("agent_steer", event)) {
       const { message } = event.input as { message?: unknown };
@@ -59,7 +69,7 @@ export function registerSpawnGuard(deps: SpawnGuardDeps): void {
     const refused = refuseCredentials(text, "task text");
     if (refused !== undefined) return refused;
     if (model !== undefined || typeof type !== "string") return undefined;
-    const chosen = await configuredModel(ctx, type, text);
+    const chosen = await configuredModel(ctx, type, text, warned);
     if (chosen !== undefined) event.input.model = chosen;
     return undefined;
   });

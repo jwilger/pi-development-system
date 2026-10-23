@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -10,6 +10,7 @@ import { createApprovalStore } from "../../src/gates/approvals.ts";
 import { createExcusedMessages, type ExcusedMessages } from "../../src/gates/excused-messages.ts";
 import { registerPushGuard } from "../../src/gates/push-guard.ts";
 import type { Jev } from "../../src/jev/client.ts";
+import { USER_CONFIG_FILE } from "../../src/state/config.ts";
 import { createSessionState } from "../../src/state/session-state.ts";
 import { createFakePi } from "../harness/fake-pi.ts";
 
@@ -536,4 +537,14 @@ test("a push in the same call as commits the commit guard cannot read is refused
     await setup().push("git commit -m 'feat: x' -m 'because y z w q r s' && git push origin main"),
     undefined,
   );
+});
+
+test("a broken user config does not block a push, which never uses its models", async () => {
+  writeFileSync(join(process.env.PI_CODING_AGENT_DIR ?? "", USER_CONFIG_FILE), "[delivery]\n");
+  try {
+    const { push } = setup();
+    assert.equal(await push("git push origin main"), undefined);
+  } finally {
+    rmSync(join(process.env.PI_CODING_AGENT_DIR ?? "", USER_CONFIG_FILE));
+  }
 });

@@ -4,7 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { defaultMatrix } from "../../src/core/models.ts";
-import { CONFIG_FILE, loadConfig, parseConfig } from "../../src/state/config.ts";
+import {
+  CONFIG_FILE,
+  configErrorText,
+  loadConfig,
+  parseConfig,
+  USER_CONFIG_FILE,
+} from "../../src/state/config.ts";
 
 const value = (text: string) => {
   const r = parseConfig(text);
@@ -120,13 +126,13 @@ test("invalid TOML is an error", () => {
 
 test("loadConfig returns defaults when the file is absent and parses it when present", async () => {
   const dir = await mkdtemp(join(tmpdir(), "devsys-config-"));
-  const missing = await loadConfig(dir);
+  const missing = await loadConfig(dir, { userDir: null });
   assert.ok(missing.ok && missing.value.delivery.mode === "trunk");
   await writeFile(join(dir, CONFIG_FILE), '[delivery]\nmode = "local-only"\n');
-  const present = await loadConfig(dir);
+  const present = await loadConfig(dir, { userDir: null });
   assert.ok(present.ok && present.value.delivery.mode === "local-only");
   await writeFile(join(dir, CONFIG_FILE), '[delivery]\nmode = "x"\n');
-  assert.equal((await loadConfig(dir)).ok, false);
+  assert.equal((await loadConfig(dir, { userDir: null })).ok, false);
 });
 
 test("an unknown @slot reference is a config error", () => {
@@ -144,4 +150,54 @@ test("a routing key that names no difficulty or risk is an error", () => {
 
 test("review.thinking_level must be a thinking level pi accepts", () => {
   assert.equal(failure('[review]\nthinking_level = "maximum"\n').key, "review.thinking_level");
+});
+
+test("a user config's [models] candidates go ahead of the repo's for that slot, without duplicates", async () => {
+  const repo = await mkdtemp(join(tmpdir(), "devsys-config-"));
+  const user = await mkdtemp(join(tmpdir(), "devsys-user-"));
+  await writeFile(join(repo, CONFIG_FILE), '[models]\nfast = ["cloud/small", "local/coder"]\n');
+  await writeFile(
+    join(user, USER_CONFIG_FILE),
+    '[models]\nfast = ["local/coder", "local/tiny*"]\n',
+  );
+  const config = await loadConfig(repo, { userDir: user });
+  assert.ok(config.ok);
+  assert.deepEqual(config.value.models.fast, ["local/coder", "local/tiny*", "cloud/small"]);
+  assert.deepEqual(config.value.models.frontier, defaultMatrix().frontier);
+});
+
+test("without a user config file, or with userDir null, the repo matrix is used as is", async () => {
+  const repo = await mkdtemp(join(tmpdir(), "devsys-config-"));
+  const user = await mkdtemp(join(tmpdir(), "devsys-user-"));
+  const absent = await loadConfig(repo, { userDir: user });
+  assert.ok(absent.ok);
+  assert.deepEqual(absent.value.models, defaultMatrix());
+  await writeFile(join(user, USER_CONFIG_FILE), '[models]\nfast = ["local/coder"]\n');
+  const ignored = await loadConfig(repo, { userDir: null });
+  assert.ok(ignored.ok);
+  assert.deepEqual(ignored.value.models, defaultMatrix());
+});
+
+test("a user config may hold only version and [models], and its errors name the user file", async () => {
+  const repo = await mkdtemp(join(tmpdir(), "devsys-config-"));
+  const user = await mkdtemp(join(tmpdir(), "devsys-user-"));
+  await writeFile(join(user, USER_CONFIG_FILE), '[delivery]\nmode = "local-only"\n');
+  const policy = await loadConfig(repo, { userDir: user });
+  assert.ok(!policy.ok);
+  assert.equal(
+    configErrorText(policy.error),
+    `${join(user, USER_CONFIG_FILE)}: unknown key delivery`,
+  );
+  await writeFile(join(user, USER_CONFIG_FILE), "[models]\nfast = [1]\n");
+  const bad = await loadConfig(repo, { userDir: user });
+  assert.ok(!bad.ok);
+  assert.match(configErrorText(bad.error), /^\/.*development-system\.toml: models\.fast/);
+});
+
+test("a repository config error is reported against the repository file", async () => {
+  const repo = await mkdtemp(join(tmpdir(), "devsys-config-"));
+  await writeFile(join(repo, CONFIG_FILE), '[delivery]\nmode = "x"\n');
+  const bad = await loadConfig(repo, { userDir: null });
+  assert.ok(!bad.ok);
+  assert.match(configErrorText(bad.error), /^\.development-system\.toml: delivery\.mode/);
 });

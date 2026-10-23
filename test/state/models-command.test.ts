@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { CONFIG_FILE, loadConfig } from "../../src/state/config.ts";
+import { CONFIG_FILE, loadConfig, USER_CONFIG_FILE } from "../../src/state/config.ts";
 import {
   createModelsTool,
   type ModelCatalog,
@@ -146,4 +146,145 @@ test("the models table and devsys_models show each resolved model's context wind
     JSON.stringify(r.content),
     /fast: local\/coder-30 \(via local\/coder-\*\) · 32768-token window/,
   );
+});
+
+test("user-config candidates show in the table but are never written to the repo file", async () => {
+  const user = mkdtempSync(join(tmpdir(), "devsys-user-"));
+  writeFileSync(join(user, USER_CONFIG_FILE), '[models]\nfast = ["local/coder"]\n');
+  const previous = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = user;
+  try {
+    const { cwd, run } = setup([...fixture("anthropic-only"), { id: "local/coder" }], {
+      hasUI: false,
+      classifiers: ["typesafe/jev-latest"],
+    });
+    const outcome = await run();
+    assert.equal(outcome.written, true);
+    assert.match(outcome.table, /fast\s+→ local\/coder/);
+    assert.doesNotMatch(readFileSync(join(cwd, CONFIG_FILE), "utf8"), /local\/coder/);
+  } finally {
+    if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previous;
+  }
+});
+
+test("a slot resolved from the user config cannot be pinned or picked into the repo file", async () => {
+  const user = mkdtempSync(join(tmpdir(), "devsys-user-"));
+  writeFileSync(join(user, USER_CONFIG_FILE), '[models]\nfast = ["local/coder"]\n');
+  const previous = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = user;
+  try {
+    const { cwd, fake, run } = setup([...fixture("anthropic-only"), { id: "local/coder" }], {
+      hasUI: true,
+      classifiers: ["typesafe/jev-latest"],
+    });
+    fake.ui.selectResponses.push(...Array(10).fill("pin the current exact id (no auto-roll)"));
+    const outcome = await run();
+    assert.equal(outcome.written, true);
+    assert.doesNotMatch(readFileSync(join(cwd, CONFIG_FILE), "utf8"), /local\/coder/);
+    const fastPrompt = fake.ui.calls.find(
+      (c) => c.kind === "select" && String(c.args[0]).startsWith("fast:"),
+    );
+    assert.match(String(fastPrompt?.args[0]), /user config/);
+    assert.ok(!((fastPrompt?.args[1] ?? []) as string[]).some((l) => l.startsWith("pin")));
+  } finally {
+    if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previous;
+  }
+});
+
+test("a slot the user config also lists counts as the user's even when the repo picks the same model", async () => {
+  const user = mkdtempSync(join(tmpdir(), "devsys-user-"));
+  writeFileSync(join(user, USER_CONFIG_FILE), '[models]\nfast = ["local/coder"]\n');
+  const previous = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = user;
+  try {
+    const { cwd, fake, run } = setup([...fixture("anthropic-only"), { id: "local/coder" }], {
+      hasUI: true,
+      classifiers: ["typesafe/jev-latest"],
+    });
+    writeFileSync(
+      join(cwd, CONFIG_FILE),
+      '[models]\nfast = ["local/coder", "anthropic/claude-haiku-*"]\n',
+    );
+    fake.ui.selectResponses.push(...Array(10).fill("pick another available model"));
+    await run();
+    const fastPrompt = fake.ui.calls.find(
+      (c) => c.kind === "select" && String(c.args[0]).startsWith("fast:"),
+    );
+    assert.match(String(fastPrompt?.args[0]), /user config/);
+    assert.ok(!((fastPrompt?.args[1] ?? []) as string[]).some((l) => l.startsWith("pick")));
+  } finally {
+    if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previous;
+  }
+});
+
+test("a user-config slot whose models are all unavailable keeps pin and pick", async () => {
+  const user = mkdtempSync(join(tmpdir(), "devsys-user-"));
+  writeFileSync(join(user, USER_CONFIG_FILE), '[models]\nfast = ["offline/coder"]\n');
+  const previous = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = user;
+  try {
+    const { fake, run } = setup(fixture("anthropic-only"), {
+      hasUI: true,
+      classifiers: ["typesafe/jev-latest"],
+    });
+    fake.ui.selectResponses.push(...Array(10).fill("accept"));
+    await run();
+    const fastPrompt = fake.ui.calls.find(
+      (c) => c.kind === "select" && String(c.args[0]).startsWith("fast:"),
+    );
+    assert.doesNotMatch(String(fastPrompt?.args[0]), /user config/);
+    assert.ok(((fastPrompt?.args[1] ?? []) as string[]).some((l) => l.startsWith("pin")));
+  } finally {
+    if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previous;
+  }
+});
+
+test("a slot reaching a user-config model only through @slot can pick but not pin", async () => {
+  const user = mkdtempSync(join(tmpdir(), "devsys-user-"));
+  writeFileSync(join(user, USER_CONFIG_FILE), '[models]\nstrong = ["local/coder"]\n');
+  const previous = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = user;
+  try {
+    const { fake, run } = setup([...fixture("anthropic-only"), { id: "local/coder" }], {
+      hasUI: true,
+      classifiers: ["typesafe/jev-latest"],
+    });
+    fake.ui.selectResponses.push(...Array(12).fill("accept"));
+    await run();
+    const prompt = fake.ui.calls.find(
+      (c) => c.kind === "select" && String(c.args[0]).startsWith("implementer:"),
+    );
+    const labels = (prompt?.args[1] ?? []) as string[];
+    assert.match(String(prompt?.args[0]), /local\/coder/);
+    assert.ok(labels.some((l) => l.startsWith("pick")));
+    assert.ok(!labels.some((l) => l.startsWith("pin")));
+  } finally {
+    if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previous;
+  }
+});
+
+test("a broken user config is reported against that file and nothing is written", async () => {
+  const user = mkdtempSync(join(tmpdir(), "devsys-user-"));
+  writeFileSync(join(user, USER_CONFIG_FILE), "[delivery]\n");
+  const previous = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = user;
+  try {
+    const { cwd, fake, run } = setup(fixture("anthropic-only"), { hasUI: false });
+    const outcome = await run();
+    assert.equal(outcome.written, false);
+    assert.equal(existsSync(join(cwd, CONFIG_FILE)), false);
+    assert.match(
+      notified(fake).join("\n"),
+      new RegExp(`${USER_CONFIG_FILE}: unknown key delivery`),
+    );
+    assert.doesNotMatch(notified(fake).join("\n"), /\.development-system\.toml/);
+  } finally {
+    if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previous;
+  }
 });

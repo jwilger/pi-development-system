@@ -41,7 +41,7 @@ import { createReviewRecordTool, createReviewStartTool } from "../src/review/rev
 import { createSubmissionStore } from "../src/review/submissions.ts";
 import { createSubmitReviewTool } from "../src/review/submit-tool.ts";
 import { registerCiCommand } from "../src/state/ci-command.ts";
-import { loadConfig } from "../src/state/config.ts";
+import { loadConfig, loadModels, POLICY_ONLY } from "../src/state/config.ts";
 import { createModelsTool, registerModelsCommand } from "../src/state/models-command.ts";
 import { detectProfiles } from "../src/state/profile-detect.ts";
 import { createRouteTaskTool } from "../src/state/route-task-tool.ts";
@@ -71,7 +71,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   };
 
   const refreshProfiles = async (ctx: ExtensionContext) => {
-    const config = await loadConfig(ctx.cwd);
+    const config = await loadConfig(ctx.cwd, POLICY_ONLY);
     pushMinutes = config.ok ? config.value.cadence.pushMinutes : DEFAULT_PUSH_MINUTES;
     const override = config.ok ? config.value.profiles.override : [];
     const profiles = await detectProfiles(ctx.cwd, override);
@@ -172,8 +172,8 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
     pi,
     state,
     matrix: async (ctx) => {
-      const config = await loadConfig(ctx.cwd);
-      return config.ok ? config.value.models : defaultMatrix();
+      const loaded = await loadModels(ctx.cwd);
+      return loaded.ok ? loaded.value.models : defaultMatrix();
     },
   });
   registerTurnVerifier({
@@ -181,7 +181,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
     state,
     jev: (ctx) => hookJev(pi, jevHolder.forContext(ctx), ctx, "turn-verifier"),
     maxPerSession: async (ctx) => {
-      const config = await loadConfig(ctx.cwd);
+      const config = await loadConfig(ctx.cwd, POLICY_ONLY);
       return config.ok ? config.value.verifier.maxPerSession : DEFAULT_VERIFIER_MAX;
     },
   });

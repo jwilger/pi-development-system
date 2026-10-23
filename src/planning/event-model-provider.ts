@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { loadConfig } from "../state/config.ts";
+import { loadConfig, POLICY_ONLY } from "../state/config.ts";
 import { createEventModelCheckTool } from "./event-model-tool.ts";
 
 /** The name of the builtin tool; a provider extension offers `event_model_validate` instead. */
@@ -21,7 +21,7 @@ export function usesBuiltinEventModel(provider: string, toolNames: readonly stri
  */
 export function registerEventModelProvider(pi: ExtensionAPI): void {
   pi.on("session_start", async (_event, ctx) => {
-    const config = await loadConfig(ctx.cwd);
+    const config = await loadConfig(ctx.cwd, POLICY_ONLY);
     const provider = config.ok ? config.value.eventModel.provider : "builtin";
     const names = pi.getAllTools().map((tool) => tool.name);
     if (usesBuiltinEventModel(provider, names)) {

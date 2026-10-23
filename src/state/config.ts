@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { parse as parseToml } from "smol-toml";
 import { defaultMatrix, isSlot, type ModelMatrix, SLOTS, type Slot } from "../core/models.ts";
 import { err, ok, type Result } from "../core/result.ts";
@@ -7,6 +8,8 @@ import type { Route } from "../core/routing.ts";
 import { THINKING_LEVELS, type ThinkingLevel } from "../core/spawn-overrides.ts";
 
 export const CONFIG_FILE = ".development-system.toml";
+/** Machine-local config in pi's agent directory; holds only `[models]` candidates for this pi. */
+export const USER_CONFIG_FILE = "development-system.toml";
 
 const DELIVERY_MODES = ["trunk", "pull-request", "local-only"] as const;
 const TRACKER_KINDS = ["repo-files", "github", "jira", "linear"] as const;
@@ -18,6 +21,8 @@ export type ConfigError = {
   readonly kind: "config-error";
   readonly message: string;
   readonly key?: string;
+  /** File the error is in, when it is not the repository's `.development-system.toml`. */
+  readonly file?: string;
 };
 
 export type DevsysConfig = {
@@ -49,6 +54,10 @@ const DEFAULT_ROUTING: Readonly<Record<string, Route>> = {
   "complex/*": { slot: "strong", thinkingLevel: "high" },
   "expert/*": { slot: "frontier", thinkingLevel: "high" },
 };
+
+/** `<file>: <message>`, naming the repository config unless the error is in another file. */
+export const configErrorText = (error: ConfigError): string =>
+  `${error.file ?? CONFIG_FILE}: ${error.message}`;
 
 const fail = (message: string, key?: string): Result<never, ConfigError> =>
   err(
@@ -141,17 +150,24 @@ function candidates(raw: unknown, key: string): Result<readonly string[], Config
       );
 }
 
-function models(root: Table): Result<ModelMatrix, ConfigError> {
+type SlotCandidates = Partial<Record<Slot, readonly string[]>>;
+
+function slotCandidates(root: Table): Result<SlotCandidates, ConfigError> {
   const table = section(root, "models", SLOTS);
   if (!table.ok) return table;
-  const merged: Record<Slot, readonly string[]> = { ...defaultMatrix() };
+  const found: SlotCandidates = {};
   for (const [slot, raw] of Object.entries(table.value)) {
     if (!isSlot(slot)) continue;
     const parsed = candidates(raw, `models.${slot}`);
     if (!parsed.ok) return parsed;
-    merged[slot] = parsed.value;
+    found[slot] = parsed.value;
   }
-  return ok(merged);
+  return ok(found);
+}
+
+function models(root: Table): Result<ModelMatrix, ConfigError> {
+  const found = slotCandidates(root);
+  return found.ok ? ok({ ...defaultMatrix(), ...found.value }) : found;
 }
 
 function route(raw: unknown, key: string): Result<Route, ConfigError> {
@@ -311,16 +327,105 @@ export function parseConfig(source: string): Result<DevsysConfig, ConfigError> {
 const isMissingFile = (cause: unknown): boolean =>
   cause instanceof Error && "code" in cause && String(cause.code) === "ENOENT";
 
-/** Reads `<repoRoot>/.development-system.toml`; a missing file means all defaults. */
-export async function loadConfig(repoRoot: string): Promise<Result<DevsysConfig, ConfigError>> {
-  let source: string;
+/** Parses a user config: `version` and `[models]` only, since policy belongs to the repo. */
+function parseUserConfig(source: string): Result<SlotCandidates, ConfigError> {
+  let root: Table;
   try {
-    source = await readFile(join(repoRoot, CONFIG_FILE), "utf8");
+    root = parseToml(source);
   } catch (cause) {
-    if (isMissingFile(cause)) return parseConfig("");
-    return fail(
-      `cannot read ${CONFIG_FILE}: ${cause instanceof Error ? cause.message : String(cause)}`,
-    );
+    return fail(`invalid TOML: ${cause instanceof Error ? cause.message : String(cause)}`);
   }
-  return parseConfig(source);
+  const unknown = Object.keys(root).find((k) => k !== "version" && k !== "models");
+  if (unknown !== undefined) return fail(`unknown key ${unknown}`, unknown);
+  if (root.version !== undefined && root.version !== 1) {
+    return fail("version must be 1", "version");
+  }
+  return slotCandidates(root);
+}
+
+/** Puts each slot's user candidates ahead of the repo's, dropping repeats. */
+export function withUserModels(matrix: ModelMatrix, user: SlotCandidates): ModelMatrix {
+  const merged: Record<Slot, readonly string[]> = { ...matrix };
+  for (const slot of SLOTS) {
+    const local = user[slot];
+    if (local === undefined) continue;
+    merged[slot] = [...local, ...matrix[slot].filter((c) => !local.includes(c))];
+  }
+  return merged;
+}
+
+type ReadOutcome = Result<string | undefined, ConfigError>;
+
+async function readOptional(path: string, label: string): Promise<ReadOutcome> {
+  try {
+    return ok(await readFile(path, "utf8"));
+  } catch (cause) {
+    if (isMissingFile(cause)) return ok(undefined);
+    return fail(`cannot read ${label}: ${cause instanceof Error ? cause.message : String(cause)}`);
+  }
+}
+
+/** Reads `<userDir>/development-system.toml`; a missing file means no user candidates. */
+export async function loadUserModels(
+  userDir: string,
+): Promise<Result<SlotCandidates, ConfigError>> {
+  const path = join(userDir, USER_CONFIG_FILE);
+  const source = await readOptional(path, "it");
+  if (!source.ok) return err({ ...source.error, file: path });
+  if (source.value === undefined) return ok({});
+  const parsed = parseUserConfig(source.value);
+  return parsed.ok ? parsed : err({ ...parsed.error, file: path });
+}
+
+export type LoadOptions = {
+  /** Directory holding the user config; defaults to pi's agent directory, `null` skips it. */
+  readonly userDir?: string | null;
+};
+
+/**
+ * For callers that read only repository policy (delivery, tracker, cadence...): a broken user
+ * config must not block a push or a tracker call that never uses its models.
+ */
+export const POLICY_ONLY: LoadOptions = { userDir: null };
+
+/**
+ * Reads `<repoRoot>/.development-system.toml` (a missing file means all defaults), then puts
+ * the user config's `[models]` candidates ahead of the repo's for each slot.
+ */
+export async function loadConfig(
+  repoRoot: string,
+  options: LoadOptions = {},
+): Promise<Result<DevsysConfig, ConfigError>> {
+  const source = await readOptional(join(repoRoot, CONFIG_FILE), CONFIG_FILE);
+  if (!source.ok) return source;
+  const repo = parseConfig(source.value ?? "");
+  const userDir = options.userDir === undefined ? getAgentDir() : options.userDir;
+  if (!repo.ok || userDir === null) return repo;
+  const user = await loadUserModels(userDir);
+  if (!user.ok) return user;
+  return ok({ ...repo.value, models: withUserModels(repo.value.models, user.value) });
+}
+
+export type LoadedModels = {
+  readonly models: ModelMatrix;
+  /** Why the user config was ignored, when it could not be read or parsed. */
+  readonly userError?: ConfigError;
+};
+
+/**
+ * The effective model matrix for callers that must keep working with a broken user config:
+ * a user-config error falls back to the repository's matrix and is returned for reporting.
+ */
+export async function loadModels(
+  repoRoot: string,
+  options: LoadOptions = {},
+): Promise<Result<LoadedModels, ConfigError>> {
+  const repo = await loadConfig(repoRoot, POLICY_ONLY);
+  if (!repo.ok) return repo;
+  const userDir = options.userDir === undefined ? getAgentDir() : options.userDir;
+  if (userDir === null) return ok({ models: repo.value.models });
+  const user = await loadUserModels(userDir);
+  return user.ok
+    ? ok({ models: withUserModels(repo.value.models, user.value) })
+    : ok({ models: repo.value.models, userError: user.error });
 }

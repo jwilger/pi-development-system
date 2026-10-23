@@ -1,3 +1,6 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { ClassifierAnswer, Usage } from "@earendil-works/pi-ai";
 import type {
   ExtensionAPI,
@@ -6,6 +9,10 @@ import type {
   RegisteredCommand,
   ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
+
+// Keep the developer's own pi user config (models it prepends to slots) out of every test;
+// a test that needs one points PI_CODING_AGENT_DIR at its own directory.
+process.env.PI_CODING_AGENT_DIR = mkdtempSync(join(tmpdir(), "devsys-agent-dir-"));
 
 type Handler = (event: unknown, ctx: ExtensionContext) => unknown;
 

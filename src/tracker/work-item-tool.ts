@@ -2,7 +2,7 @@ import type { ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding
 import { type Static, Type } from "typebox";
 import type { Exec } from "../core/exec.ts";
 import { assertNever } from "../core/exhaustive.ts";
-import { CONFIG_FILE, loadConfig } from "../state/config.ts";
+import { CONFIG_FILE, configErrorText, loadConfig, POLICY_ONLY } from "../state/config.ts";
 import { createTracker } from "./select.ts";
 import type { Tracker, TrackerResult, WorkItem } from "./types.ts";
 
@@ -128,8 +128,8 @@ export function createWorkItemTool(deps: { exec: Exec }): ToolDefinition<typeof 
       _onUpdate,
       ctx: ExtensionContext,
     ) {
-      const config = await loadConfig(ctx.cwd);
-      if (!config.ok) return reply(`${CONFIG_FILE}: ${config.error.message}`, true);
+      const config = await loadConfig(ctx.cwd, POLICY_ONLY);
+      if (!config.ok) return reply(configErrorText(config.error), true);
       const tracker = createTracker({
         tracker: config.value.tracker,
         exec: deps.exec,

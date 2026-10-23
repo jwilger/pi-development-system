@@ -12,7 +12,7 @@ import { pushTargets } from "../core/push-command.ts";
 import { isSatisfied } from "../core/review.ts";
 import { reviewOf } from "../core/review-flow.ts";
 import type { DevsysState } from "../core/types.ts";
-import { loadConfig } from "../state/config.ts";
+import { loadConfig, POLICY_ONLY } from "../state/config.ts";
 import type { SessionState } from "../state/session-state.ts";
 
 const SLICE_ENTRY_TYPE = "devsys-slice";
@@ -67,7 +67,7 @@ export function registerSliceClose(deps: SliceCloseDeps): void {
     const { activeSlice, phase } = state;
     if (activeSlice === undefined || !IN_FLIGHT.has(phase)) return undefined;
     if (!reviewCleared(state)) return undefined;
-    const config = await loadConfig(ctx.cwd);
+    const config = await loadConfig(ctx.cwd, POLICY_ONLY);
     if (!(config.ok && shipped(config.value.delivery.mode, String(event.input.command)))) {
       return undefined;
     }
@@ -126,7 +126,7 @@ async function finishBlocker(deps: Pick<SliceCloseDeps, "state" | "exec">, cwd: 
       ? "there are uncommitted changes: commit them first"
       : "git could not report the working tree status";
   }
-  const config = await loadConfig(cwd);
+  const config = await loadConfig(cwd, POLICY_ONLY);
   if (!config.ok) return `cannot read the delivery mode: ${config.error.message}`;
   if (config.value.delivery.mode === "local-only") return undefined;
   const ahead = await unpushedCommits(deps.exec, cwd, config.value.delivery.remote);

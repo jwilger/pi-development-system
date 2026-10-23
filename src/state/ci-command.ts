@@ -2,7 +2,7 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import type { Exec } from "../core/exec.ts";
 import type { CiState } from "../core/types.ts";
 import { watchCi } from "./ci-watch.ts";
-import { loadConfig } from "./config.ts";
+import { loadConfig, POLICY_ONLY } from "./config.ts";
 import type { SessionState } from "./session-state.ts";
 
 export const CI_ENTRY_TYPE = "devsys-ci";
@@ -33,7 +33,7 @@ export async function runCiWatch(
   deps: CiCommandDeps,
   ctx: Pick<ExtensionCommandContext, "cwd" | "ui">,
 ): Promise<CiState | undefined> {
-  const config = await loadConfig(ctx.cwd);
+  const config = await loadConfig(ctx.cwd, POLICY_ONLY);
   if (!config.ok) {
     ctx.ui.notify(`cannot read the delivery policy: ${config.error.message}`, "error");
     return undefined;

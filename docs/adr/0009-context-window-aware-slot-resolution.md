@@ -7,8 +7,8 @@
 
 Slot resolution picks the first matrix candidate that this machine has
 credentials for. Every model was assumed to fit any request. Local models
-served over Ollama break that assumption. The MacBook's jw-coder:30b and
-jw-fast:8b have 32,768-token windows, while every cloud model has 272K or
+served over Ollama break that assumption. The local Qwen3-Coder 30B and
+Qwen3 8B have 32,768-token windows, while every cloud model has 272K or
 more. A subagent's first request is already 6–10K tokens, and quality degrades
 from about ½–⅔ of the served window. A local model placed first in a slot would
 be chosen even for work that cannot fit, and it fails partway through (see

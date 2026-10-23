@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -12,6 +12,7 @@ import type { Jev } from "../../src/jev/client.ts";
 import { snapshotDiff } from "../../src/review/digest.ts";
 import { createReviewRecordTool, createReviewStartTool } from "../../src/review/review-tools.ts";
 import { createSubmissionStore } from "../../src/review/submissions.ts";
+import { USER_CONFIG_FILE } from "../../src/state/config.ts";
 import { createSessionState } from "../../src/state/session-state.ts";
 import { deferred } from "../harness/deferred.ts";
 import { createFakePi } from "../harness/fake-pi.ts";
@@ -571,4 +572,31 @@ test("a markdown packet for the lenses already submitted is dropped, not recorde
   assert.match(text(r), /1 nit/);
   assert.match(text(r), /dropped.*submitted/i);
   assert.equal(t.state.get().reviews?.[0]?.rounds[0]?.findings.length, 1);
+});
+
+test("a broken user config does not stop a round being recorded, which reads only review policy", async () => {
+  const t = setup(offline);
+  await t.start();
+  const userFile = join(process.env.PI_CODING_AGENT_DIR ?? "", USER_CONFIG_FILE);
+  writeFileSync(userFile, '[models]\nreviewer = "acme/small-1"\n');
+  try {
+    const r = await t.record({ packets: [packet("none", "no-blocking")] });
+    assert.notEqual(r.isError, true);
+    assert.match(text(r), /Round 1 recorded/);
+  } finally {
+    rmSync(userFile);
+  }
+});
+
+test("a broken user config stops a review starting, since start picks the reviewer model", async () => {
+  const t = setup(offline);
+  const userFile = join(process.env.PI_CODING_AGENT_DIR ?? "", USER_CONFIG_FILE);
+  writeFileSync(userFile, '[models]\nreviewer = "acme/small-1"\n');
+  try {
+    const r = await t.start();
+    assert.equal(r.isError, true);
+    assert.match(text(r), /development-system\.toml.*models\.reviewer/);
+  } finally {
+    rmSync(userFile);
+  }
 });

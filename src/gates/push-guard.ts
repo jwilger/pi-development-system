@@ -14,7 +14,7 @@ import { type GateId, isParseError, parseGateId } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
 import { FIX_RELATED_THRESHOLD, judgeFixRelated } from "../jev/questions/fix-related.ts";
 import { getFailureLog, getTrunkStatus } from "../state/ci.ts";
-import { type DevsysConfig, loadConfig } from "../state/config.ts";
+import { type DevsysConfig, loadConfig, POLICY_ONLY } from "../state/config.ts";
 import type { SessionState } from "../state/session-state.ts";
 import { type ApprovalStore, requestHardStop } from "./approvals.ts";
 import { departureUse } from "./departure-use.ts";
@@ -270,7 +270,7 @@ export function registerPushGuard(deps: PushGuardDeps): void {
     if (!isToolCallEventType("bash", event)) return undefined;
     const targets = pushTargets(event.input.command);
     if (targets.length === 0) return undefined;
-    const loaded = await loadConfig(ctx.cwd);
+    const loaded = await loadConfig(ctx.cwd, POLICY_ONLY);
     if (!loaded.ok) {
       return { block: true, reason: `cannot read the delivery policy: ${loaded.error.message}` };
     }

@@ -1,4 +1,4 @@
-# Routing work to local models (jw-coder, jw-fast)
+# Routing work to local models (Qwen3-Coder 30B, Qwen3 8B)
 
 Status: research for the local-routing goal, written 2026-10-22.
 Evidence: the inventory and live trials in `work/local-routing/` (models,
@@ -13,7 +13,7 @@ the public sources listed at the end.
 | Strong | openai/gpt-6.1-sol (272K), claude-sonnet-5-5 (1M) | subscriptions |
 | Fast | openai/gpt-6-luna, claude-haiku-5-5 | subscriptions |
 | Open-weight cloud | opencode-go: kimi-k3, glm-5.3, deepseek-v4-pro/v4.1-flash, qwen3.8-max/flash, … | OpenCode Go subscription |
-| Local | macbook/jw-coder:30b (Qwen3-Coder-30B-A3B, Q4_K_M), macbook/jw-fast:8b (Qwen3-8B, Q4_K_M) | free; 32,768-token window; no reasoning mode |
+| Local | Qwen3-Coder 30B (local) (Qwen3-Coder-30B-A3B, Q4_K_M), Qwen3 8B (local) (Qwen3-8B, Q4_K_M) | free; 32,768-token window; no reasoning mode |
 | Classifier | typesafe/jev | out of scope (a different kind of model) |
 
 ## 2. Public evidence about the cloud tiers (October 2026)
@@ -41,7 +41,7 @@ the public sources listed at the end.
 ## 3. What the 32K window means here (measured)
 
 - The coordinator's first request is 21–27K tokens (system prompt, skills,
-  tool schemas). billion-context refused jw-coder as coordinator at 29K
+  tool schemas). billion-context refused Qwen3-Coder 30B as coordinator at 29K
   tokens against a 24.5K usable window (32,768 minus the output reserve).
   **A local model can never be the coordinator.**
 - The first request of a subagent session is 5.9–6.9K tokens on local models
@@ -52,7 +52,7 @@ the public sources listed at the end.
 
 ## 4. Live trials (details in `work/local-routing/trials.md`)
 
-| Trial | jw-coder:30b | jw-fast:8b |
+| Trial | Qwen3-Coder 30B | Qwen3 8B |
 |---|---|---|
 | Single-shot summary / codegen / label | accurate; 27–29 tok/s; 16 s cold load | accurate; 29–49 tok/s; 6 s cold load |
 | Researcher: read-only repo lookup with citations | **pass**: 40 s, 5 tool calls, correct path:line | not run; ruled out by the implementer result |
@@ -67,23 +67,30 @@ the public sources listed at the end.
 | strong / implementer | implementer, coder, `routine`/`complex` routes | gpt-6.1-sol → sonnet-5-5 (unchanged) | Astra's score at a fifth of the cost; local failed multi-step TDD |
 | reviewer | devsys_review_start | opus-5-5 → sonnet → sol (unchanged) | quality gate; needs reasoning and the whole diff |
 | lens | product lenses | @strong (unchanged) | needs reasoning over long briefs |
-| fast | `trivial/low` routes, researcher default | **jw-coder first, when the task fits**, then luna → haiku | passed the read-only lookup trial; trivial single-file edits pass marginally; free |
-| researcher | researcher agents | **@fast** (local first, when it fits) | bounded codebase lookups suit jw-coder; web research overflows the window and falls back to cloud |
+| fast | `trivial/low` routes, researcher default | **Qwen3-Coder 30B first, when the task fits**, then luna → haiku | passed the read-only lookup trial; trivial single-file edits pass marginally; free |
+| researcher | researcher agents | **@fast** (local first, when it fits) | bounded codebase lookups suit Qwen3-Coder 30B; web research overflows the window and falls back to cloud |
 | jev | judge tools | unchanged | out of scope |
+
+Where the local candidate lives: the local model's provider and model names
+are specific to one machine, so the committed `.development-system.toml`
+keeps a cloud-only matrix. The local pattern goes in the user config in pi's
+agent directory (`~/.pi/agent/development-system.toml`, `[models] fast = [...]`),
+which puts it ahead of the repo's `fast` candidates on that pi only
+(ADR 0010). `researcher` follows through `@fast`.
 
 Task-routing cells (`devsys_route_task`, shipped `[routing]` defaults, which
 this repo keeps unchanged; the change is in which model each slot resolves to):
 
 | Difficulty / risk | Route | Resolves to here | Local? |
 |---|---|---|---|
-| `trivial/low` | fast · low | jw-coder:30b when the estimate fits, else gpt-6-luna | yes, when it fits |
+| `trivial/low` | fast · low | Qwen3-Coder 30B when the estimate fits, else gpt-6-luna | yes, when it fits |
 | `trivial/medium`, `trivial/high` | implementer · medium | gpt-6.1-sol | no; any risk needs a model that keeps red-first discipline |
 | `routine/low` | implementer · medium | gpt-6.1-sol | no; local failed the multi-step TDD trial |
 | `routine/medium`, `routine/high` | strong · high | gpt-6.1-sol | no |
 | `complex/*` | strong · high | gpt-6.1-sol | no; needs reasoning and more than 32K |
 | `expert/*` | frontier · high | gpt-6-astra | no |
 
-jw-fast:8b is **not** put in any agentic slot. It claimed a TDD task was done
+Qwen3 8B is **not** put in any agentic slot. It claimed a TDD task was done
 without doing it, which breaks non-negotiable 3. The extension makes no
 single-shot text completions today, so the 8B has no consumer here. It
 remains useful for the user's own ad-hoc use and for future single-shot
@@ -104,8 +111,8 @@ saves **fast-tier and some strong-tier** usage, not frontier usage:
 
 | Activity / slot | Before | After | Expected change in cloud usage |
 |---|---|---|---|
-| researcher (codebase lookups) | gpt-6-luna | jw-coder:30b when it fits | most lookups leave the cloud; large or web research still falls back to Luna |
-| `trivial/low` routed tasks (fast) | gpt-6-luna | jw-coder:30b when it fits | most move local; tasks naming large files stay on Luna |
+| researcher (codebase lookups) | gpt-6-luna | Qwen3-Coder 30B when it fits | most lookups leave the cloud; large or web research still falls back to Luna |
+| `trivial/low` routed tasks (fast) | gpt-6-luna | Qwen3-Coder 30B when it fits | most move local; tasks naming large files stay on Luna |
 | implementer / strong | gpt-6.1-sol | unchanged | none; local failed multi-step TDD |
 | reviewer | claude-opus-5-5 | unchanged | none; the quality gate needs reasoning |
 | lens | gpt-6.1-sol | unchanged | none |
@@ -117,7 +124,7 @@ rather than saving money. At list price the saving is small: Luna costs
 $0.10/$0.50 per M tokens, so a 20K-token lookup costs well under a cent. The
 honest result is that the 32K window and the trial failures limit local
 models to the cheapest tier's work, at the price of latency (40 s vs a few
-seconds, plus 6–16 s cold loads when the MacBook swaps models).
+seconds, plus 6–16 s cold loads when the local machine swaps models).
 
 ## Sources
 

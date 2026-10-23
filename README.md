@@ -97,6 +97,18 @@ machine can use.
 | `[cadence]` | `push_minutes` (60) | Minutes without a push before the cadence nudge. |
 | `[event_model]` | `provider` (`builtin`) | Another provider replaces the builtin validator. |
 
+Machine-local models (an Ollama host only this machine reaches, say) do not belong in the committed
+file. Put them in `development-system.toml` in pi's agent directory (`~/.pi/agent/`, or
+`PI_CODING_AGENT_DIR`). That file may hold only `version` and `[models]`; each slot's candidates
+there go ahead of the repository's on this pi, and `/devsys-models` shows them but never writes them
+to the repository (ADR 0010).
+
+```toml
+version = 1
+[models]
+fast = ["my-ollama/qwen3-coder*"]
+```
+
 ## Model tiers
 
 Models are asked for by slot, never by id. Three capability tiers (`frontier`, `strong`, `fast`)
