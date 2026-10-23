@@ -90,6 +90,53 @@ so the strong, implementer, reviewer, lens and frontier slots stay as they are.
 The gap is in the fast tier, where GPT-6 Luna scores 13.6% and GLM-5.3-Flash
 scores 37.4%, about the same as Haiku 5.5 at a lower cost per test.
 
+Every other Go model, ruled in or out (quotas from opencode.ai/docs/go;
+scores from Vals AI's Terminal-Bench 4.0 leaderboard, 54 models, updated
+2026-10-22; "not listed" means Vals has not run it):
+
+| Go model | TB 4.0 | Go requests / 5 h | Verdict |
+|---|---|---|---|
+| claude-haiku-5-5 (Go-hosted) | 36.4% [$3.12] | ~3,850 | same model as the subscription Haiku; see "Go-hosted Haiku and Luna" below |
+| gpt-6-luna (Go-hosted) | 13.6% [$0.35] | ~4,230 | same model as the subscription Luna; below GLM Flash and Haiku |
+| gpt-5.6-luna | 11.6% [$0.73] | ~2,050 | no slot: older and weaker than GPT-6 Luna |
+| deepseek-v4-pro | 11.1% (V4 Pro 0813: 14.1%) [$3.31] | ~1,050 | no slot: scores below GLM Flash at higher cost, and its zero-retention agreement is only valid through 2026-10-31 |
+| glm-5.2 | not listed | ~880 | no slot: superseded by GLM-5.3 / 5.3-Flash |
+| hy3 | not listed (Hy4 Preview: 8.1%) | ~4,300 | no slot: its successor scores 8%, so no reason to expect Haiku-level work |
+| longcat-2.0 | not listed | ~11,400 | no slot: no public agentic score; its 2.5 preview endpoint was unavailable in the trial |
+| mimo-v2.5 | not listed | ~30,100 | no slot: superseded by MiMo-V2.6-Flash (24.2%), same quota |
+| mimo-v2.5-pro | 0.5% [$0.23] | ~3,250 | no slot: fails nearly every task |
+| minimax-m3 | 1.0% [$7.23] | ~3,200 | no slot: fails nearly every task |
+| qwen3.7-plus | not listed | ~4,300 | no slot: superseded by Qwen3.8 (Max 34–39%), no public score |
+
+Go-hosted Haiku and Luna: the Go quota would, in principle, take this work off
+the Claude and ChatGPT allowances. In practice it changes nothing here. Slot
+resolution takes the first candidate this machine has credentials for. It
+does not fail over when a quota runs out. GLM-5.3-Flash is already first among
+the cloud `fast` candidates, scores above both, and has a larger quota. A
+later Go candidate would only be reached when GLM-5.3-Flash is skipped for
+context. Its window is 1M tokens, so that would take a request of more than
+~600K tokens, and Go's Haiku has the same 1M window. So the committed matrix does not list the Go copies. A user
+who wants Haiku on Go as a second choice can put
+`opencode-go/claude-haiku-*` in the user config.
+
+Subscription models on this machine that the matrix does not use:
+
+| Models | Best TB 4.0 | Verdict |
+|---|---|---|
+| claude-opus-4-5 … 4-8, opus-5 | Opus 4.8 23.2%, Opus 5 53.5% | superseded by Opus 5.5 (65.2%); the `claude-opus-*` pattern picks the newest |
+| claude-sonnet-4-5, 4-6, sonnet-5 | Sonnet 5 10.6% | superseded by Sonnet 5.5 (64.1%); `claude-sonnet-*` picks the newest |
+| claude-haiku-4-5 | not listed | superseded by Haiku 5.5; `claude-haiku-*` picks the newest |
+| claude-fable-5, fable-5-1 | 41.4%, 58.1% | fable-5-1 stays in `frontier` as an Anthropic-only fallback; fable-5 is superseded |
+| gpt-6-sol | 44.4% | superseded by GPT-6.1 Sol (55.1%); `gpt-*-sol` picks the newest |
+| gpt-5.6-sol / terra / luna | 37.9% / 22.7% / 11.6% | superseded by the GPT-6 generation |
+| gpt-5.x, gpt-5.x-pro/codex/mini/nano, gpt-4.x, gpt-4o, o1/o3/o4-mini | GPT-5.4 Mini 2.5% | older generations; the GPT-6 family supersedes them for every slot |
+| gpt-realtime-2.1, gpt-daybreak-* | not listed | not general agentic models (realtime voice, experimental previews) |
+
+The `gpt-*-terra` patterns at the end of `strong` and `fast` are a last
+resort for an OpenAI-only account that has neither Sol nor Luna. On this
+machine they resolve to gpt-5.6-terra (22.7%) but are never reached, because
+earlier candidates resolve first.
+
 ## 5. Recommendations per activity
 
 | Activity / slot | Consumers | Recommendation | Why |
@@ -163,6 +210,7 @@ seconds, plus 6–16 s cold loads when the local machine swaps models).
 
 ## Sources
 
+- vals.ai/benchmarks/terminal-bench-4 (Terminal-Bench 4.0, 54 models, 2026-10-22); opencode.ai/docs/go (Go quotas and data policies)
 - realswe.com (Real-SWE 1.1, Oct 2026); morphllm.com/best-ai-coding-agents-2026;
   senior-swe-bench.snorkel.ai/agents; swe-marathon.org
 - datacamp.com/blog/claude-haiku-5-5-vs-gpt-6-luna; buoy.gg/blog/claude-haiku-5-5-vs-gpt-6-luna;

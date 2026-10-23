@@ -29,18 +29,50 @@ Qwen3-Coder 30B uses ~19 GB of VRAM when loaded. Switching between the two model
 3. Qwen3 8B is unsafe for any agentic slot where it can claim completion. Use it only for single-shot text work (summaries, labels), and the extension routes none of that today.
 4. Reviewer, lens, advisor and planning slots need reasoning and long context, so they stay on cloud models.
 
-## Routing check against this repo's matrix (after the context-aware change)
+## Routing check against this repo's matrix (final, 2026-10-23, after the GLM-5.3-Flash change)
 
-`devsys_models` (live): `fast` and `researcher` resolve to `Qwen3-Coder 30B (local)`
-(via a user-config pattern for the local Qwen3-Coder 30B); every other slot stays on its cloud model.
+Recorded from a headless pi session (`pi -p`) running the released extension
+1.9.0 with this repo's committed matrix, the user config in pi's agent
+directory (one `fast` pattern for the local Qwen3-Coder 30B) and the live
+model registry. The local model's id is shown as `Qwen3-Coder 30B (local)`.
+`openai-codex` has no credentials on this machine, so its patterns fall
+through to `openai/`.
 
-`recommendRoute` with this repo's `.development-system.toml`, a `trivial/low`
-judgement, and the machine's models with their registry windows:
+`devsys_models`:
 
-- Small task, one 2 KB file (~8,550 tokens): `Qwen3-Coder 30B (local)`.
-- Oversized, 80 KB of files (~28,050 tokens): `openai-codex/gpt-6-luna`, with
-  the note "Context: skipped Qwen3-Coder 30B (local) (32768-token window); the
-  request is ~28050 tokens, more than 60% of their window."
+```text
+frontier: openai/gpt-6-astra (via openai/gpt-*-astra) · 272000-token window
+strong: openai/gpt-6.1-sol (via openai/gpt-*-sol) · 272000-token window
+fast: Qwen3-Coder 30B (local) (via the user-config pattern) · 32768-token window
+planning: openai/gpt-6-astra (via openai/gpt-*-astra) · 272000-token window
+advisor: openai/gpt-6-astra (via openai/gpt-*-astra) · 272000-token window
+implementer: openai/gpt-6.1-sol (via openai/gpt-*-sol) · 272000-token window
+reviewer: anthropic/claude-opus-5-5 (via anthropic/claude-opus-*) · 1000000-token window
+lens: openai/gpt-6.1-sol (via openai/gpt-*-sol) · 272000-token window
+researcher: Qwen3-Coder 30B (local) (via the user-config pattern) · 32768-token window
+jev: typesafe/jev-latest (via typesafe/jev-latest) · 64000-token window
+```
+
+`devsys_route_task`:
+
+- Small task ("Rename a local variable in one small helper", one 1 KB file):
+  `Jev judged trivial/low. Slot "fast" resolves to Qwen3-Coder 30B (local)`,
+  pass `{"thinkingLevel":"low"}` with the local model.
+- Oversized task ("Read-only: list the exported function names in these
+  files", eight modules, ~37K tokens): `Jev judged trivial/low. Slot "fast"
+  resolves to opencode-go/glm-5.3-flash (via opencode-go/glm-5.3-flash).
+  Context: skipped Qwen3-Coder 30B (local) (32768-token window); the request
+  is ~37254 tokens, more than 60% of their window.` A second oversized task
+  ("Fix a typo in a code comment", same files) gave the same route (~37242).
+- The same eight files with "Rename a local variable…" were judged
+  `trivial/medium` and routed to `implementer` → `openai/gpt-6.1-sol`, which is
+  the shipped routing table working as intended (only `trivial/low` goes to
+  `fast`).
+
+Note: the session this goal ran in had extension 1.7.0 loaded (no user
+config), so its own `devsys_models` showed `fast` → GLM-5.3-Flash. The
+installed package was updated to 1.9.0 before the check above, and new pi
+sessions pick up the local model.
 
 ## OpenCode Go trials (2026-10-23)
 
