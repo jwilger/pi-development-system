@@ -58,6 +58,38 @@ the public sources listed at the end.
 | Researcher: read-only repo lookup with citations | **pass**: 40 s, 5 tool calls, correct path:line | not run; ruled out by the implementer result |
 | Implementer: one-function TDD task | run 1: the stream was truncated mid tool call; run 2: **marginal pass** (178 s, 19 calls, tests green, weak test design) | **fail**: claimed done without editing anything |
 
+## 4a. OpenCode Go models (open-weight cloud, flat subscription)
+
+OpenCode Go costs $10 a month. Each model has a dollar-denominated monthly
+allowance (5-hour window = 20% of it), and the free models stay usable after
+the limits run out. Every model listed below except Gemini 4 Argon
+Contributor and the Muse Spark Contributor models has zero-day retention and
+no training on prompts; Beam Free keeps data 30 days. Terminal-Bench 4.0
+(Vals AI, mini-SWE-agent harness, avg@3; cost per test in brackets) gives a
+common yardstick against the incumbents: Opus 5.5 65.2% [$13.20], Sonnet 5.5
+64.1%, GPT-6 Astra 59.6%, GPT-6.1 Sol 55.1% [$1.72], Haiku 5.5 36.4% [$3.12],
+GPT-6 Luna 13.6% [$0.35].
+
+| Go model | TB 4.0 | Go requests / 5 h | Trial (researcher lookup; TDD implementer) | Verdict |
+|---|---|---|---|---|
+| glm-5.3-flash | 37.4% [$1.22] | ~6,320 | pass, 11 s; pass, 15 s, boundary tests | **fast slot, first cloud candidate**: Haiku-level score, far above Luna, very large quota |
+| glm-5.3 | 38.9% [$9.37] | ~220 | not run; pass, 20 s | no slot: barely above Flash, with a quota 30× smaller |
+| mimo-v2.6-flash | 24.2% [$0.22] | ~30,100 | pass, 24 s; pass, 39 s | alternative for fast if GLM Flash quota runs out (manual) |
+| mimo-v2.6-pro | 31.3% [$0.50] | ~3,250 | pass, 29 s; pass, 34 s | no slot: below GLM Flash |
+| qwen3.8-flash | not listed | — | pass, 24 s; pass, 47 s | no slot: no public agentic score |
+| kimi-k2.7-code | not listed (K3: 17.2%) | ~1,350 | pass, 29 s; pass, 25 s | no slot |
+| beam-free | 4.0% | unlimited, limited time | pass, 10 s; pass, 13 s | no slot: weak on hard tasks and temporary |
+| deepseek-v4.1-flash | 31.8% [$0.54] | — | refused: "This Go model requires Global regions" | unusable until the workspace privacy setting is changed |
+| minimax-m3.1-flash-free | 25.3% | — | refused: "Model … has been deprecated" | gone |
+| longcat-2.5-preview-free | not listed | — | refused: "Endpoint is unavailable" | unavailable |
+| kimi-k3, qwen3.8-max, grok-4.7, step-5-preview, hy4-preview | 17–39% | 110–430 | not run | no slot: none beats GPT-6.1 Sol (55%, $1.72) for strong work, and their quotas are small |
+| gemini-4-argon-contributor, muse-spark-* | 6–58% | — | not run | excluded: prompts may be used for training |
+
+No Go model approaches GPT-6.1 Sol, Sonnet, Opus or Astra on Terminal-Bench,
+so the strong, implementer, reviewer, lens and frontier slots stay as they are.
+The gap is in the fast tier, where GPT-6 Luna scores 13.6% and GLM-5.3-Flash
+scores 37.4%, about the same as Haiku 5.5 at a lower cost per test.
+
 ## 5. Recommendations per activity
 
 | Activity / slot | Consumers | Recommendation | Why |
@@ -67,7 +99,7 @@ the public sources listed at the end.
 | strong / implementer | implementer, coder, `routine`/`complex` routes | gpt-6.1-sol → sonnet-5-5 (unchanged) | Astra's score at a fifth of the cost; local failed multi-step TDD |
 | reviewer | devsys_review_start | opus-5-5 → sonnet → sol (unchanged) | quality gate; needs reasoning and the whole diff |
 | lens | product lenses | @strong (unchanged) | needs reasoning over long briefs |
-| fast | `trivial/low` routes, researcher default | **Qwen3-Coder 30B first, when the task fits**, then luna → haiku | passed the read-only lookup trial; trivial single-file edits pass marginally; free |
+| fast | `trivial/low` routes, researcher default | **Qwen3-Coder 30B first, when the task fits** (user config), then **glm-5.3-flash** → luna → haiku | local passed the read-only lookup trial and trivial edits marginally, and is free; GLM Flash passed both trials and has a Haiku-level TB 4.0 score on the Go quota |
 | researcher | researcher agents | **@fast** (local first, when it fits) | bounded codebase lookups suit Qwen3-Coder 30B; web research overflows the window and falls back to cloud |
 | jev | judge tools | unchanged | out of scope |
 
@@ -83,7 +115,7 @@ this repo keeps unchanged; the change is in which model each slot resolves to):
 
 | Difficulty / risk | Route | Resolves to here | Local? |
 |---|---|---|---|
-| `trivial/low` | fast · low | Qwen3-Coder 30B when the estimate fits, else gpt-6-luna | yes, when it fits |
+| `trivial/low` | fast · low | Qwen3-Coder 30B when the estimate fits, else glm-5.3-flash | yes, when it fits |
 | `trivial/medium`, `trivial/high` | implementer · medium | gpt-6.1-sol | no; any risk needs a model that keeps red-first discipline |
 | `routine/low` | implementer · medium | gpt-6.1-sol | no; local failed the multi-step TDD trial |
 | `routine/medium`, `routine/high` | strong · high | gpt-6.1-sol | no |
@@ -111,8 +143,8 @@ saves **fast-tier and some strong-tier** usage, not frontier usage:
 
 | Activity / slot | Before | After | Expected change in cloud usage |
 |---|---|---|---|
-| researcher (codebase lookups) | gpt-6-luna | Qwen3-Coder 30B when it fits | most lookups leave the cloud; large or web research still falls back to Luna |
-| `trivial/low` routed tasks (fast) | gpt-6-luna | Qwen3-Coder 30B when it fits | most move local; tasks naming large files stay on Luna |
+| researcher (codebase lookups) | gpt-6-luna | Qwen3-Coder 30B when it fits, else glm-5.3-flash | most lookups go local; the rest leave the ChatGPT allowance for the Go quota |
+| `trivial/low` routed tasks (fast) | gpt-6-luna | Qwen3-Coder 30B when it fits, else glm-5.3-flash | the same; without Go credentials, Luna as before |
 | implementer / strong | gpt-6.1-sol | unchanged | none; local failed multi-step TDD |
 | reviewer | claude-opus-5-5 | unchanged | none; the quality gate needs reasoning |
 | lens | gpt-6.1-sol | unchanged | none |
@@ -120,7 +152,10 @@ saves **fast-tier and some strong-tier** usage, not frontier usage:
 | coordinator | cloud | unchanged | none; does not fit 32K |
 
 On a subscription plan this mostly spends less of the rate-limit allowance
-rather than saving money. At list price the saving is small: Luna costs
+rather than saving money. With Go, fast-tier work that does not fit locally
+uses the Go quota (~6,300 GLM Flash requests per 5 h) instead of the ChatGPT
+or Claude allowances, which keeps those allowances for strong, reviewer and
+frontier work. At list price the saving is small: Luna costs
 $0.10/$0.50 per M tokens, so a 20K-token lookup costs well under a cent. The
 honest result is that the 32K window and the trial failures limit local
 models to the cheapest tier's work, at the price of latency (40 s vs a few

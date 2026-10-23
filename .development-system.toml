@@ -6,7 +6,7 @@ mode = "trunk"
 [models]
 frontier    = ["openai-codex/gpt-*-astra", "openai/gpt-*-astra", "anthropic/claude-fable-*", "anthropic/claude-opus-*", "openai-codex/gpt-*-sol", "openai/gpt-*-sol"]
 strong      = ["openai-codex/gpt-*-sol", "openai/gpt-*-sol", "anthropic/claude-sonnet-*", "anthropic/claude-opus-*", "openai-codex/gpt-*-terra", "openai/gpt-*-terra"]
-fast        = ["openai-codex/gpt-*-luna", "openai/gpt-*-luna", "anthropic/claude-haiku-*", "openai-codex/gpt-*-terra", "openai/gpt-*-terra", "@strong"]
+fast        = ["opencode-go/glm-5.3-flash", "openai-codex/gpt-*-luna", "openai/gpt-*-luna", "anthropic/claude-haiku-*", "openai-codex/gpt-*-terra", "openai/gpt-*-terra", "@strong"]
 planning    = ["@frontier"]
 advisor     = ["@frontier"]
 implementer = ["@strong"]

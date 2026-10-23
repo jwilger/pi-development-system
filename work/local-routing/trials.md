@@ -41,3 +41,29 @@ judgement, and the machine's models with their registry windows:
 - Oversized, 80 KB of files (~28,050 tokens): `openai-codex/gpt-6-luna`, with
   the note "Context: skipped Qwen3-Coder 30B (local) (32768-token window); the
   request is ~28050 tokens, more than 60% of their window."
+
+## OpenCode Go trials (2026-10-23)
+
+These are the same two agentic tasks as above: the read-only researcher lookup
+(routing table, `resolveSlot`, `recommendRoute` with path:line), and the TDD
+implementer task (`fitsBudget` with boundary tests, red then green) in a
+throwaway fixture, at thinking level low. I re-ran each fixture's tests
+myself afterwards; all were green, and each `budget.ts` had exactly one
+`fitsBudget`.
+
+| Model | Researcher | Implementer | Tests (re-run) |
+|---|---|---|---|
+| glm-5.3-flash | correct, 11 s, 45K in / 0.4K out | red then green, 15 s | 4 pass |
+| glm-5.3 | not run | red then green, 20 s | 3 pass |
+| beam-free | correct, 10 s | red then green, 13 s | 4 pass |
+| mimo-v2.6-pro | correct, 29 s | red then green, 34 s | 4 pass |
+| mimo-v2.6-flash | correct, 24 s | red then green, 39 s | 5 pass |
+| qwen3.8-flash | correct, 24 s | red then green, 47 s | 5 pass |
+| kimi-k2.7-code | correct, 29 s | red then green, 25 s | 3 pass |
+| deepseek-v4.1-flash | 400 "This Go model requires Global regions" | same | — |
+| minimax-m3.1-flash-free | 410 "has been deprecated" | same | — |
+| longcat-2.5-preview-free | 402 "Endpoint is unavailable" | same | — |
+
+Each trial is a single small task, so all it shows is that the model can work
+as an agent in this harness. Quality on harder work is judged from Terminal-Bench 4.0
+(docs/research/07-local-model-routing.md §4a).
