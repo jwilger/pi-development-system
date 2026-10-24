@@ -2,6 +2,63 @@
 
 Generated from the Conventional Commit history by `npm run changelog`, after the release commit; do not edit by hand.
 
+## 1.9.1 - 2026-10-23
+
+- **Features**
+  - **models:** route cloud fast work to GLM-5.3-Flash on OpenCode Go (`4798ef3`)
+- **Fixes**
+  - **ci:** settle the version gate's bump for the user config change (`f724089`)
+  - **release:** publish latest main as 1.9.1 (`bf357c0`)
+- **Other**
+  - **research:** cover every available model and record the final routing check (`1b3f21c`)
+
+## 1.9.0 - 2026-10-22
+
+- **Features**
+  - **config:** user-level model candidates in pi's agent directory (`365076a`)
+- **Other**
+  - **models:** route fast and researcher work to the local jw-coder model first (`dd3c7fe`)
+  - **models:** record the local-routing verdict for every difficulty/risk cell (`3d212a7`)
+
+## 1.8.0 - 2026-10-22
+
+- **Features**
+  - **models:** skip slot candidates whose context window cannot fit the request (`c1aef12`)
+
+## 1.7.0 - 2026-10-22
+
+- **Features**
+  - **discovery:** refresh fallback exposure without overriding selections (`15b2df5`)
+
+## 1.6.0 - 2026-10-22
+
+- **Features**
+  - **subagents:** preserve pi 1.4 inherited tool metadata (`00ed642`)
+
+## 1.5.0 - 2026-10-22
+
+- **Features**
+  - **jev:** attribute classifier usage to pi executions (`ce88acd`)
+
+## 1.4.0 - 2026-10-22
+
+- **Features**
+  - **jev:** bound caller cancellation and attribute direct usage (`06443b9`)
+- **Other**
+  - **pi:** exercise real SDK lifecycle and detached child sessions (`0c1ef5a`)
+
+## 1.3.0 - 2026-10-22
+
+- **Fixes**
+  - **workflow:** preserve newer state across concurrent tool calls (`92409e7`)
+
+## 1.2.0 - 2026-10-21
+
+- **Fixes**
+  - **pi:** support custom-triggered turns on pi 1.4 (`97f3441`)
+- **Other**
+  - **changelog:** regenerate for 1.1.0 (`255df13`)
+
 ## 1.1.0 - 2026-10-09
 
 - **Features**
