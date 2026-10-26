@@ -16,11 +16,11 @@ Ask these in order and stop at the first yes:
 3. Does it change existing behaviour in one area? That is a `change`.
 4. Otherwise it is a `fix`.
 
-`/devsys-start` sizes the work with Jev and proceeds when Jev is at least 50% confident, saying so; below that it asks you to pick. If the size is already decided (a goal's planning, a plan's increment), pass it as `size` and nobody is asked to size it (a `fix` still asks whether to waive review). If you disagree with a size, change it; it is a judgement, not a rule.
+`/devsys-start` sizes the work with Jev and proceeds when Jev is at least 50% confident, saying so; below that it asks you to pick. If the size is already decided (a goal's planning, a plan's increment), pass it as `size` and nobody is asked to size it. Intake never offers to waive review, including for a `fix`. If you disagree with a size, change it; it is a judgement, not a rule.
 
 ## Artifacts follow size
 
-- `fix`: a task record. The user is asked separately whether to waive fresh-context review for it; a yes is logged as a user-approved `review.unsatisfied` departure for that slice, a no keeps the review gate.
+- `fix`: a task record and the required fresh-context review rounds. Small size does not waive review; do not ask the user to skip it.
 - `change`: task record, review, an ADR if a decision is hard to reverse.
 - `capability`: add a brief-lite, journeys, an event model, and optionally lens review.
 - `product`: the full set, including brief, decision register and architecture.

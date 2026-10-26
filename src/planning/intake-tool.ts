@@ -4,15 +4,11 @@ import type {
   ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import { type Static, Type } from "typebox";
-import { parseDeparture } from "../core/departure.ts";
-import { lookupGate } from "../core/gates.ts";
 import { parseSizing } from "../core/sizing.ts";
 import { type DevsysState, isParseError, type Sizing, type SliceRef } from "../core/types.ts";
-import { DEPARTURE_ENTRY_TYPE } from "../gates/record-departure-tool.ts";
 import type { Jev } from "../jev/client.ts";
 import { withJevToolUsage } from "../jev/execution.ts";
 import { judgeSizing } from "../jev/questions/sizing.ts";
-import { appendDecision } from "../state/decision-log.ts";
 import type { SessionState } from "../state/session-state.ts";
 import { sameWorkflow } from "../state/workflow.ts";
 import {
@@ -79,17 +75,6 @@ const slicesInUse = (state: DevsysState): Set<string> =>
     ...state.openDepartures.flatMap((d) => (d.scope.kind === "slice" ? [d.scope.slice] : [])),
   ]);
 
-/** The waiver is its own question, naming the request and what the review gate actually covers. */
-const askToWaiveReview = (
-  ctx: ExtensionContext,
-  request: string,
-  slice: SliceRef,
-): Promise<boolean> =>
-  ctx.ui.confirm(
-    "Skip fresh-context review for this fix?",
-    `"${request.slice(0, 120)}"\nThe review gate checks the whole uncommitted diff, so yes waives review for everything committed under slice "${slice}". The waiver is logged in docs/decisions.`,
-  );
-
 /** Starting new work replaces the active slice; while it is in flight that needs the user's yes. */
 async function declinedToReplace(
   ctx: ExtensionContext,
@@ -128,58 +113,6 @@ async function chooseSize(
   }
   const parsed = parseSizing(picked);
   return isParseError(parsed) ? { stop: parsed.message, isError: true } : { sizing: parsed };
-}
-
-const waiverNote = (sizing: Sizing, departed: string | undefined): string => {
-  if (departed !== undefined)
-    return `\nRecorded in ${departed}: you waived fresh-context review for this fix.`;
-  return sizing === "fix"
-    ? "\nReview is NOT waived: this slice still needs its review rounds before commit."
-    : "";
-};
-
-/**
- * I8.1 sizes a fix without a review artifact, but the commit gate reviews every slice (I6.4). Only the user's
- * explicit yes to the waiver question is recorded, as a user-approved departure for this slice alone.
- */
-async function fixWithoutReview(
-  deps: { pi: ExtensionAPI; state: SessionState },
-  ctx: ExtensionContext,
-  slice: SliceRef,
-): Promise<string | undefined> {
-  const info = lookupGate("review.unsatisfied");
-  const at = new Date();
-  const departure = parseDeparture({
-    id: `dep-${at.getTime()}-intake`,
-    gate: "review.unsatisfied",
-    tier: "soft",
-    default: info?.default ?? "finish the fresh-context review before release",
-    chosen: "no review rounds for this slice",
-    why: "the user was asked and agreed: this is a fix, which the sizing table plans without a review artifact",
-    costIfWrong: "a defect in a small change ships without a fresh-context look",
-    approver: "user",
-    scope: { kind: "slice", slice },
-    revisitWhen: "the fix turns out to touch more than its task record named",
-    recordedAt: at.toISOString().replace(/\.\d{3}Z$/, "Z"),
-  });
-  if (isParseError(departure)) return undefined;
-  const { path } = await appendDecision(ctx.cwd, departure, at);
-  deps.pi.appendEntry(DEPARTURE_ENTRY_TYPE, departure);
-  deps.state.update((s) => ({ ...s, openDepartures: [...s.openDepartures, departure] }));
-  return path;
-}
-
-async function reviewWaiver(
-  deps: { pi: ExtensionAPI; state: SessionState },
-  ctx: ExtensionContext,
-  sizing: Sizing,
-  request: string,
-  slice: SliceRef,
-): Promise<string | undefined> {
-  if (sizing !== "fix" || !ctx.hasUI) return undefined;
-  return (await askToWaiveReview(ctx, request, slice))
-    ? fixWithoutReview(deps, ctx, slice)
-    : undefined;
 }
 
 /** `devsys_intake`: Jev (or the caller) sizes the work; only a doubtful Jev asks the user; state moves to the first phase. */
@@ -240,13 +173,15 @@ function buildIntakeTool(deps: {
         sizing,
         activeSlice: slice,
       }));
-      const departed = await reviewWaiver(deps, ctx, sizing, request, slice);
       const final = renderProposal({
         sizing,
         basis: decision.basis,
         proposal: proposalFor(sizing),
       });
-      const note = waiverNote(sizing, departed);
+      const note =
+        sizing === "fix"
+          ? "\nReview is NOT waived: this slice still needs its review rounds before commit."
+          : "";
       return reply(`${final}\nPhase: ${phaseFor(sizing)}. Active slice: ${slice}.${note}`);
     },
   };

@@ -68,7 +68,8 @@ next one starts with `devsys_intake`.
 
 `devsys_intake` does not interrupt autonomous work: Jev's size is used when Jev is at least 50%
 confident, and the user is asked to pick only when it is less sure (or unavailable). A size decided up
-front, such as in a goal's planning, is passed as `size` and skips the sizing question entirely (a `fix` still asks whether to waive review).
+front, such as in a goal's planning, is passed as `size` and skips the sizing question entirely.
+Fix-sized work retains the required review rounds; intake never offers to waive them.
 
 With `codemode` enabled (`"defaultTools": ["+codemode"]` in pi settings), rarely used tools are
 reached through scripts. With `tool_search` instead, search activates them on demand. Without either

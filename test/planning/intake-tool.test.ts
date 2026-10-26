@@ -196,16 +196,15 @@ test("a fix judged by an online Jev with no extra need lists nothing to consider
   assert.doesNotMatch(textOf(r), /Also consider/);
 });
 
-test("confirming a fix records a user-approved review departure for that slice only", async () => {
+test("selecting fix preserves required reviews without offering a waiver", async () => {
   const { fake, state, run } = setup(unsure("fix"));
   fake.ui.selectResponses.push("fix");
   fake.ui.confirmResponses.push(true);
   const r = await run({ request: "trim the email on login" });
-  const [dep] = state.get().openDepartures;
-  assert.equal(dep?.gate, "review.unsatisfied");
-  assert.equal(dep?.approver, "user");
-  assert.deepEqual(dep?.scope, { kind: "slice", slice: "trim-the-email-on-login" });
-  assert.match(textOf(r), /waived fresh-context review/);
+  assert.deepEqual(state.get().openDepartures, []);
+  assert.equal(fake.ui.calls.filter((c) => c.kind === "confirm").length, 0);
+  assert.equal(state.get().activeSlice, "trim-the-email-on-login");
+  assert.match(textOf(r), /Review is NOT waived/);
 });
 
 test("sizes other than fix record no departure", async () => {
@@ -215,14 +214,14 @@ test("sizes other than fix record no departure", async () => {
   assert.deepEqual(state.get().openDepartures, []);
 });
 
-test("declining the waiver keeps the review gate for that fix", async () => {
+test("a fix requires review without asking for confirmation", async () => {
   const { fake, state, run } = setup(unsure("fix"));
   fake.ui.selectResponses.push("fix");
   fake.ui.confirmResponses.push(false);
   const r = await run({ request: "trim the email on login" });
   assert.deepEqual(state.get().openDepartures, []);
   assert.match(textOf(r), /Review is NOT waived/);
-  assert.match(JSON.stringify(fake.ui.calls), /Skip fresh-context review/);
+  assert.equal(fake.ui.calls.filter((c) => c.kind === "confirm").length, 0);
 });
 
 test("a slice that is reviewed but not yet shipped still asks before it is replaced", async () => {
@@ -316,10 +315,36 @@ test("headless never replaces a slice in flight and never waives review", async 
   assert.equal(state.get().openDepartures.length, 0);
 });
 
-test("a fix decided without asking still asks the user about waiving review", async () => {
+test("confident and explicit fixes preserve required reviews without interaction", async () => {
+  for (const params of [
+    { request: "trim the email" },
+    { request: "trim the email", size: "fix" },
+  ]) {
+    for (const hasUI of [true, false]) {
+      const { fake, state, run } = setup(online("fix"), hasUI);
+      fake.ui.confirmResponses.push(true);
+      const r = await run(params);
+      assert.equal(state.get().sizing, "fix");
+      assert.equal(state.get().phase, "implementing");
+      assert.equal(
+        fake.ui.calls.filter((c) => c.kind === "confirm" || c.kind === "select").length,
+        0,
+      );
+      assert.deepEqual(state.get().openDepartures, []);
+      assert.match(textOf(r), /Review is NOT waived/);
+    }
+  }
+});
+
+test("replacing an active slice with a fix asks only about replacement", async () => {
   const { fake, state, run } = setup(online("fix"));
+  await run({ request: "original", size: "change" });
   fake.ui.confirmResponses.push(true);
-  await run({ request: "trim the email" });
-  assert.equal(fake.ui.calls.filter((c) => c.kind === "confirm").length, 1);
-  assert.equal(state.get().openDepartures.length, 1);
+  const r = await run({ request: "replacement", size: "fix" });
+  assert.equal(state.get().activeSlice, "replacement");
+  const confirmations = fake.ui.calls.filter((c) => c.kind === "confirm");
+  assert.equal(confirmations.length, 1);
+  assert.equal(confirmations[0]?.args[0], "Slice already in flight");
+  assert.deepEqual(state.get().openDepartures, []);
+  assert.match(textOf(r), /Review is NOT waived/);
 });
