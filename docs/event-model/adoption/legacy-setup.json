@@ -1,0 +1,57 @@
+{
+  "id": "slice.legacy-setup.c01",
+  "pattern": "state-change",
+  "actor": "user",
+  "command": {
+    "name": "UpdateLegacyStatus",
+    "fields": {
+      "issueId": "string",
+      "status": "string"
+    }
+  },
+  "events": [
+    {
+      "name": "LegacyStatusUpdated",
+      "fields": {
+        "issueId": "string",
+        "status": "string"
+      }
+    }
+  ],
+  "gwt": [
+    {
+      "given": [],
+      "when": {
+        "command": "UpdateLegacyStatus",
+        "let": {
+          "issueId": "7",
+          "status": "in-progress"
+        }
+      },
+      "then": [
+        {
+          "error": "tracker-error"
+        }
+      ]
+    },
+    {
+      "given": [{ "event": "LegacyMarkerConfigured", "let": { "repository": "o/r" } }],
+      "when": {
+        "command": "UpdateLegacyStatus",
+        "let": {
+          "issueId": "7",
+          "status": "in-progress"
+        }
+      },
+      "then": [
+        {
+          "event": "LegacyStatusUpdated",
+          "let": {
+            "issueId": "7",
+            "status": "in-progress"
+          }
+        }
+      ]
+    }
+  ]
+}

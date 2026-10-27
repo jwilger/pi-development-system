@@ -110,6 +110,30 @@ version = 1
 fast = ["my-ollama/qwen3-coder*"]
 ```
 
+### GitHub Issues-only setup
+
+With `[tracker] kind = "github"`, issue lifecycle is projected as `open`/`done`,
+and an existing `in-progress` label marks active open issues. This is a compatibility
+convention, not a Project workflow or proof of delivery. Ordinary tracker operations
+never create or recolor labels.
+
+Before using `status = "in-progress"`, an authorized repository owner must explicitly
+review this convention and ensure the label exists in the target repository. For
+example, after checking existing labels:
+
+```sh
+gh label list --repo OWNER/REPO
+gh label create in-progress --repo OWNER/REPO
+```
+
+These are manual setup commands, not actions performed by `devsys_work_item`. Do not
+force an existing label's settings. If an update fails, its original GitHub error is
+returned; missing setup is only one possible cause (permissions or another edit may
+have failed). Inspect the error, re-read the issue and repository setup, and retry
+explicitly after resolving the cause. A failed edit does not trigger issue closure
+or reopening; GitHub edits are not promised to be transactional. Repo-file tracking
+requires no label setup. Project integration is not provided by this convention.
+
 ## Model tiers
 
 Models are asked for by slot, never by id. Three capability tiers (`frontier`, `strong`, `fast`)

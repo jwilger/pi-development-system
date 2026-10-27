@@ -1,0 +1,19 @@
+{
+  "id": "slice.legacy-setup.manual",
+  "pattern": "state-change",
+  "actor": "authorized-repository-owner",
+  "command": {
+    "name": "ManuallyConfigureLegacyMarker",
+    "fields": { "repository": "string" }
+  },
+  "events": [
+    { "name": "LegacyMarkerConfigured", "fields": { "repository": "string" } }
+  ],
+  "gwt": [
+    {
+      "given": [],
+      "when": { "command": "ManuallyConfigureLegacyMarker", "let": { "repository": "o/r" } },
+      "then": [{ "event": "LegacyMarkerConfigured", "let": { "repository": "o/r" } }]
+    }
+  ]
+}

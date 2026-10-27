@@ -1,0 +1,380 @@
+# Adoption revision 0.2 — proposed task records
+
+These draft records outline the contracts in [the proposal](existing-application-adoption.md)
+and proposed ADRs 0011–0013, only after explicit approval. New paths below are planned,
+not claims that those files/commands exist today. Each slice ships independently through
+the existing review/delivery gates; do not mark a work item complete merely for a push.
+
+Readiness check: the initial draft returned `needs-detail` for all S1–S16. After owner
+approval, S1 was refined and rechecked as `ready`; S2–S16 remain draft records,
+principally interfaces and concrete implementation steps (S11/S15 also need sharper first
+failing cases). These records are not ready for implementer handoff. Resolve the selected
+slice's findings, finalize signatures/scenarios under the approved contract and rerun its
+readiness check before implementation or delegation. Design approval does not waive that gate.
+
+Shared acceptance: preserve existing tests and hard stops; fake Exec/temporary git repos
+for ordinary tests, no live GitHub credentials. Add adversarial cases named in the plan
+one behavior at a time. Model-visible changes require actual effect evidence with controls,
+not only transport/string assertions. The proposed eval command is
+`node --experimental-transform-types --no-warnings scripts/eval-guidance.ts --case CASE`;
+S3 supplies its harness, fixtures and documented model/credential selection. Do not skip
+it or claim success when credentials/evidence are unavailable; stop and ask.
+
+Dependencies: S2 precedes S3/S9; S4 precedes S5–S8; S10 precedes S11; S13 precedes
+S14/S15; S16 follows relevant capabilities. S1 and S12 can deliver independently.
+All records also run npm test and npm run typecheck plus applicable repo gates after
+GREEN; command-specific exit zero is evidence only for what actually ran.
+
+## S1 — Make legacy label setup explicit
+
+**Goal:** An Issues-only in-progress update never provisions a marker label; when GitHub refuses the edit, preserve its error and give conditional manual setup advice rather than treating a failed update as success.
+
+**Files:** src/tracker/github.ts, test/tracker/github.test.ts, test/tracker/work-item-tool.test.ts, README.md, docs/event-model/adoption/legacy-setup.json
+
+**Interfaces:** Modify only `updateIssue(gh: Gh, id: string, patch: WorkItemPatch): Promise<TrackerResult<WorkItem>>` in src/tracker/github.ts. Remove its label-create block. If edit fails and flags include adding IN_PROGRESS, return trackerError with the original error.message plus conditional owner setup/re-read advice; otherwise return edited unchanged. Keep public `createGithubTracker(deps: GithubTrackerDeps): Tracker` and `createWorkItemTool(deps: { exec: Exec }): ToolDefinition<typeof Parameters>` unchanged. No new types/configuration. Existing labels and issue lifecycle order remain unchanged. README documents manual label setup; event JSON models the same update command. No new trust boundary: existing gh authority is reduced, no secrets or new command interpolation.
+
+**First failing test:** In test/tracker/work-item-tool.test.ts invoke createWorkItemTool with a temporary `[tracker] kind = "github", repo = "o/r"` config and fake Exec tracking repository labels. Initially no marker exists; gh label create would add it, gh issue edit fails if it is absent. Request `{action:"update", id:"7", status:"in-progress"}`. Assert isError=true, original missing-label error plus explicit setup/re-read advice, no label provisioning effect, no close/reopen and issue unchanged. Current code creates the label and incorrectly succeeds.
+
+**Steps:**
+
+1. Add test "missing marker setup is reported without provisioning" to test/tracker/work-item-tool.test.ts using fake Exec and temporary config. Run targeted tests; observe unexpected success RED.
+2. Remove the label-create block in updateIssue. On failed --add-label in-progress edits, retain the gh error with conditional manual setup/re-read advice; other edit errors remain unchanged.
+3. Replace the three label-provisioning tests under recorded requirement-change departure. Assert existing labels still update without label writes, permission errors remain visible, and no recoloring occurs.
+4. Add owner-setup/retry and unrelated-edit-error cases through the public tool, one failing test at a time. Verify no lifecycle command follows any failed edit.
+5. Add README setup documentation and the matching event JSON. Validate events, run the listed test/type/lint commands, obtain fresh review and deliver under trunk policy.
+
+**Run:** `node --experimental-transform-types --no-warnings --test test/tracker/github.test.ts test/tracker/work-item-tool.test.ts`; `npm test`; `npm run typecheck`; `npm run lint`; `npm run lint:md`.
+
+**Expected:** The new missing-label test fails before production edits because isError is false and the label was created. After the change all targeted tests exit 0: absent labels remain absent, refusal retains GitHub's error and conditional owner setup advice, existing labels permit edits without provisioning, and other CRUD/lifecycle behavior is unchanged. No live GitHub credentials are required.
+
+**Out of scope:** A provisioning tool, Project support, new workflow vocabulary, preflight label discovery, transactional retries or label recoloring.
+
+## S2 — Transport repository-owned workflow input
+
+**Goal:** A root turn and independent devsys-created fresh task receive configured workflow content with source identity.
+
+**Files:** src/state/config.ts; new src/state/local-guidance.ts; src/context/system-prompt.ts; extensions/development-system.ts; src/subagents/index.ts; src/subagents/orch/runtime.ts; new test/context/workflow-guidance.test.ts (new test names may be introduced where absent).
+
+**Interfaces:** [workflow].guidance and ADR 0012 loader/transport; no config retains legacy behavior.
+
+**First failing test:** Prepare an independent fresh task in a temporary git repository with configured tracked workflow guidance and no inherited context; actual received input contains that content and its identity.
+
+**Steps:**
+
+1. Inspect the named current interfaces and create the single RED behavior above through the public entry point; for instruction-only behavior capture the failing effect case before editing guidance.
+2. Implement only the contract required for that behavior, keeping policy local and decisions in the functional core; add the plan's relevant failure/recovery cases one at a time.
+3. Run the targeted checks and regressions; refactor only while GREEN; obtain required fresh-context reviews and deliver under repository policy.
+
+**Run:** `node --experimental-transform-types --no-warnings --test test/context/workflow-guidance.test.ts`; `npm test`; `npm run typecheck`.
+
+**Expected:** Before implementation the named new behavior fails for the intended reason; after implementation the targeted tests and regressions exit 0 with no failures/skips, and the observable result matches Goal.
+
+**Out of scope:** Semantic workflow parser, external-agent control or review clean-round changes.
+
+## S3 — Teach owner-led workflow discovery
+
+**Goal:** A discovery agent reports contradictions and asks the owner before proposing operational changes.
+
+**Files:** new skills/project-workflow/SKILL.md and references; new scripts/eval-guidance.ts; new evals/guidance/discovery/; package.json; new test/context/guidance-eval.test.ts (new test names may be introduced where absent).
+
+**Interfaces:** Define/discover/maintain paths; survey evidence categories, local artifact proposals and owner sign-off.
+
+**First failing test:** Run discovery-conflict against the actual skill in a fixture with factory-only docs and divergent automation; expect cited conflict and owner question, zero mutation or policy invention.
+
+**Steps:**
+
+1. Inspect the named current interfaces and create the single RED behavior above through the public entry point; for instruction-only behavior capture the failing effect case before editing guidance.
+2. Implement only the contract required for that behavior, keeping policy local and decisions in the functional core; add the plan's relevant failure/recovery cases one at a time.
+3. Run the targeted checks and regressions; refactor only while GREEN; obtain required fresh-context reviews and deliver under repository policy. Also run the relevant discovery-conflict effect case through the S3 harness before shipping instructions, recording actual model/tool behavior and harmless controls.
+
+**Run:** `node --experimental-transform-types --no-warnings --test test/context/guidance-eval.test.ts`; `npm test`; `npm run typecheck`.
+
+**Expected:** Before implementation the named new behavior fails for the intended reason; after implementation the targeted tests and regressions exit 0 with no failures/skips, and the observable result matches Goal. Effect case records satisfy the stated behavior and safety/harmless controls; absence of model evidence is not a pass.
+
+**Out of scope:** Station templates, autonomous loops, migrating live boards or changing downstream repositories.
+
+## S4 — Inspect optional Project identity
+
+**Goal:** The work-item interface can inspect Project and field identities without mutations.
+
+**Files:** src/tracker/types.ts; src/tracker/select.ts; src/tracker/work-item-tool.ts; new src/tracker/github-project.ts; src/state/config.ts; new test/tracker/project.test.ts (new test names may be introduced where absent).
+
+**Interfaces:** Optional advertised capabilities; inspect and project-member from plan/ADR 0011.
+
+**First failing test:** Inspect a configured field from a different Project via the public tool; expect identity error and zero mutation requests.
+
+**Steps:**
+
+1. Inspect the named current interfaces and create the single RED behavior above through the public entry point; for instruction-only behavior capture the failing effect case before editing guidance.
+2. Implement only the contract required for that behavior, keeping policy local and decisions in the functional core; add the plan's relevant failure/recovery cases one at a time.
+3. Run the targeted checks and regressions; refactor only while GREEN; obtain required fresh-context reviews and deliver under repository policy.
+
+**Run:** `node --experimental-transform-types --no-warnings --test test/tracker/project.test.ts`; `npm test`; `npm run typecheck`.
+
+**Expected:** Before implementation the named new behavior fails for the intended reason; after implementation the targeted tests and regressions exit 0 with no failures/skips, and the observable result matches Goal.
+
+**Out of scope:** Provisioning fields/options, queue interpretation or writes.
+
+## S5 — Read complete Project observations
+
+**Goal:** Explicitly filtered Project issue reads cover all pages or say incomplete.
+
+**Files:** src/tracker/github-project.ts; src/tracker/work-item-tool.ts; test/tracker/project.test.ts (new test names may be introduced where absent).
+
+**Interfaces:** project-items; lifecycle/raw fields distinct; API order is observation, not local priority.
+
+**First failing test:** Public project-items with caller-selected noncanonical option includes a matching issue from page two, not a hidden ready-state filter.
+
+**Steps:**
+
+1. Inspect the named current interfaces and create the single RED behavior above through the public entry point; for instruction-only behavior capture the failing effect case before editing guidance.
+2. Implement only the contract required for that behavior, keeping policy local and decisions in the functional core; add the plan's relevant failure/recovery cases one at a time.
+3. Run the targeted checks and regressions; refactor only while GREEN; obtain required fresh-context reviews and deliver under repository policy.
+
+**Run:** `node --experimental-transform-types --no-warnings --test test/tracker/project.test.ts`; `npm test`; `npm run typecheck`.
+
+**Expected:** Before implementation the named new behavior fails for the intended reason; after implementation the targeted tests and regressions exit 0 with no failures/skips, and the observable result matches Goal.
+
+**Out of scope:** Saved-view reproduction, ranking mutations, implicit eligibility/claiming.
+
+## S6 — Enroll explicit members safely
+
+**Goal:** A named issue is enrolled only on request and uncertain retries re-read membership.
+
+**Files:** src/tracker/github-project.ts; src/tracker/work-item-tool.ts; test/tracker/project.test.ts (new test names may be introduced where absent).
+
+**Interfaces:** project-enroll and project-member; idempotent read-before-retry.
+
+**First failing test:** After simulated enrollment timeout with a remotely successful add, retry observes membership and makes no duplicate add; ordinary member read never enrolls.
+
+**Steps:**
+
+1. Inspect the named current interfaces and create the single RED behavior above through the public entry point; for instruction-only behavior capture the failing effect case before editing guidance.
+2. Implement only the contract required for that behavior, keeping policy local and decisions in the functional core; add the plan's relevant failure/recovery cases one at a time.
+3. Run the targeted checks and regressions; refactor only while GREEN; obtain required fresh-context reviews and deliver under repository policy.
+
+**Run:** `node --experimental-transform-types --no-warnings --test test/tracker/project.test.ts`; `npm test`; `npm run typecheck`.
+
+**Expected:** Before implementation the named new behavior fails for the intended reason; after implementation the targeted tests and regressions exit 0 with no failures/skips, and the observable result matches Goal.
+
+**Out of scope:** Implicit unarchive, batch migration or schema creation.
+
+## S7 — Mutate a named single-select field
+
+**Goal:** A field mutation changes only an explicitly named valid field/option.
+
+**Files:** src/tracker/github-project.ts; src/tracker/work-item-tool.ts; test/tracker/project.test.ts (new test names may be introduced where absent).
+
+**Interfaces:** project-set set/clear; explicit IDs, no local-state semantics.
+
+**First failing test:** Public project-set given an option from another field refuses without writes.
+
+**Steps:**
+
+1. Inspect the named current interfaces and create the single RED behavior above through the public entry point; for instruction-only behavior capture the failing effect case before editing guidance.
+2. Implement only the contract required for that behavior, keeping policy local and decisions in the functional core; add the plan's relevant failure/recovery cases one at a time.
+3. Run the targeted checks and regressions; refactor only while GREEN; obtain required fresh-context reviews and deliver under repository policy.
+
+**Run:** `node --experimental-transform-types --no-warnings --test test/tracker/project.test.ts`; `npm test`; `npm run typecheck`.
+
+**Expected:** Before implementation the named new behavior fails for the intended reason; after implementation the targeted tests and regressions exit 0 with no failures/skips, and the observable result matches Goal.
+
+**Out of scope:** Transition graph, automatic done/blocked conventions, other field mutation types.
+
+## S8 — Manage explicit issue assignments
+
+**Goal:** Requested assignment effects never masquerade as an exclusive claim or mutate workflow implicitly.
+
+**Files:** src/tracker/github.ts; src/tracker/work-item-tool.ts; test/tracker/github.test.ts (new test names may be introduced where absent).
+
+**Interfaces:** assign add/remove named assignees; before/after facts and uncertainty, no CAS guarantee.
+
+**First failing test:** Public assignment succeeds while a human changes a Project field; reported result does not claim exclusivity or write that field.
+
+**Steps:**
+
+1. Inspect the named current interfaces and create the single RED behavior above through the public entry point; for instruction-only behavior capture the failing effect case before editing guidance.
+2. Implement only the contract required for that behavior, keeping policy local and decisions in the functional core; add the plan's relevant failure/recovery cases one at a time.
+3. Run the targeted checks and regressions; refactor only while GREEN; obtain required fresh-context reviews and deliver under repository policy.
+
+**Run:** `node --experimental-transform-types --no-warnings --test test/tracker/github.test.ts`; `npm test`; `npm run typecheck`.
+
+**Expected:** Before implementation the named new behavior fails for the intended reason; after implementation the targeted tests and regressions exit 0 with no failures/skips, and the observable result matches Goal.
+
+**Out of scope:** Self-claim defaults, locks or a composite universal claiming transaction.
+
+## S9 — Apply local guidance to review identity
+
+**Goal:** Fresh actual/fallback review tasks receive local workflow/concerns and stale inputs cannot earn clean-round credit.
+
+**Files:** src/core/review-flow.ts; src/core/review.ts; src/review/review-tools.ts; src/gates/commit-guard.ts; test/review/; new evals/guidance/review/ (new test names may be introduced where absent).
+
+**Interfaces:** ADR 0012 diff-plus-guidance identity, typed submissions and unchanged clean-round semantics.
+
+**First failing test:** Start through createReviewStartTool, change configured concern, then record; expect stale-input refusal and no clean-round credit.
+
+**Steps:**
+
+1. Inspect the named current interfaces and create the single RED behavior above through the public entry point; for instruction-only behavior capture the failing effect case before editing guidance.
+2. Implement only the contract required for that behavior, keeping policy local and decisions in the functional core; add the plan's relevant failure/recovery cases one at a time.
+3. Run the targeted checks and regressions; refactor only while GREEN; obtain required fresh-context reviews and deliver under repository policy. Also run the relevant review-local-concern effect case through the S3 harness before shipping instructions, recording actual model/tool behavior and harmless controls.
+
+**Run:** `node --experimental-transform-types --no-warnings --test test/review/review-tools.test.ts`; `npm test`; `npm run typecheck`.
+
+**Expected:** Before implementation the named new behavior fails for the intended reason; after implementation the targeted tests and regressions exit 0 with no failures/skips, and the observable result matches Goal. Effect case records satisfy the stated behavior and safety/harmless controls; absence of model evidence is not a pass.
+
+**Out of scope:** New universal lenses, one reviewer per concern or changes to severity/verdict rules.
+
+## S10 — Select and restore Elixir profile
+
+**Goal:** A mix.exs repository selects elixir through detection, override and session restoration.
+
+**Files:** src/core/profile.ts; src/core/types.ts; src/state/profile-detect.ts; src/state/session-state.ts; test/state/; test/core/ (new test names may be introduced where absent).
+
+**Interfaces:** elixir added consistently to profile parsing/selection/restoration, mixed-language behavior preserved.
+
+**First failing test:** Detect a temp repository containing mix.exs, persist/recreate session and observe elixir still selected.
+
+**Steps:**
+
+1. Inspect the named current interfaces and create the single RED behavior above through the public entry point; for instruction-only behavior capture the failing effect case before editing guidance.
+2. Implement only the contract required for that behavior, keeping policy local and decisions in the functional core; add the plan's relevant failure/recovery cases one at a time.
+3. Run the targeted checks and regressions; refactor only while GREEN; obtain required fresh-context reviews and deliver under repository policy.
+
+**Run:** `node --experimental-transform-types --no-warnings --test test/state/profile-detect.test.ts`; `npm test`; `npm run typecheck`.
+
+**Expected:** Before implementation the named new behavior fails for the intended reason; after implementation the targeted tests and regressions exit 0 with no failures/skips, and the observable result matches Goal.
+
+**Out of scope:** Elixir dependencies, application structure or new behavior guidance before its effect evidence.
+
+## S11 — Teach idiomatic local-aware Elixir work
+
+**Goal:** The Elixir profile leads to repository-defined commands and idiomatic expected-error handling.
+
+**Files:** new skills/profile-elixir/SKILL.md; new evals/guidance/elixir/; scripts/eval-guidance.ts; README.md (new test names may be introduced where absent).
+
+**Interfaces:** ExUnit/domain/property/LiveView/browser scope; local command authority and tuple errors.
+
+**First failing test:** Run elixir-local-policy fixture: task uses declared just/Nix commands, tuple expected errors and an appropriate public behavior test; no invented dependency or Rust/TS pattern.
+
+**Steps:**
+
+1. Inspect the named current interfaces and create the single RED behavior above through the public entry point; for instruction-only behavior capture the failing effect case before editing guidance.
+2. Implement only the contract required for that behavior, keeping policy local and decisions in the functional core; add the plan's relevant failure/recovery cases one at a time.
+3. Run the targeted checks and regressions; refactor only while GREEN; obtain required fresh-context reviews and deliver under repository policy. Also run the relevant elixir-local-policy effect case through the S3 harness before shipping instructions, recording actual model/tool behavior and harmless controls.
+
+**Run:** `node --experimental-transform-types --no-warnings --test test/context/guidance-eval.test.ts`; `npm test`; `npm run typecheck`.
+
+**Expected:** Before implementation the named new behavior fails for the intended reason; after implementation the targeted tests and regressions exit 0 with no failures/skips, and the observable result matches Goal. Effect case records satisfy the stated behavior and safety/harmless controls; absence of model evidence is not a pass.
+
+**Out of scope:** Mandated event sourcing, test/property/mutation libraries or directory layout.
+
+## S12 — Distinguish local slice closure
+
+**Goal:** Reviewed clean pushes close a local slice without claiming PR delivery or touching an issue.
+
+**Files:** src/planning/slice-close.ts; test/planning/slice-close.test.ts; skills/delivery-discipline/SKILL.md; evals/guidance/delivery/ (new test names may be introduced where absent).
+
+**Interfaces:** Existing finish_slice checks stay intact; messages and instructions name only local completion.
+
+**First failing test:** PR-mode push with satisfied local checks closes the slice, reports local completion only and performs zero work-item mutations.
+
+**Steps:**
+
+1. Inspect the named current interfaces and create the single RED behavior above through the public entry point; for instruction-only behavior capture the failing effect case before editing guidance.
+2. Implement only the contract required for that behavior, keeping policy local and decisions in the functional core; add the plan's relevant failure/recovery cases one at a time.
+3. Run the targeted checks and regressions; refactor only while GREEN; obtain required fresh-context reviews and deliver under repository policy. Also run the relevant delivery-language effect case through the S3 harness before shipping instructions, recording actual model/tool behavior and harmless controls.
+
+**Run:** `node --experimental-transform-types --no-warnings --test test/planning/slice-close.test.ts`; `npm test`; `npm run typecheck`.
+
+**Expected:** Before implementation the named new behavior fails for the intended reason; after implementation the targeted tests and regressions exit 0 with no failures/skips, and the observable result matches Goal. Effect case records satisfy the stated behavior and safety/harmless controls; absence of model evidence is not a pass.
+
+**Out of scope:** Waiting for merge inside finish_slice, new issue conditions or gate weakening.
+
+## S13 — Observe PR evidence once
+
+**Goal:** An explicit PR check reports revision-bound facts and uncertainty without writes.
+
+**Files:** new src/tracker/github-delivery.ts; src/tracker/work-item-tool.ts; new test/tracker/delivery.test.ts (new test names may be introduced where absent).
+
+**Interfaces:** delivery-check explicit refs/conditions; pending/failed/blocked/unknown/satisfied distinct.
+
+**First failing test:** Open PR with armed auto-merge returns pending merge, never delivered or a close request.
+
+**Steps:**
+
+1. Inspect the named current interfaces and create the single RED behavior above through the public entry point; for instruction-only behavior capture the failing effect case before editing guidance.
+2. Implement only the contract required for that behavior, keeping policy local and decisions in the functional core; add the plan's relevant failure/recovery cases one at a time.
+3. Run the targeted checks and regressions; refactor only while GREEN; obtain required fresh-context reviews and deliver under repository policy.
+
+**Run:** `node --experimental-transform-types --no-warnings --test test/tracker/delivery.test.ts`; `npm test`; `npm run typecheck`.
+
+**Expected:** Before implementation the named new behavior fails for the intended reason; after implementation the targeted tests and regressions exit 0 with no failures/skips, and the observable result matches Goal.
+
+**Out of scope:** Polling, auto-merge orchestration, deployment proof or implied required conditions.
+
+## S14 — Resume optional project-owned references
+
+**Goal:** Explicit versioned PR-reference manifests survive a fresh session without cached workflow status.
+
+**Files:** new src/state/delivery-manifest.ts; src/state/config.ts; src/tracker/work-item-tool.ts; test/tracker/delivery.test.ts (new test names may be introduced where absent).
+
+**Interfaces:** ADR 0013 optional manifest directory/schema; version 1 issue identity, required PR refs, manual requirements.
+
+**First failing test:** Recreate tools against a tracked two-PR manifest: one open/one merged remains pending and does not close the issue.
+
+**Steps:**
+
+1. Inspect the named current interfaces and create the single RED behavior above through the public entry point; for instruction-only behavior capture the failing effect case before editing guidance.
+2. Implement only the contract required for that behavior, keeping policy local and decisions in the functional core; add the plan's relevant failure/recovery cases one at a time.
+3. Run the targeted checks and regressions; refactor only while GREEN; obtain required fresh-context reviews and deliver under repository policy.
+
+**Run:** `node --experimental-transform-types --no-warnings --test test/tracker/delivery.test.ts`; `npm test`; `npm run typecheck`.
+
+**Expected:** Before implementation the named new behavior fails for the intended reason; after implementation the targeted tests and regressions exit 0 with no failures/skips, and the observable result matches Goal.
+
+**Out of scope:** Machine-local ledger, implicit remote metadata or closing-keyword inference.
+
+## S15 — Guard opted-in issue completion
+
+**Goal:** Configured supported conditions gate all devsys issue-close paths while unconfigured policies remain honestly unassessed.
+
+**Files:** src/tracker/github-delivery.ts; src/tracker/github.ts; src/tracker/work-item-tool.ts; src/state/config.ts; test/tracker/delivery.test.ts (new test names may be introduced where absent).
+
+**Interfaces:** complete explicit scope confirmation; guard legacy done/lifecycle-close only when configured; no inferred Project terminal option.
+
+**First failing test:** With example A and a missing required check, each supported close entry point returns a condition failure and performs no issue close.
+
+**Steps:**
+
+1. Inspect the named current interfaces and create the single RED behavior above through the public entry point; for instruction-only behavior capture the failing effect case before editing guidance.
+2. Implement only the contract required for that behavior, keeping policy local and decisions in the functional core; add the plan's relevant failure/recovery cases one at a time.
+3. Run the targeted checks and regressions; refactor only while GREEN; obtain required fresh-context reviews and deliver under repository policy.
+
+**Run:** `node --experimental-transform-types --no-warnings --test test/tracker/delivery.test.ts`; `npm test`; `npm run typecheck`.
+
+**Expected:** Before implementation the named new behavior fails for the intended reason; after implementation the targeted tests and regressions exit 0 with no failures/skips, and the observable result matches Goal.
+
+**Out of scope:** Universal merge rule, automatic Project completion, proof of manual policy or external-write enforcement.
+
+## S16 — Prove policy contrast and document adoption
+
+**Goal:** Both local workflows work without upstream edits and the owner has an honest safe-pilot recipe.
+
+**Files:** new test/tracker/workflow-contrast.test.ts; evals/guidance/workflows/; README.md; skills/project-workflow/references/; docs/plan/existing-application-adoption.md (new test names may be introduced where absent).
+
+**Interfaces:** Examples A/B, partial-effect recovery, permission/enforcement boundaries and explicit opt-in smoke procedure.
+
+**First failing test:** Example B explicit research actions cause no assignment, merge prerequisite or auto-close; example A guard remains active under the same code.
+
+**Steps:**
+
+1. Inspect the named current interfaces and create the single RED behavior above through the public entry point; for instruction-only behavior capture the failing effect case before editing guidance.
+2. Implement only the contract required for that behavior, keeping policy local and decisions in the functional core; add the plan's relevant failure/recovery cases one at a time.
+3. Run the targeted checks and regressions; refactor only while GREEN; obtain required fresh-context reviews and deliver under repository policy. Also run the relevant workflow-contrast effect case through the S3 harness before shipping instructions, recording actual model/tool behavior and harmless controls.
+
+**Run:** `node --experimental-transform-types --no-warnings --test test/tracker/workflow-contrast.test.ts`; `npm test`; `npm run typecheck`.
+
+**Expected:** Before implementation the named new behavior fails for the intended reason; after implementation the targeted tests and regressions exit 0 with no failures/skips, and the observable result matches Goal. Effect case records satisfy the stated behavior and safety/harmless controls; absence of model evidence is not a pass.
+
+**Out of scope:** Executing Simulac adoption, implicit provisioning/migration, claiming live smoke or deployment evidence.

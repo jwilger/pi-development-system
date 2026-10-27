@@ -106,15 +106,17 @@ test("update edits title and body in one gh issue edit, then closes", async () =
   assert.ok(edit >= 0 && close > edit, "edit first, state change last");
 });
 
-test("in-progress makes sure the label exists before editing, and never reopens an open issue", async () => {
+test("in-progress edits without provisioning and never reopens an open issue", async () => {
   const { exec, calls } = fakeExec(() => ({ stdout: JSON.stringify(issue()) }));
   await createGithubTracker({ exec, cwd: "/r" }).update("7", { status: "in-progress" });
   const seen = lines(calls);
-  const made = seen.findIndex((j) => j.startsWith("label create in-progress"));
-  const edit = seen.findIndex(
-    (j) => j.startsWith("issue edit 7") && j.includes("--add-label in-progress"),
+  assert.equal(
+    seen.some((j) => j.startsWith("label ")),
+    false,
   );
-  assert.ok(made >= 0 && edit > made);
+  assert.ok(
+    seen.some((j) => j.startsWith("issue edit 7") && j.includes("--add-label in-progress")),
+  );
   assert.equal(
     seen.some((j) => j.startsWith("issue reopen")),
     false,
@@ -154,28 +156,35 @@ test("a gh failure is an error carrying its message; unparseable output is an er
   assert.equal((await createGithubTracker({ exec: junk.exec, cwd: "/r" }).get("7")).ok, false);
 });
 
-test("a label that cannot be created is not fatal: the edit decides", async () => {
+test("permission failure is preserved with conditional setup advice, without changing lifecycle", async () => {
   const { exec, calls } = fakeExec((args) =>
-    args[0] === "label"
-      ? { code: 1, stderr: "HTTP 403: Must have push access to create labels" }
-      : { stdout: JSON.stringify(issue()) },
+    args[1] === "edit"
+      ? { code: 1, stderr: "HTTP 403: Resource not accessible by integration" }
+      : { stdout: JSON.stringify(issue({ state: "CLOSED" })) },
   );
   const r = await createGithubTracker({ exec, cwd: "/r" }).update("7", { status: "in-progress" });
-  assert.equal(r.ok, true);
-  assert.ok(lines(calls).some((j) => j.includes("--add-label in-progress")));
+  assert.equal(r.ok, false);
+  if (!r.ok) {
+    assert.match(r.error.message, /HTTP 403: Resource not accessible by integration/);
+    assert.match(r.error.message, /if the in-progress label is missing/);
+    assert.match(r.error.message, /Re-read/);
+  }
+  assert.equal(
+    lines(calls).some((j) => j.startsWith("label ") || j.startsWith("issue reopen")),
+    false,
+  );
 });
 
-test("the marker label is created without --force, and an existing label is fine", async () => {
-  const { exec, calls } = fakeExec((args) =>
-    args[0] === "label"
-      ? { code: 1, stderr: 'label with name "in-progress" already exists' }
-      : { stdout: JSON.stringify(issue()) },
-  );
+test("an existing mixed-case marker is left untouched without label provisioning", async () => {
+  const { exec, calls } = fakeExec(() => ({
+    stdout: JSON.stringify(issue({ labels: [{ name: "In-Progress" }] })),
+  }));
   const r = await createGithubTracker({ exec, cwd: "/r" }).update("7", { status: "in-progress" });
-  assert.equal(r.ok, true);
-  const made = lines(calls).find((j) => j.startsWith("label create")) ?? "";
-  assert.doesNotMatch(made, /--force/);
-  assert.ok(lines(calls).some((j) => j.includes("--add-label in-progress")));
+  assert.equal(r.ok && r.value.status, "in-progress");
+  assert.equal(
+    lines(calls).some((j) => j.startsWith("label ") || j.startsWith("issue edit")),
+    false,
+  );
 });
 
 test("closing an issue that never had the marker does not try to remove it", async () => {

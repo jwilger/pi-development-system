@@ -210,9 +210,8 @@ const stateCommand = (current: WorkItem, status: WorkStatus | undefined): string
 };
 
 /**
- * Labels are replaced, as in the repo-files tracker. Order: make sure the marker label exists, apply every
- * edit in one `gh issue edit`, then close or reopen last, so a failure before the state change leaves the
- * issue's open/closed state alone.
+ * Labels are replaced, as in the repo-files tracker. Apply edits before closing or reopening so an edit
+ * failure leaves the issue lifecycle alone. Repository label setup is an explicit owner action.
  */
 const updateIssue = async (
   gh: Gh,
@@ -225,16 +224,19 @@ const updateIssue = async (
   if (!raw.ok) return raw;
   const current = toItem(raw.value);
   const hadMarker = (raw.value.labels ?? []).some((l) => isMarker(l.name));
-  if (patch.status === "in-progress") {
-    // No --force: that would recolour the team's existing label. Creating needs push rights, which someone who can
-    // only triage lacks even when the label exists, so a failed create is not fatal: the edit below fails if the
-    // label is really missing, and says so.
-    await gh(["label", "create", IN_PROGRESS]);
-  }
   const flags = editFlags(current, hadMarker, patch);
   if (flags.length > 0) {
     const edited = await gh(["issue", "edit", id, ...flags]);
-    if (!edited.ok) return edited;
+    if (!edited.ok) {
+      const addingMarker = flags.some(
+        (flag, index) => flag === "--add-label" && flags[index + 1] === IN_PROGRESS,
+      );
+      return addingMarker
+        ? trackerError(
+            `${edited.error.message}; if the in-progress label is missing, ask an authorized owner to explicitly create it after reviewing repository conventions. Re-read the issue and repository setup before retrying; the error may instead be a permissions or other edit failure.`,
+          )
+        : edited;
+    }
   }
   const command = stateCommand(current, patch.status);
   if (command !== undefined) {
