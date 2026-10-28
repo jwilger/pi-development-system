@@ -90,7 +90,7 @@ machine can use.
 | --- | --- | --- |
 | `[delivery]` | `mode` (`trunk`, `pull-request`, `local-only`), `trunk`, `remote` | Where work lands; the push guard follows it. `local-only` blocks every push. |
 | `[review]` | `required_clean_rounds` (3), `min_rounds` (1), `thinking_level` (`high`) | The clean streak a slice needs before commit, and the effort of the reviewer and lens agents. |
-| `[tracker]` | `kind` (`repo-files`, `github`; `jira` and `linear` are not implemented), `repo` | Backlog for `devsys_work_item`. |
+| `[tracker]` | `kind` (`repo-files`, `github`; `jira` and `linear` are not implemented), `repo`, optional GitHub `project_id` | Backlog for `devsys_work_item`; opt-in read-only Project metadata.  |
 | `[workflow]` | `guidance` (repository-relative file paths; default `[]`) | Explicit repository-owned workflow content for root and SDK child requests. |
 | `[profiles]` | `override` | Languages to apply (`rust`, `typescript`); empty means detect. |
 | `[models]` | one ordered candidate list per slot | See Model tiers below. |
@@ -169,6 +169,42 @@ have failed). Inspect the error, re-read the issue and repository setup, and ret
 explicitly after resolving the cause. A failed edit does not trigger issue closure
 or reopening; GitHub edits are not promised to be transactional. Repo-file tracking
 requires no label setup. Project integration is not provided by this convention.
+
+### Optional GitHub Project inspection
+
+Issues remain work descriptions. To inspect an existing Projects v2 board, explicitly
+configure its opaque GraphQL node id; neither its title nor its number is a global id:
+
+```toml
+[tracker]
+kind = "github"
+repo = "OWNER/REPO"
+project_id = "PVT_REPLACE_WITH_ACTUAL_NODE_ID"
+```
+
+Call `devsys_work_item {action:"inspect"}` for the configured Project's owner login,
+number, title, URL, field ids/types and single-select option ids/names. An optional
+`fieldId` asserts that a field belongs to this Project; names never choose a field.
+The returned capabilities describe currently implemented tool actions, not a workflow.
+Without `project_id`, inspection returns `project:null` with no Project network call;
+repo-file tracking works the same way. The option is invalid for non-GitHub trackers.
+
+The read uses existing `gh` authentication and requires access to the Project, including
+organization/SSO authorization where applicable. Classic tokens need `read:project`;
+fine-grained tokens need the relevant organization/user Projects read permission.
+Private issue access may require additional repository permissions for later operations.
+No credential is stored by this extension, and inspection never provisions labels,
+fields, options or membership. It does not select or claim issues or change board state.
+
+All field pages are read (100 per page, maximum 100 pages). Missing/repeated cursors,
+duplicate identities, malformed results, GraphQL partial errors and permission failures
+return explicit errors, not a usable partial board. Correct access/configuration and
+re-read before proceeding. Pages are observations, not an atomic snapshot or a lock;
+humans can change the board concurrently. This metadata API introduces no canonical
+status mapping and does not replace the Issues-only compatibility convention above.
+Live smoke checks are optional: only invoke inspection after explicitly choosing a
+Project you are authorized to read. Ordinary tests use fake process responses and need
+no GitHub credentials.
 
 ## Model tiers
 

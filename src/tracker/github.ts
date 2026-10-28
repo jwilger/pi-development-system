@@ -1,6 +1,8 @@
 import type { Exec } from "../core/exec.ts";
 import { ok } from "../core/result.ts";
+import { inspectProject } from "./github-project.ts";
 import { unwritable } from "./item-format.ts";
+import { BASIC_TRACKER_ACTIONS } from "./types.ts";
 
 /** Our status marker is a label; a user label with that name would change the status as a side effect. */
 const unusable = (item: { title: string; labels: readonly string[] }): string | undefined =>
@@ -12,6 +14,7 @@ import {
   type ItemFilter,
   type NewWorkItem,
   type Tracker,
+  type TrackerInspection,
   type TrackerResult,
   trackerError,
   type WorkItem,
@@ -85,6 +88,7 @@ export type GithubTrackerDeps = {
   readonly cwd: string;
   /** `owner/name`; omitted means the repository of the working directory. */
   readonly repo?: string;
+  readonly projectId?: string;
 };
 
 type Gh = (args: string[]) => Promise<TrackerResult<string>>;
@@ -257,6 +261,19 @@ export function createGithubTracker(deps: GithubTrackerDeps): Tracker {
   const gh = bindGh(deps);
   return {
     kind: "github",
+    async inspect(fieldId): Promise<TrackerResult<TrackerInspection>> {
+      if (deps.projectId === undefined)
+        return fieldId === undefined
+          ? ok({ kind: "github", capabilities: BASIC_TRACKER_ACTIONS, project: null })
+          : trackerError("fieldId requires an explicitly configured tracker.project_id");
+      const project = await inspectProject(
+        { exec: deps.exec, cwd: deps.cwd, projectId: deps.projectId },
+        fieldId,
+      );
+      return project.ok
+        ? ok({ kind: "github", capabilities: BASIC_TRACKER_ACTIONS, project: project.value })
+        : project;
+    },
     list: (filter) => listIssues(gh, filter),
     get: (id) => view(gh, id),
     create: (input) => createIssue(gh, input),

@@ -38,7 +38,11 @@ export type DevsysConfig = {
     readonly thinkingLevel: ThinkingLevel;
   };
   readonly workflow: { readonly guidance: readonly string[] };
-  readonly tracker: { readonly kind: TrackerKind; readonly repo?: string };
+  readonly tracker: {
+    readonly kind: TrackerKind;
+    readonly repo?: string;
+    readonly projectId?: string;
+  };
   readonly profiles: { readonly override: readonly string[] };
   readonly models: ModelMatrix;
   readonly routing: Readonly<Record<string, Route>>;
@@ -250,7 +254,7 @@ function deliveryAndReview(
 ): Result<Pick<DevsysConfig, "delivery" | "review" | "tracker">, ConfigError> {
   const d = section(root, "delivery", ["mode", "trunk", "remote"]);
   const r = section(root, "review", ["required_clean_rounds", "min_rounds", "thinking_level"]);
-  const t = section(root, "tracker", ["kind", "repo"]);
+  const t = section(root, "tracker", ["kind", "repo", "project_id"]);
   if (!d.ok) return d;
   if (!r.ok) return r;
   if (!t.ok) return t;
@@ -262,13 +266,33 @@ function deliveryAndReview(
   const effort = choice(r.value, "review", "thinking_level", THINKING_LEVELS, "high");
   const kind = choice(t.value, "tracker", "kind", TRACKER_KINDS, "repo-files");
   const repo = t.value.repo === undefined ? ok(undefined) : text(t.value, "tracker", "repo", "");
-  for (const field of [mode, trunk, remote, required, min, effort, kind, repo])
+  const projectId =
+    t.value.project_id === undefined ? ok(undefined) : text(t.value, "tracker", "project_id", "");
+  for (const field of [mode, trunk, remote, required, min, effort, kind, repo, projectId])
     if (!field.ok) return field;
   if (
-    !(mode.ok && trunk.ok && remote.ok && required.ok && min.ok && effort.ok && kind.ok && repo.ok)
+    !(
+      mode.ok &&
+      trunk.ok &&
+      remote.ok &&
+      required.ok &&
+      min.ok &&
+      effort.ok &&
+      kind.ok &&
+      repo.ok &&
+      projectId.ok
+    )
   ) {
     return fail("unreachable");
   }
+  if (
+    projectId.value !== undefined &&
+    (kind.value !== "github" || !/^[A-Za-z0-9_+/=-]{1,256}$/.test(projectId.value))
+  )
+    return fail(
+      "tracker.project_id must be an opaque GitHub Project node id and requires kind = github",
+      "tracker.project_id",
+    );
   return ok({
     delivery: { mode: mode.value, trunk: trunk.value, remote: remote.value },
     review: {
@@ -276,8 +300,11 @@ function deliveryAndReview(
       minRounds: min.value,
       thinkingLevel: effort.value,
     },
-    tracker:
-      repo.value === undefined ? { kind: kind.value } : { kind: kind.value, repo: repo.value },
+    tracker: {
+      kind: kind.value,
+      ...(repo.value === undefined ? {} : { repo: repo.value }),
+      ...(projectId.value === undefined ? {} : { projectId: projectId.value }),
+    },
   });
 }
 

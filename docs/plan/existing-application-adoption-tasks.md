@@ -109,15 +109,18 @@ GREEN; command-specific exit zero is evidence only for what actually ran.
 
 **Files:** src/tracker/types.ts; src/tracker/select.ts; src/tracker/work-item-tool.ts; new src/tracker/github-project.ts; src/state/config.ts; new test/tracker/project.test.ts (new test names may be introduced where absent).
 
-**Interfaces:** Optional advertised capabilities; inspect and project-member from plan/ADR 0011.
+**Interfaces:** Add optional `tracker.project_id` only for `kind = "github"`, a nonempty GitHub Project node ID (no title lookup). Extend `Tracker` with optional `inspect(fieldId?: string): Promise<TrackerResult<TrackerInspection>>`. Inspection returns backend kind, implemented action capabilities and an optional Project snapshot (id, owner login, number, title, URL, fields with ids/names/data types and single-select options). `devsys_work_item {action:"inspect", fieldId?:string}` renders this as JSON; ordinary repo-files and Issues-only inspection performs no Project requests. New `inspectProject(deps: {exec:Exec; cwd:string; projectId:string}, fieldId?:string)` in src/tracker/github-project.ts uses gh GraphQL query variables via argument arrays. Confirm node typename/id and complete every fields page before returning; an explicit foreign field refuses with tracker-error. No config defaults, field roles, option vocabulary or writes. Expose only implemented actions in capabilities; S5–S8 add theirs later.
 
-**First failing test:** Inspect a configured field from a different Project via the public tool; expect identity error and zero mutation requests.
+**First failing test:** In new test/tracker/project.test.ts create a temporary configured GitHub tracker with `project_id="PVT_local"`, fake Exec returning that Project with field `FIELD_local`, and call the public tool with `{action:"inspect",fieldId:"FIELD_foreign"}`. Assert error naming the foreign field and Project, and zero mutation/label operations. Initially config refuses project_id before identity validation.
 
 **Steps:**
 
-1. Inspect the named current interfaces and create the single RED behavior above through the public entry point; for instruction-only behavior capture the failing effect case before editing guidance.
-2. Implement only the contract required for that behavior, keeping policy local and decisions in the functional core; add the plan's relevant failure/recovery cases one at a time.
-3. Run the targeted checks and regressions; refactor only while GREEN; obtain required fresh-context reviews and deliver under repository policy.
+1. Add the named public foreign-field test and run to the identity-contract RED; add only the config, inspect interface/tool dispatch and read-only GraphQL implementation needed for GREEN.
+2. Add positive public inspection of owner/number/title/URL and typed field/option ids. Add unconfigured GitHub and repo-file inspections with zero Exec calls; preserve all existing CRUD tests.
+3. Add fields pagination, duplicate/null/malformed pages, cursor loops, wrong node/id, partial GraphQL data+errors, inaccessible Project and failed gh cases individually. Refuse incomplete observations, retain permission diagnostics and advise repair/re-read without mutations.
+4. Add config tests for invalid/non-GitHub project_id. Document actual config, permission requirements, optional field validation, unsupported mutation types and no workflow semantics. Run targeted/full/type/lint checks, fresh reviews and deliver under existing policy.
+
+**Threat assessment:** Read-only network I/O uses the existing Exec/gh credential boundary; only explicit node/field ids leave the machine. Variables are never interpolated into GraphQL or shell. Validate external JSON, typename/id, pages and cursor progress; malformed/partial data cannot imply a usable Project. Limit pages and surface incomplete rather than looping. Credentials/private downstream contents are not logged. ADR 0011 authorizes the optional boundary; no dependency, provisioning or new model-visible guidance is added.
 
 **Run:** `node --experimental-transform-types --no-warnings --test test/tracker/project.test.ts`; `npm test`; `npm run typecheck`.
 

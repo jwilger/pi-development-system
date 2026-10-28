@@ -4,11 +4,12 @@ import type { Exec } from "../core/exec.ts";
 import { assertNever } from "../core/exhaustive.ts";
 import { CONFIG_FILE, configErrorText, loadConfig, POLICY_ONLY } from "../state/config.ts";
 import { createTracker } from "./select.ts";
-import type { Tracker, TrackerResult, WorkItem } from "./types.ts";
+import { BASIC_TRACKER_ACTIONS, type Tracker, type TrackerResult, type WorkItem } from "./types.ts";
 
 const Parameters = Type.Object({
   action: Type.Union(
     [
+      Type.Literal("inspect"),
       Type.Literal("list"),
       Type.Literal("get"),
       Type.Literal("create"),
@@ -18,6 +19,12 @@ const Parameters = Type.Object({
     { description: "What to do with the work tracker." },
   ),
   id: Type.Optional(Type.String({ description: "Work item id (get, update, comment)." })),
+  fieldId: Type.Optional(
+    Type.String({
+      description:
+        "Optional Project field node id to validate during inspection; never inferred from its name.",
+    }),
+  ),
   title: Type.Optional(Type.String({ description: "Title (create; optional rename on update)." })),
   body: Type.Optional(
     Type.String({ description: "Description (create, update) or comment text (comment)." }),
@@ -93,6 +100,18 @@ async function comment(tracker: Tracker, p: Params) {
 
 async function run(tracker: Tracker, p: Params) {
   switch (p.action) {
+    case "inspect":
+      if (tracker.inspect !== undefined)
+        return show(await tracker.inspect(p.fieldId), (inspection) => JSON.stringify(inspection));
+      return p.fieldId === undefined
+        ? reply(
+            JSON.stringify({
+              kind: tracker.kind,
+              capabilities: BASIC_TRACKER_ACTIONS,
+              project: null,
+            }),
+          )
+        : reply("fieldId requires a configured GitHub Project", true);
     case "list": {
       const items = await tracker.list(optional("status", p.status));
       return show(items, (all) => (all.length === 0 ? "no work items" : all.map(line).join("\n")));

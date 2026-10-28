@@ -21,6 +21,7 @@ export function createTracker(deps: {
           exec,
           cwd,
           ...(tracker.repo === undefined ? {} : { repo: tracker.repo }),
+          ...(tracker.projectId === undefined ? {} : { projectId: tracker.projectId }),
         }),
       );
     case "jira":
