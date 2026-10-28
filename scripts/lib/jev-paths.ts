@@ -6,8 +6,16 @@
 export const JEV_FACING_PATHS: readonly string[] = [
   "src/jev/",
   "evals/jev/",
+  "evals/release/",
   "test/live/",
   "test/jev/fixture-runner.ts",
+  "scripts/lib/jev.ts",
+  "scripts/lib/semver.ts",
+  "scripts/lib/range.ts",
+  "scripts/lib/config.ts",
+  "scripts/lib/sh.ts",
+  "test/jev/release-fixture.ts",
+  "scripts/check-version.ts",
   // Core modules that decide what Jev is shown or how a live fixture is scored.
   "src/core/redact.ts",
   "src/core/review.ts",

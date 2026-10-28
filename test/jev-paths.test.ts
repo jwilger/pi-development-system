@@ -17,6 +17,20 @@ test("changes under Jev code, fixtures or live tests need the live run", () => {
     assert.equal(touchesJevFacing([path]), true, path);
 });
 
+test("release classifier evidence, policy and callers require live regression checks", () => {
+  for (const path of [
+    "evals/release/bump.json",
+    "scripts/lib/jev.ts",
+    "scripts/check-version.ts",
+    "scripts/lib/semver.ts",
+    "scripts/lib/range.ts",
+    "scripts/lib/config.ts",
+    "scripts/lib/sh.ts",
+    "test/jev/release-fixture.ts",
+  ])
+    assert.equal(touchesJevFacing([path]), true, path);
+});
+
 test("unrelated changes do not", () => {
   assert.equal(
     touchesJevFacing(["src/core/review-flow.ts", "README.md", "test/jev/turn.test.ts"]),

@@ -83,6 +83,7 @@ async function requiredBump(
   published: string[],
   diffArgs: string[],
   overrides: string[],
+  commitRange: readonly [string, string],
 ): Promise<Bump> {
   if (published.length === 0) return "none";
   if (overrides.length > 0) {
@@ -95,6 +96,9 @@ async function requiredBump(
       baseVersion: base.version,
       changedFiles: published,
       diff: git("diff", ...diffArgs, "--", ...published),
+      // Include the complete comparison range, including unreleased commits after a failed build.
+      // The index has no commit message yet; never substitute HEAD's message for staged intent.
+      commitMessages: commitsBetween(commitRange[0], commitRange[1], false).map((c) => c.message),
     });
     const evidence = `breaking ${j.evidence.breaking.toFixed(2)}, feature ${j.evidence.feature.toFixed(2)}, observable ${j.evidence.observable.toFixed(2)}`;
     if (!(j.confidence >= MIN_BUMP_CONFIDENCE)) {
@@ -128,7 +132,10 @@ async function main(): Promise<void> {
     .split("\n")
     .filter(Boolean);
   const published = changed.filter((f) => PUBLISHED_PATHS.some((p) => f === p || f.startsWith(p)));
-  const required = await requiredBump(base, published, diffArgs, overrides);
+  const required = await requiredBump(base, published, diffArgs, overrides, [
+    baseRef,
+    headRef ?? "HEAD",
+  ]);
 
   if (!satisfiesBump(baseVersion, headVersion, required)) {
     fail(
