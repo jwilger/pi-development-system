@@ -11,6 +11,8 @@ const Parameters = Type.Object({
     [
       Type.Literal("inspect"),
       Type.Literal("project-items"),
+      Type.Literal("project-member"),
+      Type.Literal("project-enroll"),
       Type.Literal("list"),
       Type.Literal("get"),
       Type.Literal("create"),
@@ -19,7 +21,12 @@ const Parameters = Type.Object({
     ],
     { description: "What to do with the work tracker." },
   ),
-  id: Type.Optional(Type.String({ description: "Work item id (get, update, comment)." })),
+  id: Type.Optional(
+    Type.String({
+      description:
+        "Work item id (get, update, comment); issue number (project-member, project-enroll).",
+    }),
+  ),
   fieldId: Type.Optional(
     Type.String({
       description:
@@ -140,6 +147,29 @@ async function run(tracker: Tracker, p: Params) {
             }),
             (items) => JSON.stringify(items),
           );
+    case "project-member":
+      if (p.id === undefined) return missing(p.action, "id");
+      if (tracker.projectMember === undefined)
+        return reply("project-member requires a configured GitHub Project and tracker.repo", true);
+      {
+        const result = await tracker.projectMember(p.id);
+        return result.ok
+          ? reply(JSON.stringify(result.value), result.value.membership.kind === "unknown")
+          : reply(result.error.message, true);
+      }
+    case "project-enroll":
+      if (p.id === undefined) return missing(p.action, "id");
+      if (tracker.projectEnroll === undefined)
+        return reply("project-enroll requires a configured GitHub Project and tracker.repo", true);
+      {
+        const result = await tracker.projectEnroll(p.id);
+        return result.ok
+          ? reply(
+              JSON.stringify(result.value),
+              result.value.outcome === "blocked" || result.value.outcome === "unknown",
+            )
+          : reply(result.error.message, true);
+      }
     case "list": {
       const items = await tracker.list(optional("status", p.status));
       return show(items, (all) => (all.length === 0 ? "no work items" : all.map(line).join("\n")));

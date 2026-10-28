@@ -2,6 +2,7 @@ import type { Exec } from "../core/exec.ts";
 import { ok } from "../core/result.ts";
 import { inspectProject } from "./github-project.ts";
 import { observeProjectItems } from "./github-project-items.ts";
+import { enrollProjectIssue, observeProjectMembership } from "./github-project-membership.ts";
 import { unwritable } from "./item-format.ts";
 import { BASIC_TRACKER_ACTIONS } from "./types.ts";
 
@@ -277,7 +278,7 @@ export function createGithubTracker(deps: GithubTrackerDeps): Tracker {
             capabilities:
               deps.repo === undefined
                 ? BASIC_TRACKER_ACTIONS
-                : [...BASIC_TRACKER_ACTIONS, "project-items"],
+                : [...BASIC_TRACKER_ACTIONS, "project-items", "project-member", "project-enroll"],
             project: project.value,
           })
         : project;
@@ -291,6 +292,16 @@ export function createGithubTracker(deps: GithubTrackerDeps): Tracker {
             { exec: deps.exec, cwd: deps.cwd, repo: deps.repo, projectId: deps.projectId },
             filter,
           ),
+    projectMember: (id) =>
+      observeProjectMembership(
+        { exec: deps.exec, cwd: deps.cwd, repo: deps.repo ?? "", projectId: deps.projectId ?? "" },
+        id,
+      ),
+    projectEnroll: (id) =>
+      enrollProjectIssue(
+        { exec: deps.exec, cwd: deps.cwd, repo: deps.repo ?? "", projectId: deps.projectId ?? "" },
+        id,
+      ),
     list: (filter) => listIssues(gh, filter),
     get: (id) => view(gh, id),
     create: (input) => createIssue(gh, input),

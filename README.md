@@ -90,7 +90,7 @@ machine can use.
 | --- | --- | --- |
 | `[delivery]` | `mode` (`trunk`, `pull-request`, `local-only`), `trunk`, `remote` | Where work lands; the push guard follows it. `local-only` blocks every push. |
 | `[review]` | `required_clean_rounds` (3), `min_rounds` (1), `thinking_level` (`high`) | The clean streak a slice needs before commit, and the effort of the reviewer and lens agents. |
-| `[tracker]` | `kind` (`repo-files`, `github`; `jira` and `linear` are not implemented), `repo`, optional GitHub `project_id` | Backlog for `devsys_work_item`; opt-in read-only Project metadata.  |
+| `[tracker]` | `kind` (`repo-files`, `github`; `jira` and `linear` are not implemented), `repo`, optional GitHub `project_id` | Backlog for `devsys_work_item`; opt-in Project observations and explicit enrollment.  |
 | `[workflow]` | `guidance` (repository-relative file paths; default `[]`) | Explicit repository-owned workflow content for root and SDK child requests. |
 | `[profiles]` | `override` | Languages to apply (`rust`, `typescript`); empty means detect. |
 | `[models]` | one ordered candidate list per slot | See Model tiers below. |
@@ -243,6 +243,56 @@ authentication and Project/private-issue read permissions apply as above. No boa
 writes or live credentials are needed by the ordinary tests; live smoke checks remain
 explicitly chosen and opt-in. The API request shape is documented in GitHub's
 [Projects GraphQL reference](https://docs.github.com/en/graphql/reference/projects).
+
+### Explicit Project membership and enrollment
+
+With both `tracker.repo` and `tracker.project_id` configured, the tool advertises
+`project-member` and `project-enroll`. Both require an explicit positive safe integer
+issue number as `id`; URLs, switches, zero and fractional numbers are refused.
+
+```json
+{"action":"project-member","id":"7"}
+```
+
+This read resolves the issue in the configured repository and scans the complete
+Project using the same validated item/field observations as `project-items`. The JSON
+contains `projectId`, `repository`, the issue identity, and `membership.kind`:
+`present` includes actual item fields and archive facts; `absent` means a complete
+scan proved no match; `unknown` includes redaction diagnostics and is a tool error.
+Duplicate or inconsistent matching identities are errors, never usable membership.
+The action never writes, selects work or interprets a workflow state.
+
+```json
+{"action":"project-enroll","id":"7"}
+```
+
+Enrollment always re-reads first. Existing nonarchived membership returns
+`kind:"not-attempted", outcome:"already-member"` successfully without an add.
+Archived or unknown membership, invalid identities, missing configuration and failed
+preflight reads return `kind:"not-attempted", outcome:"blocked"` as tool errors,
+without writes. Only proven absence permits one `addProjectV2ItemById` mutation,
+with explicit Project and issue node ids passed as GraphQL argv variables. It uses
+existing `gh` authority: Project write access (classic token `project` scope or the
+relevant fine-grained Projects write permission), repository access and any required
+organization/SSO authorization must already be granted. No credentials are read or
+logged by this module, and it never provisions permissions or other resources.
+
+A valid acknowledgement and fresh read confirming the intended Project/item/issue
+and nonarchived membership yield `kind:"confirmed", outcome:"enrolled"`. Every
+outcome includes a `message` and an `observation` (or `null` when unavailable).
+Timeouts, process failures, nonzero exits, partial GraphQL errors, malformed or
+mismatched acknowledgements and failed verification **after dispatch** instead return
+`kind:"uncertain", outcome:"unknown"` as tool errors. An included preflight
+observation is not proof that the mutation had no effect.
+
+After uncertainty, explicitly call `project-member` to re-read before deciding on a
+retry. A later explicit `project-enroll` also re-reads first: if the timed-out add
+actually succeeded, it reports `already-member` and sends no second add. There is
+no automatic retry, rollback, removal, unarchive, field write or implicit issue
+closure. These reads are complete but not atomic snapshots; preflight is not
+compare-and-swap, and a concurrent human edit can race the add or verification.
+Enrollment does not reserve or claim work. Ordinary tests use an in-memory Exec
+remote, not live GitHub credentials or downstream repositories.
 
 ## Model tiers
 

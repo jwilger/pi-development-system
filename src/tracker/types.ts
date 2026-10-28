@@ -85,6 +85,46 @@ export type ProjectItems = {
   readonly diagnostics: readonly ProjectDiagnostic[];
 };
 
+export type ProjectMembership = {
+  readonly projectId: string;
+  readonly repository: string;
+  readonly issue: { readonly issueId: string; readonly number: number; readonly url: string };
+  readonly membership:
+    | { readonly kind: "present"; readonly item: ProjectIssueObservation }
+    | { readonly kind: "absent" }
+    | { readonly kind: "unknown"; readonly diagnostics: readonly ProjectDiagnostic[] };
+};
+
+type PresentMembership = ProjectMembership & {
+  readonly membership: { readonly kind: "present"; readonly item: ProjectIssueObservation };
+};
+
+export type ProjectEnrollment =
+  | {
+      readonly kind: "confirmed";
+      readonly outcome: "enrolled";
+      readonly message: string;
+      readonly observation: PresentMembership;
+    }
+  | {
+      readonly kind: "not-attempted";
+      readonly outcome: "already-member";
+      readonly message: string;
+      readonly observation: PresentMembership;
+    }
+  | {
+      readonly kind: "not-attempted";
+      readonly outcome: "blocked";
+      readonly message: string;
+      readonly observation: ProjectMembership | null;
+    }
+  | {
+      readonly kind: "uncertain";
+      readonly outcome: "unknown";
+      readonly message: string;
+      readonly observation: ProjectMembership | null;
+    };
+
 export type TrackerInspection = {
   readonly kind: string;
   readonly capabilities: readonly string[];
@@ -105,6 +145,8 @@ export interface Tracker {
   readonly kind: string;
   inspect?(fieldId?: string): Promise<TrackerResult<TrackerInspection>>;
   projectItems?(filter: ProjectItemFilter): Promise<TrackerResult<ProjectItems>>;
+  projectMember?(id: string): Promise<TrackerResult<ProjectMembership>>;
+  projectEnroll?(id: string): Promise<TrackerResult<ProjectEnrollment>>;
   list(filter: ItemFilter): Promise<TrackerResult<WorkItem[]>>;
   get(id: string): Promise<TrackerResult<WorkItem>>;
   create(item: NewWorkItem): Promise<TrackerResult<WorkItem>>;

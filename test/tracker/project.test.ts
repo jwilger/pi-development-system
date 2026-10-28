@@ -102,6 +102,8 @@ test("inspection advertises its public schema and returns actual Project field a
     "update",
     "comment",
     "project-items",
+    "project-member",
+    "project-enroll",
   ]);
 });
 
@@ -111,6 +113,8 @@ test("Issues-only and repo-file inspection does not contact Projects or provisio
     const result = await host.run({ action: "inspect" });
     assert.notEqual(result.isError, true, text(result));
     assert.equal(inspection(result).project, null);
+    assert.ok(!inspection(result).capabilities.includes("project-member"));
+    assert.ok(!inspection(result).capabilities.includes("project-enroll"));
     const field = await host.run({ action: "inspect", fieldId: "FIELD_local" });
     assert.equal(field.isError, true);
     assert.match(text(field), /configured|project_id/);
@@ -306,4 +310,13 @@ test("Project inspection exhausts field pages before accepting a field from page
   );
   assert.equal(host.calls.length, 2);
   assert.ok(host.calls[1]?.args.includes("cursor=next-page"));
+});
+
+test("Project metadata without an explicit repository does not advertise membership capabilities", async (t) => {
+  const host = setup(t, undefined, 'kind="github"\nproject_id="PVT_local"');
+  const result = await host.run({ action: "inspect" });
+  assert.notEqual(result.isError, true);
+  assert.equal(inspection(result).project.id, "PVT_local");
+  assert.ok(!inspection(result).capabilities.includes("project-member"));
+  assert.ok(!inspection(result).capabilities.includes("project-enroll"));
 });
