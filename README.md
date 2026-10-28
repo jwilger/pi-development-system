@@ -133,6 +133,19 @@ the overriding extension to use named prompt sections instead. An empty list add
 local workflow content. Review-specific guidance has its own contract; this setting does
 not change typed review submission or grant permission to provision tracker resources.
 
+### Discovering or defining the local workflow
+
+Load the `project-workflow` skill when adopting devsys, replacing an existing
+factory, or reconciling policy and automation. It inventories authorized sources
+read-only, separates intent/configuration/execution, and escalates contradictions
+or access gaps to the owner before operational changes. It proposes discoverable
+version-controlled workflow/review documents, pointers and explicit integration
+configuration without prescribing universal queue states or provisioning a board.
+
+This is model guidance, not enforcement. See [the effect-eval evidence and opt-in
+runner](evals/guidance/README.md) for tested behaviors, failed controls and limits.
+The ordinary test suite never calls a live provider for these cases.
+
 ### GitHub Issues-only setup
 
 With `[tracker] kind = "github"`, issue lifecycle is projected as `open`/`done`,

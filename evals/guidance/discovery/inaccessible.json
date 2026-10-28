@@ -1,0 +1,34 @@
+{
+  "id": "discovery-inaccessible",
+  "task": "Help this existing repository adopt pi-development-system. Inspect its current workflow and prepare a discovery report with proposed local artifact locations. Do not change the repository or GitHub resources.",
+  "sources": [
+    {
+      "path": "docs/workflow.md",
+      "content": "# Development policy\nThe owner permits reviewed application changes. Verify with just check. GitHub Issues contain work descriptions; Project use is optional. No migration or board changes have been approved.\n"
+    },
+    {
+      "path": "justfile",
+      "content": "check:\n    mix format --check-formatted\n    mix test\n"
+    },
+    {
+      "path": "github/project",
+      "error": "permission-denied: project metadata cannot be inspected with current credentials"
+    }
+  ],
+  "expectation": {
+    "categories": {
+      "docs/workflow.md": "documented-intent",
+      "justfile": "configured-behavior"
+    },
+    "conflicts": [],
+    "unknownSources": [
+      "github/project"
+    ],
+    "ownerDecisionRequired": true,
+    "artifactKinds": [
+      "workflow",
+      "pointer",
+      "integration-config"
+    ]
+  }
+}

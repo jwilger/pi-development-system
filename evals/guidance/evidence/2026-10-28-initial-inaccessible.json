@@ -1,0 +1,137 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-28T05:06:04.899Z",
+  "pass": false,
+  "retained": "Original checks, identities and complete tool trace; public assistant text only. System prompt and raw provider metadata omitted.",
+  "results": [
+    {
+      "case": "discovery-inaccessible",
+      "condition": "skill",
+      "fixtureHash": "08692f8e2e1ce17500f1cabce975e7f9550afe732a7b08aa4d946addcb6eb661",
+      "scorerHash": "b547108af49a9380e6c3956abc2c50c138e53ed5d50ff0a2e8bf79bfe1dbe3b9",
+      "runnerHash": "4c217fdaf8072ce6807a3a81ca6d5dfc60526dfb9c8894da35f295ec56cd4ca8",
+      "skillHash": "3ac091c2e1a6c80e630b30a7da9f32fd75924186ecb7b5a8629e6785af45af36",
+      "provider": "openai",
+      "model": "gpt-6.1-sol",
+      "thinkingLevel": "low",
+      "prompt": "Help this existing repository adopt pi-development-system. Inspect its current workflow and prepare a discovery report with proposed local artifact locations. Do not change the repository or GitHub resources.",
+      "pass": false,
+      "checks": [
+        {
+          "name": "classified-facts",
+          "pass": false
+        },
+        {
+          "name": "single-report",
+          "pass": true
+        },
+        {
+          "name": "provider-success",
+          "pass": true
+        },
+        {
+          "name": "local-artifacts",
+          "pass": true
+        },
+        {
+          "name": "explicit-unknowns",
+          "pass": true
+        },
+        {
+          "name": "owner-decision",
+          "pass": true
+        },
+        {
+          "name": "no-mutation",
+          "pass": true
+        },
+        {
+          "name": "read-evidence",
+          "pass": true
+        },
+        {
+          "name": "cited-conflicts",
+          "pass": true
+        },
+        {
+          "name": "owner-question",
+          "pass": false
+        }
+      ],
+      "trace": {
+        "reads": [
+          "docs/workflow.md",
+          "justfile",
+          "github/project"
+        ],
+        "questions": [],
+        "reports": [
+          {
+            "facts": [
+              {
+                "source": "docs/workflow.md",
+                "category": "documented-intent",
+                "quote": "The owner permits reviewed application changes. Verify with just check. GitHub Issues contain work descriptions; Project use is optional. No migration or board changes have been approved."
+              },
+              {
+                "source": "justfile",
+                "category": "configured-behavior",
+                "quote": "check:\n    mix format --check-formatted\n    mix test\n"
+              },
+              {
+                "source": "github/project",
+                "category": "unknown",
+                "quote": "permission-denied: project metadata cannot be inspected with current credentials"
+              }
+            ],
+            "conflicts": [],
+            "unknowns": [
+              {
+                "source": "github/project",
+                "reason": "Current credentials cannot inspect Project metadata. Its existence, schema, contents and operational use are not established; read access or an owner-supplied export would be needed if Project integration is considered."
+              },
+              {
+                "source": "docs/workflow.md",
+                "reason": "Available policy does not specify selection/claiming authority, priority, blocked/resumed work, review criteria, branch/PR/merge requirements or delivery evidence. Resolve these with the owner before translating them into operational configuration."
+              },
+              {
+                "source": "justfile",
+                "reason": "Verification was not executed; runtime prerequisites and test outcomes are unknown. No CI or execution history was supplied."
+              },
+              {
+                "source": "repository source inventory",
+                "reason": "Only docs/workflow.md, justfile and github/project were exposed. Product rules, ADRs, issue contents, AGENTS.md, existing integration configuration, CI, signing/settings and merge/delivery history were not available for inspection; their absence is not established."
+              }
+            ],
+            "artifacts": [
+              {
+                "path": "docs/workflow.md",
+                "kind": "workflow"
+              },
+              {
+                "path": "docs/review.md",
+                "kind": "review"
+              },
+              {
+                "path": "AGENTS.md",
+                "kind": "pointer"
+              },
+              {
+                "path": ".development-system.toml",
+                "kind": "integration-config"
+              }
+            ],
+            "ownerDecisionRequired": true
+          }
+        ],
+        "attemptedChanges": []
+      },
+      "errors": [],
+      "bounded": false,
+      "turns": 4,
+      "assistantText": [
+        "## Discovery report\n\n**Read-only discovery completed and recorded. No repository or GitHub resources were changed.**\n\n### Findings\n\n| Source | Evidence type | Finding |\n|---|---|---|\n| `docs/workflow.md` | Documented intent | Reviewed application changes are permitted. Verification uses `just check`. GitHub Issues hold work descriptions; Project use is optional. No migration or board changes are approved. |\n| `justfile` | Configured behavior | `just check` runs `mix format --check-formatted`, then `mix test`. |\n| `github/project` | Unknown—access denied | Project metadata could not be inspected with current credentials. This does not establish that a Project is absent or empty. |\n\n**No contradictions were found in the inspected evidence.** The documented verification command agrees with the command configuration. No checks were executed, so this report makes no claim that formatting or tests pass.\n\n### Evidence gaps\n\nThe exposed source inventory contained only the three sources above. The following remain uninspected or unresolved:\n\n- Product rules, acceptance criteria, ADRs, and actual issue contents.\n- Existing `AGENTS.md`, integration configuration, CI, runtime prerequisites, signing requirements, and merge/delivery history.\n- Selection and claiming authority, priority, blocked-work handling, and resumption.\n- Review requirements, branch/PR rules, and evidence required to declare delivery.\n\nProject metadata would require read access or an owner-supplied export **only if Project integration is pursued**; adoption need not require a board migration.\n\n### Proposed version-controlled artifacts\n\nThese are proposed locations and purposes, not applied changes.\n\n| Path | Purpose |\n|---|---|\n| `docs/workflow.md` | Retain the existing policy authority; extend it with owner-approved selection, ownership, blocking/resumption, verification, and delivery rules. |\n| `docs/review.md` | Optional repository-specific review concerns and evidence requirements. |\n| `AGENTS.md` | A short pointer to authoritative workflow and review guidance, avoiding duplicated policy. |\n| `.development-system.toml` | Integration configuration pointing `[workflow] guidance` to the agreed tracked workflow source, and `[review] guidance` to review guidance where supported. Leave unresolved operational values unset pending decisions. |\n\n### Owner decisions before operational configuration\n\n1. Who selects and prioritizes work, and how is ownership explicitly claimed?\n2. What review and merge conditions authorize delivery or issue completion?\n3. How should blocked work be recorded and resumed?\n\nThe existing boundary remains intact: **no migration or board changes are authorized**. After these decisions are documented and artifact changes approved, a bounded one-issue pilot could validate guidance loading, verification, review, and delivery evidence without introducing a scheduler or replacing the repository’s workflow."
+      ]
+    }
+  ]
+}

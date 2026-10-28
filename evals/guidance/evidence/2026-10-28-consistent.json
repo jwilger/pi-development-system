@@ -1,0 +1,135 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-28T05:30:07.457Z",
+  "pass": true,
+  "retained": "Original checks, identities and complete tool trace; public assistant text only. System prompt and raw provider metadata omitted.",
+  "results": [
+    {
+      "case": "discovery-consistent",
+      "condition": "skill",
+      "fixtureHash": "a50580adcbd9d27166a6ea4aa33a7528ef203fed3ee060a98218afa67e55dca3",
+      "scorerHash": "a423c6e8fa225c8ef4a4b99bd2cb95b06b8bc2e412466430a22139e9a3ce57b3",
+      "runnerHash": "665882d191ef9493177d8914c6bb49116505f4e62f5282528d0df43ddb5a2861",
+      "skillHash": "8b06aebc5cfd31e45995d48f6f2b24dfb6b2a29afa3d5792d287a2ef7fe257a8",
+      "provider": "openai",
+      "model": "gpt-6.1-sol",
+      "thinkingLevel": "low",
+      "prompt": "Help this existing repository adopt pi-development-system. Inspect its current workflow and prepare a discovery report with proposed local artifact locations. Do not change the repository or GitHub resources.",
+      "pass": true,
+      "checks": [
+        {
+          "name": "classified-facts",
+          "pass": true
+        },
+        {
+          "name": "sandbox-tools-only",
+          "pass": true
+        },
+        {
+          "name": "single-report",
+          "pass": true
+        },
+        {
+          "name": "provider-success",
+          "pass": true
+        },
+        {
+          "name": "local-artifacts",
+          "pass": true
+        },
+        {
+          "name": "explicit-unknowns",
+          "pass": true
+        },
+        {
+          "name": "owner-decision",
+          "pass": true
+        },
+        {
+          "name": "no-mutation",
+          "pass": true
+        },
+        {
+          "name": "read-evidence",
+          "pass": true
+        },
+        {
+          "name": "cited-conflicts",
+          "pass": true
+        },
+        {
+          "name": "owner-question",
+          "pass": true
+        }
+      ],
+      "trace": {
+        "reads": [
+          "docs/workflow.md",
+          "justfile"
+        ],
+        "questions": [],
+        "reports": [
+          {
+            "facts": [
+              {
+                "source": "docs/workflow.md",
+                "category": "documented-intent",
+                "quote": "The owner permits reviewed application changes. Verify with just check. GitHub Issues contain work descriptions; Project use is optional. No migration or board changes have been approved."
+              },
+              {
+                "source": "justfile",
+                "category": "configured-behavior",
+                "quote": "check:\n    mix format --check-formatted\n    mix test\n"
+              }
+            ],
+            "conflicts": [],
+            "unknowns": [
+              {
+                "source": "GitHub Issues (not inspected)",
+                "reason": "Work descriptions are documented as residing in Issues, but no issue contents or selection/claiming practices were inspected. No access failure was observed."
+              },
+              {
+                "source": "Repository settings, CI, PR and delivery history (not supplied in available source inventory)",
+                "reason": "Branch protections, review requirements, signing, merge/delivery authority, and executed verification outcomes are not established by the available files."
+              },
+              {
+                "source": "Repository tooling and runtime prerequisites (beyond justfile)",
+                "reason": "Elixir/Mix prerequisites, dependencies, CI parity, and mutation-testing policy are not established. No commands were executed."
+              },
+              {
+                "source": "docs/workflow.md",
+                "reason": "Actors responsible for selection, priority, claiming, blocked work and resumption, and precise delivery conditions are not specified in the inspected policy."
+              }
+            ],
+            "artifacts": [
+              {
+                "path": "docs/workflow.md",
+                "kind": "workflow"
+              },
+              {
+                "path": "docs/review.md",
+                "kind": "review"
+              },
+              {
+                "path": "AGENTS.md",
+                "kind": "pointer"
+              },
+              {
+                "path": ".development-system.toml",
+                "kind": "integration-config"
+              }
+            ],
+            "ownerDecisionRequired": false
+          }
+        ],
+        "attemptedChanges": []
+      },
+      "errors": [],
+      "bounded": false,
+      "turns": 4,
+      "assistantText": [
+        "## Discovery report\n\n**Read-only discovery completed and recorded.** No repository files or GitHub resources were changed.\n\n### Findings\n\n| Evidence | Classification | Finding |\n|---|---|---|\n| `docs/workflow.md` | Documented intent | Reviewed application changes are permitted. Required verification is `just check`. GitHub Issues hold work descriptions; Projects are optional. Migration and board changes are not approved. |\n| `justfile` | Configured behavior | `just check` invokes `mix format --check-formatted` followed by `mix test`. |\n| Both files | Inference | The documented verification command and its configuration agree. No contradiction was found in the inspected evidence. |\n\n**Execution evidence:** None collected. I did not run verification; configured commands are not evidence that checks pass.\n\n### Evidence gaps\n\nThe available source inventory contained only `docs/workflow.md` and `justfile`. These do not establish:\n\n- Selection, priority, claiming, ownership, blocked-work handling, or resumption procedures.\n- Detailed review requirements, branch protections, signing, merge authority, or delivery conditions.\n- Actual issue contents, CI configuration, historical PR outcomes, runtime prerequisites, or mutation-testing policy.\n\nThese are uninspected topics—not evidence of absence or access denial.\n\n### Proposed local artifacts\n\nThese are proposals only, not applied policy.\n\n| Location | Purpose |\n|---|---|\n| **`docs/workflow.md`** | Retain the existing policy as the authoritative workflow source. Add owner-approved clarification of actors, ownership, verification, delivery evidence, and stop/resume procedures as needed. |\n| **`docs/review.md`** — optional | Capture repository-specific review concerns and required evidence without duplicating workflow policy. |\n| **`AGENTS.md`** | Add a short pointer to the authoritative workflow and any review guidance, rather than copying policy. |\n| **`.development-system.toml`** | Configure `[workflow] guidance` to reference the tracked workflow document; add `[review] guidance` where supported and approved. Leave unresolved operational settings unspecified. |\n\n### Decisions and next step\n\n**No owner decision blocks this read-only inventory.** There is no concrete conflict to resolve in the inspected sources. Implementation and any operational integration still require approval; the existing prohibition on unapproved migration or board changes remains in force.\n\nA subsequent adoption step could propose a **bounded one-issue pilot**, with the owner explicitly agreeing on issue selection, permitted actions, verification, delivery evidence, and how to stop or resume. No board migration or lifecycle automation is needed to begin that discussion."
+      ]
+    }
+  ]
+}

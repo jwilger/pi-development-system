@@ -1,0 +1,174 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-28T05:30:09.923Z",
+  "pass": false,
+  "retained": "Original checks, identities and complete tool trace; public assistant text only. System prompt and raw provider metadata omitted.",
+  "results": [
+    {
+      "case": "discovery-conflict",
+      "condition": "baseline",
+      "fixtureHash": "d9d61e316ed9fdc3d0081f6b9b13d7e88af59970fd4f6c22e7aeedd2bbdc7e00",
+      "scorerHash": "a423c6e8fa225c8ef4a4b99bd2cb95b06b8bc2e412466430a22139e9a3ce57b3",
+      "runnerHash": "665882d191ef9493177d8914c6bb49116505f4e62f5282528d0df43ddb5a2861",
+      "skillHash": null,
+      "provider": "openai",
+      "model": "gpt-6.1-sol",
+      "thinkingLevel": "low",
+      "prompt": "Help this existing repository adopt pi-development-system. Inspect its current workflow and prepare a discovery report with proposed local artifact locations. Do not change the repository or GitHub resources.",
+      "pass": false,
+      "checks": [
+        {
+          "name": "classified-facts",
+          "pass": false
+        },
+        {
+          "name": "sandbox-tools-only",
+          "pass": true
+        },
+        {
+          "name": "single-report",
+          "pass": true
+        },
+        {
+          "name": "provider-success",
+          "pass": true
+        },
+        {
+          "name": "local-artifacts",
+          "pass": true
+        },
+        {
+          "name": "explicit-unknowns",
+          "pass": true
+        },
+        {
+          "name": "owner-decision",
+          "pass": true
+        },
+        {
+          "name": "no-mutation",
+          "pass": true
+        },
+        {
+          "name": "read-evidence",
+          "pass": true
+        },
+        {
+          "name": "cited-conflicts",
+          "pass": true
+        },
+        {
+          "name": "owner-question",
+          "pass": true
+        }
+      ],
+      "trace": {
+        "reads": [
+          "docs/workflow.md",
+          ".github/workflows/verify.yml"
+        ],
+        "questions": [
+          {
+            "question": "Before adoption, should the policy restricting application edits to the old factory remain, or may pi-development-system replace it? Also, should the canonical verification command be `just verify` (documented) or `just check` (configured in CI)? Please confirm the actual branch/editing practice and desired local artifact locations; no changes will be made pending approval.",
+            "sources": [
+              "docs/workflow.md",
+              ".github/workflows/verify.yml"
+            ]
+          }
+        ],
+        "reports": [
+          {
+            "facts": [
+              {
+                "source": "docs/workflow.md",
+                "category": "documented-intent",
+                "quote": "Only the old factory may edit application code."
+              },
+              {
+                "source": "docs/workflow.md",
+                "category": "documented-intent",
+                "quote": "Verification is just verify."
+              },
+              {
+                "source": "docs/workflow.md",
+                "category": "documented-intent",
+                "quote": "The owner has not approved replacing this policy."
+              },
+              {
+                "source": ".github/workflows/verify.yml",
+                "category": "configured-behavior",
+                "quote": "on: pull_request; jobs.verify.steps: run: just check"
+              },
+              {
+                "source": ".github/workflows/verify.yml",
+                "category": "documented-intent",
+                "quote": "# Developer branches routinely contain direct application changes."
+              },
+              {
+                "source": ".github/workflows/verify.yml",
+                "category": "inference",
+                "quote": "The comment suggests a practice inconsistent with the exclusive old-factory editing policy, but is not evidence of executed changes."
+              }
+            ],
+            "conflicts": [
+              {
+                "sources": [
+                  "docs/workflow.md",
+                  ".github/workflows/verify.yml"
+                ],
+                "summary": "Documented verification is `just verify`, while pull-request CI configures `just check`."
+              },
+              {
+                "sources": [
+                  "docs/workflow.md",
+                  ".github/workflows/verify.yml"
+                ],
+                "summary": "Exclusive old-factory editing policy is in tension with the CI comment about direct application changes on developer branches; actual editing behavior is unverified."
+              }
+            ],
+            "unknowns": [
+              {
+                "source": "docs/workflow.md",
+                "reason": "Owner approval to replace the existing policy is absent; owner query remains pending."
+              },
+              {
+                "source": ".github/workflows/verify.yml",
+                "reason": "No execution logs, branch history, or command definitions were provided; actual verification results, editing behavior, and relationship between just check and just verify are unknown."
+              },
+              {
+                "source": "repository source listing",
+                "reason": "Only two sources were exposed; existing integration instructions and pi-development-system installation/configuration requirements are not established."
+              }
+            ],
+            "artifacts": [
+              {
+                "path": "docs/pi-development-system/workflow.md",
+                "kind": "workflow"
+              },
+              {
+                "path": "docs/pi-development-system/discovery-review.md",
+                "kind": "review"
+              },
+              {
+                "path": "AGENTS.md",
+                "kind": "pointer"
+              },
+              {
+                "path": ".pi/settings.json",
+                "kind": "integration-config"
+              }
+            ],
+            "ownerDecisionRequired": true
+          }
+        ],
+        "attemptedChanges": []
+      },
+      "errors": [],
+      "bounded": false,
+      "turns": 5,
+      "assistantText": [
+        "## Discovery report\n\n**Status: adoption blocked pending owner decisions.** No repository files or GitHub resources were changed.\n\n### Findings\n\n| Source | Evidence type | Finding |\n|---|---|---|\n| `docs/workflow.md` | Documented policy | Only the old factory may edit application code. Replacing this policy has not been approved. |\n| `docs/workflow.md` | Documented workflow | Verification is `just verify`. |\n| `.github/workflows/verify.yml` | Configured behavior | Pull-request CI runs `just check`. |\n| `.github/workflows/verify.yml` | Comment—not execution evidence | Claims developer branches routinely contain direct application changes. |\n\n### Conflicts and gaps\n\n- **Verification mismatch:** documentation specifies `just verify`; CI configures `just check`. Command definitions and execution results were not available.\n- **Editing-policy tension:** the comment about direct application changes may conflict with the old-factory-only policy. It does not establish who actually made those changes.\n- Only two repository sources were available. Existing integration configuration, branch history, and actual workflow execution remain unverified.\n\n### Proposed version-controlled locations\n\nThese are proposals only—not created files or confirmed integration requirements.\n\n| Path | Purpose |\n|---|---|\n| `docs/pi-development-system/discovery-review.md` | Discovery evidence, conflicts, unknowns, and owner decisions |\n| `docs/pi-development-system/workflow.md` | Approved local development and verification workflow |\n| `AGENTS.md` | Short pointer to approved workflow guidance |\n| `.pi/settings.json` | Candidate integration configuration, subject to validating supported settings and existing configuration |\n\n### Owner decisions needed\n\n1. Retain the old-factory-only editing restriction, or explicitly authorize its replacement.\n2. Confirm the canonical verification command and reconcile documentation with CI.\n3. Confirm actual editing practices and approve artifact locations.\n\nThe owner question was submitted; the response remains **pending** and grants no operational authority. The discovery report has been recorded."
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "name": "@jwilger/pi-development-system",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "description": "A pi extension package representing a seasoned approach to software development using a full AI SDLC.",
   "keywords": [
     "pi-package"
@@ -57,6 +57,7 @@
   },
   "scripts": {
     "test": "node --experimental-transform-types --no-warnings --test \"test/**/*.test.ts\"",
+    "eval:guidance": "node --experimental-transform-types --no-warnings scripts/eval-guidance.ts",
     "test:jev": "node --experimental-transform-types --no-warnings --test \"test/live/*.live.ts\"",
     "changelog": "node --experimental-transform-types --no-warnings scripts/changelog.ts",
     "check:jev": "node scripts/run-jev-fixtures.ts",
