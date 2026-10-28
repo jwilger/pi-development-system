@@ -294,6 +294,35 @@ compare-and-swap, and a concurrent human edit can race the add or verification.
 Enrollment does not reserve or claim work. Ordinary tests use an in-memory Exec
 remote, not live GitHub credentials or downstream repositories.
 
+### Explicit single-select set and clear
+
+With the same explicit repository and Project configuration, `project-set` changes
+only a named single-select field on a named, existing nonarchived issue membership:
+
+```json
+{"action":"project-set","id":"7","fieldId":"PVTSSF_example","optionId":"example-option"}
+```
+
+```json
+{"action":"project-set","id":"7","fieldId":"PVTSSF_example","clear":true}
+```
+
+Specify exactly one of `optionId` or `clear:true`. The tool reads actual field/option
+identities and membership before dispatch; foreign options, unsupported field types,
+absent/unknown/archived membership and invalid inputs cannot authorize a write. It
+never enrolls or unarchives implicitly. An already-satisfied value is a verified
+no-op. Otherwise it sends one explicit set/clear mutation using the existing Project
+write authority, then verifies acknowledgement, membership and field metadata.
+
+The JSON includes `kind`, `message`, `before` and `after`. `confirmed` means a verified
+no-op or fresh matching readback; `not-attempted` is a refusal; `uncertain` means a
+write was dispatched but its intended effect could not be confirmed. Refusals and
+uncertainty are tool errors. An included `before` snapshot is not evidence that a
+write failed. Re-read membership and metadata before any explicit retry; there is
+no automatic retry, rollback, schema provisioning, assignment, lifecycle or other
+field update. Option names have no built-in workflow meaning. Preflight/readback
+cannot eliminate concurrent human races or provide an exclusive claim.
+
 ## Model tiers
 
 Models are asked for by slot, never by id. Three capability tiers (`frontier`, `strong`, `fast`)

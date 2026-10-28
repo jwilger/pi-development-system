@@ -104,6 +104,7 @@ test("inspection advertises its public schema and returns actual Project field a
     "project-items",
     "project-member",
     "project-enroll",
+    "project-set",
   ]);
 });
 

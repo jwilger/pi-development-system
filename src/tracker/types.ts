@@ -95,6 +95,19 @@ export type ProjectMembership = {
     | { readonly kind: "unknown"; readonly diagnostics: readonly ProjectDiagnostic[] };
 };
 
+export type ProjectSetRequest = {
+  readonly fieldId: string;
+  readonly optionId?: string;
+  readonly clear?: boolean;
+};
+
+export type ProjectSetResult = {
+  readonly kind: "confirmed" | "not-attempted" | "uncertain";
+  readonly message: string;
+  readonly before: ProjectMembership | null;
+  readonly after: ProjectMembership | null;
+};
+
 type PresentMembership = ProjectMembership & {
   readonly membership: { readonly kind: "present"; readonly item: ProjectIssueObservation };
 };
@@ -147,6 +160,7 @@ export interface Tracker {
   projectItems?(filter: ProjectItemFilter): Promise<TrackerResult<ProjectItems>>;
   projectMember?(id: string): Promise<TrackerResult<ProjectMembership>>;
   projectEnroll?(id: string): Promise<TrackerResult<ProjectEnrollment>>;
+  projectSet?(id: string, request: ProjectSetRequest): Promise<TrackerResult<ProjectSetResult>>;
   list(filter: ItemFilter): Promise<TrackerResult<WorkItem[]>>;
   get(id: string): Promise<TrackerResult<WorkItem>>;
   create(item: NewWorkItem): Promise<TrackerResult<WorkItem>>;

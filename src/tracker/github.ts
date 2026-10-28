@@ -3,6 +3,7 @@ import { ok } from "../core/result.ts";
 import { inspectProject } from "./github-project.ts";
 import { observeProjectItems } from "./github-project-items.ts";
 import { enrollProjectIssue, observeProjectMembership } from "./github-project-membership.ts";
+import { setProjectField } from "./github-project-set.ts";
 import { unwritable } from "./item-format.ts";
 import { BASIC_TRACKER_ACTIONS } from "./types.ts";
 
@@ -261,6 +262,7 @@ const commentIssue = async (gh: Gh, id: string, body: string): Promise<TrackerRe
 /** Work items as GitHub issues, through the `gh` CLI. Every value is its own argument, never shell text. */
 export function createGithubTracker(deps: GithubTrackerDeps): Tracker {
   const gh = bindGh(deps);
+  const { repo, projectId } = deps;
   return {
     kind: "github",
     async inspect(fieldId): Promise<TrackerResult<TrackerInspection>> {
@@ -278,7 +280,13 @@ export function createGithubTracker(deps: GithubTrackerDeps): Tracker {
             capabilities:
               deps.repo === undefined
                 ? BASIC_TRACKER_ACTIONS
-                : [...BASIC_TRACKER_ACTIONS, "project-items", "project-member", "project-enroll"],
+                : [
+                    ...BASIC_TRACKER_ACTIONS,
+                    "project-items",
+                    "project-member",
+                    "project-enroll",
+                    "project-set",
+                  ],
             project: project.value,
           })
         : project;
@@ -302,6 +310,12 @@ export function createGithubTracker(deps: GithubTrackerDeps): Tracker {
         { exec: deps.exec, cwd: deps.cwd, repo: deps.repo ?? "", projectId: deps.projectId ?? "" },
         id,
       ),
+    ...(repo === undefined || projectId === undefined
+      ? {}
+      : ({
+          projectSet: (id, request) =>
+            setProjectField({ exec: deps.exec, cwd: deps.cwd, repo, projectId }, id, request),
+        } satisfies Pick<Tracker, "projectSet">)),
     list: (filter) => listIssues(gh, filter),
     get: (id) => view(gh, id),
     create: (input) => createIssue(gh, input),

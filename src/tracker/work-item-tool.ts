@@ -13,6 +13,7 @@ const Parameters = Type.Object({
       Type.Literal("project-items"),
       Type.Literal("project-member"),
       Type.Literal("project-enroll"),
+      Type.Literal("project-set"),
       Type.Literal("list"),
       Type.Literal("get"),
       Type.Literal("create"),
@@ -24,18 +25,25 @@ const Parameters = Type.Object({
   id: Type.Optional(
     Type.String({
       description:
-        "Work item id (get, update, comment); issue number (project-member, project-enroll).",
+        "Work item id (get, update, comment); issue number (project-member, project-enroll, project-set).",
     }),
   ),
   fieldId: Type.Optional(
     Type.String({
       description:
-        "Optional Project field node id to validate during inspection; never inferred from its name.",
+        "Project field node id: required for project-set, optional inspection validation; never inferred from its name.",
     }),
   ),
   optionId: Type.Optional(
     Type.String({
-      description: "Explicit single-select option id; project-items requires fieldId with it.",
+      description:
+        "Explicit single-select option id; project-items requires fieldId; project-set requires this or clear:true.",
+    }),
+  ),
+  clear: Type.Optional(
+    Type.Boolean({
+      description:
+        "Explicitly clear a single-select field (project-set); use true instead of optionId.",
     }),
   ),
   lifecycle: Type.Optional(
@@ -117,6 +125,27 @@ async function comment(tracker: Tracker, p: Params) {
   return show(await tracker.comment(id, body), () => `commented on ${id}`);
 }
 
+async function projectSet(tracker: Tracker, p: Params) {
+  if (p.id === undefined || p.id.trim() === "") return missing(p.action, "id");
+  if (p.fieldId === undefined || p.fieldId.trim() === "") return missing(p.action, "fieldId");
+  if (
+    (p.optionId !== undefined) === (p.clear === true) ||
+    (p.optionId !== undefined && p.optionId.trim() === "") ||
+    (p.clear !== undefined && p.clear !== true)
+  )
+    return reply("project-set needs exactly one of a nonempty optionId or clear:true", true);
+  if (tracker.projectSet === undefined)
+    return reply("project-set requires a configured GitHub Project and tracker.repo", true);
+  const result = await tracker.projectSet(p.id, {
+    fieldId: p.fieldId,
+    ...optional("optionId", p.optionId),
+    ...optional("clear", p.clear),
+  });
+  return result.ok
+    ? reply(JSON.stringify(result.value), result.value.kind !== "confirmed")
+    : reply(result.error.message, true);
+}
+
 async function run(tracker: Tracker, p: Params) {
   switch (p.action) {
     case "inspect":
@@ -170,6 +199,8 @@ async function run(tracker: Tracker, p: Params) {
             )
           : reply(result.error.message, true);
       }
+    case "project-set":
+      return projectSet(tracker, p);
     case "list": {
       const items = await tracker.list(optional("status", p.status));
       return show(items, (all) => (all.length === 0 ? "no work items" : all.map(line).join("\n")));
