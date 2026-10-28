@@ -206,6 +206,44 @@ Live smoke checks are optional: only invoke inspection after explicitly choosing
 Project you are authorized to read. Ordinary tests use fake process responses and need
 no GitHub credentials.
 
+### Read-only Project issue observations
+
+`devsys_work_item({ action: "project-items" })` observes a configured Project's
+repository issues. It requires both `tracker.repo` and `tracker.project_id` above;
+repo-file and Issues-only tracking keep their existing behavior. Optional `lifecycle`
+is `open` or `closed` and filters GitHub issue lifecycle only. To filter a single-select
+value, supply both `fieldId` and `optionId` using identities returned by `inspect`:
+
+```json
+{"action":"project-items","lifecycle":"open","fieldId":"PVTSSF_example","optionId":"example-option"}
+```
+
+The result separates issue lifecycle, item archive status and raw Project values. It
+includes issue/item node identities, number/title/URL and observed single-select,
+text, number and date values. Other field values are explicitly `unsupported` with
+their API type, not coerced into workflow states. A missing value does not prove a
+workflow state. Field/option filters are validated against the configured Project;
+legacy `status` is refused rather than silently interpreted as a Project filter.
+
+Both archived and non-archived items are requested explicitly. Archived issues remain
+observations with diagnostics; no item is selected, claimed, enrolled or unarchived.
+Drafts, pull requests and foreign-repository issues are excluded with diagnostics.
+Redacted/inaccessible content makes `eligibility` **unknown**, not an empty eligible
+queue. Otherwise eligibility is **unassessed**: repositories decide their own criteria.
+Returned API order is only an observation, not priority, rank or saved-view ordering.
+
+All item pages and each relevant item's field-value pages are exhausted (100 per page,
+maximum 100 pages per connection). Missing/repeated cursors, duplicate identities,
+stale field/option identities, malformed/partial responses, process failures and
+permission errors discard partial observations and return repair/re-read advice.
+The metadata and item reads are not an atomic snapshot and do not reserve work.
+Large boards can require many read requests; reaching the bound is an error, not
+successful truncation. Correct permissions/configuration, then re-read. Existing `gh`
+authentication and Project/private-issue read permissions apply as above. No board
+writes or live credentials are needed by the ordinary tests; live smoke checks remain
+explicitly chosen and opt-in. The API request shape is documented in GitHub's
+[Projects GraphQL reference](https://docs.github.com/en/graphql/reference/projects).
+
 ## Model tiers
 
 Models are asked for by slot, never by id. Three capability tiers (`frontier`, `strong`, `fast`)

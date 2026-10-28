@@ -1,6 +1,7 @@
 import type { Exec } from "../core/exec.ts";
 import { ok } from "../core/result.ts";
 import { inspectProject } from "./github-project.ts";
+import { observeProjectItems } from "./github-project-items.ts";
 import { unwritable } from "./item-format.ts";
 import { BASIC_TRACKER_ACTIONS } from "./types.ts";
 
@@ -271,9 +272,25 @@ export function createGithubTracker(deps: GithubTrackerDeps): Tracker {
         fieldId,
       );
       return project.ok
-        ? ok({ kind: "github", capabilities: BASIC_TRACKER_ACTIONS, project: project.value })
+        ? ok({
+            kind: "github",
+            capabilities:
+              deps.repo === undefined
+                ? BASIC_TRACKER_ACTIONS
+                : [...BASIC_TRACKER_ACTIONS, "project-items"],
+            project: project.value,
+          })
         : project;
     },
+    projectItems: (filter) =>
+      deps.projectId === undefined || deps.repo === undefined
+        ? Promise.resolve(
+            trackerError("project-items requires explicit tracker.project_id and tracker.repo"),
+          )
+        : observeProjectItems(
+            { exec: deps.exec, cwd: deps.cwd, repo: deps.repo, projectId: deps.projectId },
+            filter,
+          ),
     list: (filter) => listIssues(gh, filter),
     get: (id) => view(gh, id),
     create: (input) => createIssue(gh, input),

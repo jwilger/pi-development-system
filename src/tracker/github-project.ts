@@ -22,6 +22,7 @@ const Field = Type.Union([
     __typename: Type.Union([
       Type.Literal("ProjectV2Field"),
       Type.Literal("ProjectV2IterationField"),
+      Type.Literal("ProjectV2MultiSelectField"),
     ]),
     id: NodeId,
     name: Type.String(),

@@ -10,6 +10,7 @@ const Parameters = Type.Object({
   action: Type.Union(
     [
       Type.Literal("inspect"),
+      Type.Literal("project-items"),
       Type.Literal("list"),
       Type.Literal("get"),
       Type.Literal("create"),
@@ -23,6 +24,17 @@ const Parameters = Type.Object({
     Type.String({
       description:
         "Optional Project field node id to validate during inspection; never inferred from its name.",
+    }),
+  ),
+  optionId: Type.Optional(
+    Type.String({
+      description: "Explicit single-select option id; project-items requires fieldId with it.",
+    }),
+  ),
+  lifecycle: Type.Optional(
+    Type.Union([Type.Literal("open"), Type.Literal("closed")], {
+      description:
+        "Explicit issue lifecycle filter for project-items; not a Project workflow state.",
     }),
   ),
   title: Type.Optional(Type.String({ description: "Title (create; optional rename on update)." })),
@@ -112,6 +124,22 @@ async function run(tracker: Tracker, p: Params) {
             }),
           )
         : reply("fieldId requires a configured GitHub Project", true);
+    case "project-items":
+      if (p.status !== undefined)
+        return reply(
+          "status is a legacy Issues projection; use lifecycle and explicit fieldId/optionId for Project observations",
+          true,
+        );
+      return tracker.projectItems === undefined
+        ? reply("project-items requires a configured GitHub Project and tracker.repo", true)
+        : show(
+            await tracker.projectItems({
+              ...optional("lifecycle", p.lifecycle),
+              ...optional("fieldId", p.fieldId),
+              ...optional("optionId", p.optionId),
+            }),
+            (items) => JSON.stringify(items),
+          );
     case "list": {
       const items = await tracker.list(optional("status", p.status));
       return show(items, (all) => (all.length === 0 ? "no work items" : all.map(line).join("\n")));
