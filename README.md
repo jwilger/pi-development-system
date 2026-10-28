@@ -91,6 +91,7 @@ machine can use.
 | `[delivery]` | `mode` (`trunk`, `pull-request`, `local-only`), `trunk`, `remote` | Where work lands; the push guard follows it. `local-only` blocks every push. |
 | `[review]` | `required_clean_rounds` (3), `min_rounds` (1), `thinking_level` (`high`) | The clean streak a slice needs before commit, and the effort of the reviewer and lens agents. |
 | `[tracker]` | `kind` (`repo-files`, `github`; `jira` and `linear` are not implemented), `repo` | Backlog for `devsys_work_item`. |
+| `[workflow]` | `guidance` (repository-relative file paths; default `[]`) | Explicit repository-owned workflow content for root and SDK child requests. |
 | `[profiles]` | `override` | Languages to apply (`rust`, `typescript`); empty means detect. |
 | `[models]` | one ordered candidate list per slot | See Model tiers below. |
 | `[routing]` | `"<difficulty>/<risk>" = ["<slot>", "<thinking level>"]` | What `devsys_route_task` recommends for a subagent. |
@@ -109,6 +110,28 @@ version = 1
 [models]
 fast = ["my-ollama/qwen3-coder*"]
 ```
+
+### Repository-owned workflow references
+
+```toml
+[workflow]
+guidance = ["docs/workflow.md", "docs/delivery-policy.md"]
+```
+
+These explicit references transport local instructions; devsys does not interpret a
+universal workflow schema. Before every root or SDK child request (including independent
+children and resumed sessions), devsys loads current content with source paths, SHA-256
+hashes and a snapshot identity. This is model guidance, not enforcement of arbitrary local
+policies; it does not automatically reach external agent runtimes.
+
+Files must be tracked by Git, repository-contained regular UTF-8 files. Absolute paths,
+parent traversal, symlink escapes, untracked/missing files and invalid configuration
+refuse preparation with repair advice. Limits are 32 KiB per file and 64 KiB combined;
+there is no silent truncation or recursive link/include loading. Configured guidance
+also refuses a full-system-prompt override, which would bypass section refresh; repair
+the overriding extension to use named prompt sections instead. An empty list adds no
+local workflow content. Review-specific guidance has its own contract; this setting does
+not change typed review submission or grant permission to provision tracker resources.
 
 ### GitHub Issues-only setup
 

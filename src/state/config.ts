@@ -37,6 +37,7 @@ export type DevsysConfig = {
     /** Effort of the reviewer and lens agents that devsys_review_start and devsys_lens_review spawn. */
     readonly thinkingLevel: ThinkingLevel;
   };
+  readonly workflow: { readonly guidance: readonly string[] };
   readonly tracker: { readonly kind: TrackerKind; readonly repo?: string };
   readonly profiles: { readonly override: readonly string[] };
   readonly models: ModelMatrix;
@@ -221,6 +222,15 @@ function profiles(root: Table): Result<readonly string[], ConfigError> {
     : fail("profiles.override must be an array of strings", "profiles.override");
 }
 
+function workflow(root: Table): Result<DevsysConfig["workflow"], ConfigError> {
+  const table = section(root, "workflow", ["guidance"]);
+  if (!table.ok) return table;
+  const raw = table.value.guidance ?? [];
+  return Array.isArray(raw) && raw.every((path) => typeof path === "string" && path.trim() !== "")
+    ? ok({ guidance: raw.map(String) })
+    : fail("workflow.guidance must be an array of non-empty paths", "workflow.guidance");
+}
+
 const TOP_LEVEL = [
   "version",
   "delivery",
@@ -232,6 +242,7 @@ const TOP_LEVEL = [
   "verifier",
   "cadence",
   "event_model",
+  "workflow",
 ];
 
 function deliveryAndReview(
@@ -310,15 +321,18 @@ export function parseConfig(source: string): Result<DevsysConfig, ConfigError> {
   const matrix = models(root);
   const routes = routing(root);
   const prof = profiles(root);
+  const localWorkflow = workflow(root);
   if (!delivery.ok) return delivery;
   if (!lim.ok) return lim;
   if (!matrix.ok) return matrix;
   if (!routes.ok) return routes;
   if (!prof.ok) return prof;
+  if (!localWorkflow.ok) return localWorkflow;
   return ok({
     ...delivery.value,
     ...lim.value,
     profiles: { override: prof.value },
+    workflow: localWorkflow.value,
     models: matrix.value,
     routing: routes.value,
   });

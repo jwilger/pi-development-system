@@ -11,7 +11,11 @@ import { intentLineFor } from "../src/context/intent-trigger.ts";
 import { registerModelAdvice } from "../src/context/model-advice.ts";
 import { NUDGE_ENTRY_TYPE, renderNudge } from "../src/context/nudge.ts";
 import { renderStatus, renderStatusLine, STATUS_KEY } from "../src/context/status.ts";
-import { applyPromptSections } from "../src/context/system-prompt.ts";
+import {
+  applyPromptSections,
+  applyWorkflowGuidance,
+  applyWorkflowRequest,
+} from "../src/context/system-prompt.ts";
 import { DEFAULT_VERIFIER_MAX, registerTurnVerifier } from "../src/context/turn-verifier.ts";
 import { type Exec, timeoutAsFailure } from "../src/core/exec.ts";
 import { defaultMatrix } from "../src/core/models.ts";
@@ -104,7 +108,14 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   // unpersisted edit at the end of the request sits on the provider's cache breakpoint.
   let lastCadence: string | undefined;
   let cadenceFor: string | undefined;
+  let workflowOptions:
+    | Parameters<typeof applyWorkflowGuidance>[0]["systemPromptOptions"]
+    | undefined;
+  pi.on("context_with_system", (event, ctx) => applyWorkflowRequest(event, ctx, workflowOptions));
   pi.on("before_agent_start", async (event, ctx) => {
+    // Later handlers may set forceSystemPrompt on this same run-options object.
+    workflowOptions = event.systemPromptOptions;
+    await applyWorkflowGuidance(event, ctx);
     const current = state.get();
     applyPromptSections(event, current, nonNegotiables);
     if (current.lastPushAt !== cadenceFor) {

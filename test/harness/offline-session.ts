@@ -22,8 +22,10 @@ export async function offlineSession(
   t: TestContext,
   factory: ExtensionFactory,
   respond: (context: TranscriptContext, request: number) => ToolCall[],
+  workingDirectory: (root: string) => string = (root) => root,
 ) {
   const root = mkdtempSync(join(tmpdir(), "devsys-sdk-"));
+  const cwd = workingDirectory(root);
   const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
   process.env.PI_CODING_AGENT_DIR = root;
   let cleanupSession: (() => void) | undefined;
@@ -88,7 +90,7 @@ export async function offlineSession(
     },
   });
   const loader = new DefaultResourceLoader({
-    cwd: root,
+    cwd,
     agentDir: root,
     settingsManager: settings,
     noExtensions: true,
@@ -102,7 +104,7 @@ export async function offlineSession(
   const model = runtime.getModel("offline-devsys", "scripted");
   t.assert.ok(model);
   const { session, extensionsResult } = await createAgentSession({
-    cwd: root,
+    cwd,
     agentDir: root,
     model,
     modelRuntime: runtime,

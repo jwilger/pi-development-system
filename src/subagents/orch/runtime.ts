@@ -15,6 +15,7 @@ import {
   SessionManager,
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
+import { applyWorkflowGuidance, applyWorkflowRequest } from "../../context/system-prompt.ts";
 import { applySpawnOverrides, modelSource } from "../../core/spawn-overrides.ts";
 import { selectTools } from "../prefs/config.ts";
 import {
@@ -430,6 +431,10 @@ export function createDriverFactory(
       parkQueue();
       return { continue: false };
     };
+    let guidanceFailure: Error | undefined;
+    let workflowOptions:
+      | Parameters<typeof applyWorkflowGuidance>[0]["systemPromptOptions"]
+      | undefined;
     const loader = new DefaultResourceLoader({
       cwd: ctx.cwd,
       agentDir,
@@ -460,6 +465,23 @@ export function createDriverFactory(
         ...(allowed.has("codemode") ? [createCodemodeExtension()] : []),
         ...(allowed.has("tool_search") ? [createToolSearchExtension()] : []),
         (pi) => {
+          pi.on("context_with_system", async (event, context) => {
+            try {
+              return await applyWorkflowRequest(event, context, workflowOptions);
+            } catch (error) {
+              guidanceFailure = error instanceof Error ? error : new Error(String(error));
+              throw error;
+            }
+          });
+          pi.on("before_agent_start", async (event, context) => {
+            workflowOptions = event.systemPromptOptions;
+            try {
+              await applyWorkflowGuidance(event, context);
+            } catch (error) {
+              guidanceFailure = error instanceof Error ? error : new Error(String(error));
+              throw error;
+            }
+          });
           pi.on("turn_end", pauseBoundary);
           pi.on("agent_before_settle", pauseBoundary);
           pi.on("tool_call", (event) =>
@@ -727,11 +749,14 @@ export function createDriverFactory(
         aborted = false;
         baseline = session.messages.length;
         finalOutput = "";
+        guidanceFailure = undefined;
         try {
           await enforceScopedModelPolicy();
           await resumePending();
           await session.prompt(message, { expandPromptTemplates: false });
           await session.waitForIdle();
+          // Hook exceptions are notifications in the SDK; preserve the actionable preparation error.
+          if (guidanceFailure) throw guidanceFailure;
           const last = session.messages
             .slice(baseline)
             .filter((msg) => msg.role === "assistant")
@@ -745,8 +770,9 @@ export function createDriverFactory(
               .map((block) => block.text)
               .join("");
         } catch (error) {
-          emit("error", error instanceof Error ? error.message : String(error));
-          throw error;
+          const failure = guidanceFailure ?? error;
+          emit("error", failure instanceof Error ? failure.message : String(failure));
+          throw failure;
         } finally {
           updateResolved();
           running = false;

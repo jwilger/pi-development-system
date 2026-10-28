@@ -1,5 +1,10 @@
-import type { BeforeAgentStartEvent } from "@earendil-works/pi-coding-agent";
+import type {
+  BeforeAgentStartEvent,
+  ContextWithSystemEvent,
+  ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import type { Departure, DevsysState } from "../core/types.ts";
+import { loadWorkflowGuidance } from "../state/local-guidance.ts";
 
 /**
  * Two sections, kept apart on purpose. pi diffs system-prompt sections per run and appends
@@ -47,6 +52,53 @@ export function buildStateSection(state: DevsysState): string {
   }
   lines.push("", REMINDER);
   return lines.join("\n");
+}
+
+/** Preparation boundary: configured input errors must stop model dispatch, not omit policy. */
+export async function applyWorkflowGuidance(
+  event: BeforeAgentStartEvent,
+  context: Pick<ExtensionContext, "cwd" | "abort">,
+): Promise<void> {
+  const result = await loadWorkflowGuidance(context.cwd);
+  if (!result.ok) {
+    // SDK reports hook exceptions without stopping the run; abort explicitly before dispatch.
+    context.abort();
+    // Fail fast: continuing would run without the owner's explicitly configured authority.
+    throw new Error(`${result.error.kind}: ${result.error.message}`);
+  }
+  event.systemPromptOptions.sections["repository-workflow"] = result.value.section;
+}
+
+/** Request-local section replacement also covers automatic tool continuations. */
+export async function applyWorkflowRequest(
+  event: ContextWithSystemEvent,
+  context: Pick<ExtensionContext, "cwd" | "abort">,
+  options?: BeforeAgentStartEvent["systemPromptOptions"],
+): Promise<{ messages: ContextWithSystemEvent["messages"] }> {
+  const result = await loadWorkflowGuidance(context.cwd);
+  if (!result.ok) {
+    context.abort();
+    throw new Error(`${result.error.kind}: ${result.error.message}`);
+  }
+  if (result.value.sources.length > 0 && options?.forceSystemPrompt !== undefined) {
+    context.abort();
+    throw new Error(
+      "guidance-error: Configured workflow conflicts with a forced system prompt. Repair the overriding extension to use named sections and retry preparation.",
+    );
+  }
+  const section = `<repository-workflow>\n${result.value.section}\n</repository-workflow>`;
+  // Request-local patches are not persisted by the SDK. Replace this section in place so an
+  // unchanged continuation preserves the previous request prefix rather than moving a tail patch.
+  let installed = false;
+  return {
+    messages: event.messages.map((message) => {
+      if (message.role !== "system") return message;
+      const { "repository-workflow": _previous, ...others } = message.sections ?? {};
+      const sections = installed ? others : { ...others, "repository-workflow": section };
+      installed = true;
+      return { ...message, sections };
+    }),
+  };
 }
 
 /** Adapter: sets both sections on a before_agent_start event (never returns systemPrompt). */
