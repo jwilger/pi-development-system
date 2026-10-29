@@ -8,24 +8,25 @@ const vague = (instructions: string): ClassifierBoolQuestion => ({
   type: "bool",
   instructions,
   criteria: {
-    true: "A weaker model implementing this alone would have to guess",
-    false: "It is specific enough to act on without guessing",
+    true: "A concrete required behavior, public contract or verification decision is missing or explicitly undecided",
+    false:
+      "The required behavior is stated or references an existing contract; remaining choices are ordinary implementation details, not missing requirements",
   },
 });
 
-/** One narrow judgement per aspect; `tooBig` is separate because the fix is to split, not to add detail. */
+/** Advisory handoff concerns, not implementation prerequisites or a specification-completeness score. */
 export const READINESS_QUESTIONS = {
   goal: vague(
     "`task.goal` should be one observable sentence: something a person or test could see change. Is it vague, a restatement of the title, or about activity rather than outcome?",
   ),
   interfaces: vague(
-    "`task.interfaces` should give exact signatures or contracts for what is created or changed. Is it missing signatures, hand-wavy ('a helper', 'some function') or inconsistent with `task.files`?",
+    "Does `task.interfaces` leave a required public contract decision explicitly unresolved or contradict the requested behavior? In particular an undecided public return/error contract needs a decision. Existing contracts can be referenced, not copied. Do not invent additional requirements beyond the requested behavior, or flag internal helper signatures/local design choices.",
   ),
   firstFailingTest: vague(
     "`task.firstFailingTest` should name a test file and test and say what it asserts. Does it fail to say what would be asserted, or assert something unrelated to `task.goal`?",
   ),
   steps: vague(
-    "`task.steps` should be small steps a reviewer could reject independently. Are any steps large, combined ('implement and wire everything'), or out of order with the test-first step?",
+    "Do `task.steps` omit a necessary dependency or put implementation before the behavioral test? A short test-implement-verify sequence is sufficient; do not require independently reviewable microsteps.",
   ),
   check: vague(
     "`task.run` should be an actual command a person can type, and `task.expected` an observable result such as a count, output or exit status. Is `run` prose or a placeholder rather than a command (for example 'run the tests'), or is `expected` a restatement of success (for example 'tests pass', 'should work') rather than something observed?",
@@ -33,9 +34,9 @@ export const READINESS_QUESTIONS = {
   tooBig: {
     type: "bool",
     instructions:
-      "Is this more than one task: does it touch unrelated areas, or need more than one failing test to describe, so that it should be split before anyone implements it?",
+      "Does this bundle separately deliverable capabilities or unrelated outcomes that could ship and be accepted independently? Do not split dependent implementation components of one end-to-end capability. Multiple tests, functions or files alone are not evidence. Recommend decomposition only when independent delivery boundaries outweigh extra planning, handoff, review and integration overhead.",
     criteria: {
-      true: "It should be split into two or more task records",
+      true: "Independent deliverable outcomes suggest considering decomposition",
       false: "It is one coherent task a single implementer can finish",
     },
   },
@@ -47,28 +48,28 @@ export type ReadinessJudgement = { readiness: Readiness; missing: string[] };
 /** Probability at or above which an aspect counts as vague. */
 const VAGUE_AT = 0.6;
 
-const clip = (text: string, max: number): string =>
-  redactSecrets(text.slice(0, max * 2)).slice(0, max);
+// Refuse an oversized advisory request instead of judging a silently truncated task.
+const MAX_CONTEXT_BYTES = 32_768;
 
 export async function judgeTaskReadiness(
   jev: Jev,
   record: TaskRecord,
 ): Promise<Result<ReadinessJudgement, JevError>> {
-  const asked = await jev.ask(
-    {
-      task: {
-        title: clip(record.title, 200),
-        goal: clip(record.goal, 600),
-        files: record.files.slice(0, 30).map((f) => clip(f, 200)),
-        interfaces: clip(record.interfaces, 1500),
-        firstFailingTest: clip(record.firstFailingTest, 600),
-        steps: record.steps.slice(0, 10).map((s) => clip(s, 300)),
-        run: clip(record.run, 300),
-        expected: clip(record.expected, 300),
-      },
-    },
-    READINESS_QUESTIONS,
-  );
+  const task = {
+    title: redactSecrets(record.title),
+    goal: redactSecrets(record.goal),
+    files: record.files.map(redactSecrets),
+    interfaces: redactSecrets(record.interfaces),
+    firstFailingTest: redactSecrets(record.firstFailingTest),
+    steps: record.steps.map(redactSecrets),
+    run: redactSecrets(record.run),
+    expected: redactSecrets(record.expected),
+    outOfScope: redactSecrets(record.outOfScope),
+  };
+  if (Buffer.byteLength(JSON.stringify(task), "utf8") > MAX_CONTEXT_BYTES) {
+    return err({ kind: "provider", message: "task context exceeds 32 KiB; not classified" });
+  }
+  const asked = await jev.ask({ task }, READINESS_QUESTIONS);
   if (!asked.ok) return asked;
   const probability = new Map<string, number>();
   for (const key of Object.keys(READINESS_QUESTIONS)) {

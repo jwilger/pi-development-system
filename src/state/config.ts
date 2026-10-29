@@ -261,7 +261,7 @@ function deliveryAndReview(
   const mode = choice(d.value, "delivery", "mode", DELIVERY_MODES, "trunk");
   const trunk = text(d.value, "delivery", "trunk", "main");
   const remote = text(d.value, "delivery", "remote", "origin");
-  const required = number(r.value, "review", "required_clean_rounds", 3, POSITIVE);
+  const required = number(r.value, "review", "required_clean_rounds", 1, POSITIVE);
   const min = number(r.value, "review", "min_rounds", 1, POSITIVE);
   const effort = choice(r.value, "review", "thinking_level", THINKING_LEVELS, "high");
   const kind = choice(t.value, "tracker", "kind", TRACKER_KINDS, "repo-files");

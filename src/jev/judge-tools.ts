@@ -108,7 +108,7 @@ export function createJudgeTools(deps: Deps): ToolDefinition[] {
       name: "judge_task_readiness",
       label: "Judge task readiness",
       description:
-        "Judge whether a task record (markdown, optionally one id out of a plan) is ready for an implementer: ready, needs-detail or too-big.",
+        "Advisory handoff assessment of a task record: ready, needs-detail or too-big. Structural errors are actionable; subjective section flags are not a concrete missing decision or an implementation prerequisite. Do not rewrite, split by test count or rerun solely to obtain ready.",
       parameters: Type.Object({ markdown: Type.String(), id: Type.Optional(Type.String()) }),
     },
     async (d, p, ctx) => {

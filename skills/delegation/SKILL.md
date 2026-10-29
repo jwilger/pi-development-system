@@ -60,8 +60,15 @@ concluded. Fix every blocking and should-fix finding, then ask for a new round.
 
 ## Parallel work
 
-Spawn independent children with `wait: false` before waiting on any of them. Keep
-the number of concurrent agents small; each one costs context and money.
+Prefer finishing one usable capability before starting another. Delegate only
+work with genuinely independent integration boundaries or focused expertise;
+context you already hold is a reason to implement directly, not to manufacture a
+handoff. Name who integrates and how the combined capability will be verified
+before parallel implementation. Completed fragments are not delivered acceptance.
+
+For genuinely independent work, spawn with `wait: false` before waiting. Keep
+concurrency small. If coordination repeats without implementation or acceptance
+evidence, stop spawning and integrate the smallest usable increment.
 
 ## Do not
 

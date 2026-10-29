@@ -47,9 +47,10 @@ export function createTaskCheckTool(baseDeps: {
     name: "devsys_task_check",
     label: "Check task record",
     description:
-      "Check a task record file against the task-record format and judge whether a weaker implementer could act on it. " +
-      "Run before handing a task record to an implementer subagent.",
-    promptSnippet: "Check a task record is ready for an implementer",
+      "Validate task-record structure and offer advisory handoff concerns. " +
+      "Use for a handoff; subjective flags are not prerequisites for direct implementation. " +
+      "Do not recheck unchanged records to obtain a favorable judgment.",
+    promptSnippet: "Validate task structure; advisory handoff feedback",
     parameters: Parameters,
     exposure: "codemode",
     async execute(_id, params: Static<typeof Parameters>, _signal, _onUpdate, ctx) {
@@ -71,7 +72,7 @@ export function createTaskCheckTool(baseDeps: {
       const judged = await judgeTaskReadiness(deps.jev(ctx), record);
       if (!judged.ok) {
         return reply(
-          `${record.id}: structure ok. Jev unavailable (${judged.error.kind}), so specificity and size were not judged; review the record yourself.`,
+          `${record.id}: structure ok. Jev unavailable or context exceeds the 32 KiB limit (${judged.error.kind}); readiness not judged. Advisory only: use the available context; ask once if a concrete missing decision prevents safe implementation.`,
         );
       }
       const { readiness, missing } = judged.value;
@@ -79,11 +80,13 @@ export function createTaskCheckTool(baseDeps: {
         return reply(`${record.id}: ready. Structure ok and specific enough for an implementer.`);
       if (readiness === "too-big") {
         return reply(
-          `${record.id}: too-big. Split it into task records that each need one failing test, then check each.`,
+          `${record.id}: structure ok; too-big (advisory). Consider splitting only at independent deliverable and integration boundaries, accounting for handoff and review overhead. Multiple tests or functions alone do not justify splitting. Otherwise implement one usable increment; do not recheck to seek a favorable judgment.`,
         );
       }
       const named = missing.map((m) => SECTION_OF[m] ?? m).join(", ");
-      return reply(`${record.id}: needs-detail. Make these more specific: ${named}.`);
+      return reply(
+        `${record.id}: structure ok; needs-detail (advisory concerns: ${named}). These section flags do not identify a concrete missing decision. Use the record and repository context to proceed test-first; only if you can name a concrete missing decision that prevents safe implementation, ask one precise question. Do not rewrite or recheck solely to clear this judgment.`,
+      );
     },
   }));
 }

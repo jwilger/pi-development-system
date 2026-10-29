@@ -22,7 +22,9 @@ pre-commit:
       glob: "*.md"
       run: markdownlint-cli2 {staged_files}
     test:
-      run: npm test
+      # Git exports repository-local targets to hooks. Tests create other repositories;
+      # prevent their Git commands from mutating this checkout's refs/index/config.
+      run: git_vars=$(git rev-parse --local-env-vars) && unset $git_vars && npm test
     jev-fixtures:
       run: node scripts/run-jev-fixtures.ts --staged
     nix-format:

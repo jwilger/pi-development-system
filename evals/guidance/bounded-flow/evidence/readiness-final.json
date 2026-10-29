@@ -1,0 +1,122 @@
+{
+  "model": "typesafe/jev-latest",
+  "questionHash": "e8b69cb8baed00cad5e596dee77ecdb62d658ef718412122ab298e73f756ce3d43237cf928dcf331245577b1a97bdc31",
+  "results": [
+    {
+      "title": "Normalize login emails",
+      "expected": "ready",
+      "actual": {
+        "readiness": "ready",
+        "missing": []
+      },
+      "pass": true
+    },
+    {
+      "title": "Trim emails on login",
+      "expected": "ready",
+      "actual": {
+        "readiness": "ready",
+        "missing": []
+      },
+      "pass": true
+    },
+    {
+      "title": "Add --json flag",
+      "expected": "ready",
+      "actual": {
+        "readiness": "ready",
+        "missing": []
+      },
+      "pass": true
+    },
+    {
+      "title": "Trim emails on login",
+      "expected": "needs-detail",
+      "actual": {
+        "readiness": "needs-detail",
+        "missing": [
+          "goal",
+          "interfaces",
+          "firstFailingTest",
+          "steps"
+        ]
+      },
+      "pass": true
+    },
+    {
+      "title": "Trim emails on login",
+      "expected": "needs-detail",
+      "actual": {
+        "readiness": "needs-detail",
+        "missing": [
+          "interfaces"
+        ]
+      },
+      "pass": true
+    },
+    {
+      "title": "Trim emails on login",
+      "expected": "needs-detail",
+      "actual": {
+        "readiness": "needs-detail",
+        "missing": [
+          "firstFailingTest"
+        ]
+      },
+      "pass": true
+    },
+    {
+      "title": "Trim emails on login",
+      "expected": "needs-detail",
+      "actual": {
+        "readiness": "ready",
+        "missing": []
+      },
+      "pass": false
+    },
+    {
+      "title": "Trim emails on login",
+      "expected": "needs-detail",
+      "actual": {
+        "readiness": "needs-detail",
+        "missing": [
+          "check"
+        ]
+      },
+      "pass": true
+    },
+    {
+      "title": "Trim emails on login",
+      "expected": "needs-detail",
+      "actual": {
+        "readiness": "needs-detail",
+        "missing": [
+          "check"
+        ]
+      },
+      "pass": true
+    },
+    {
+      "title": "Rebuild the auth system",
+      "expected": "too-big",
+      "actual": {
+        "readiness": "needs-detail",
+        "missing": [
+          "interfaces",
+          "firstFailingTest",
+          "steps"
+        ]
+      },
+      "pass": false
+    },
+    {
+      "title": "Add billing and fix the sidebar styling",
+      "expected": "too-big",
+      "actual": {
+        "readiness": "too-big",
+        "missing": []
+      },
+      "pass": true
+    }
+  ]
+}

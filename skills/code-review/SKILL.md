@@ -60,9 +60,20 @@ The verdict must agree with the findings.
 Jev may raise a finding's severity when it is at least 0.8 confident; it never
 lowers a finding to a severity that does not count (it only suggests, in the
 reply, and you re-check it yourself). A round is clean when it has no blocking or should-fix findings.
-The default is three consecutive clean rounds (`review.required_clean_rounds`).
-Only real findings reset the count; a changed diff alone does not, so a small fix
-commit keeps the clean rounds already earned unless findings come back.
+The default is one substantive independent clean review of the current diff
+(`review.required_clean_rounds = 1`). Resolve real findings, then have the fixed
+diff reviewed; do not obtain extra clean opinions just to build a streak.
+Explicit stronger repository requirements (`required_clean_rounds`, `min_rounds`)
+and already-started reviews retain their requirements. Never lower them to clear
+an in-flight gate.
+
+Review depth follows concrete risk: use relevant security, migration, concurrency
+or API expertise for those changes, and inspect the affected contracts and tests.
+Additional review is justified by an unresolved risk or material change, not small
+size alone or a universal round count. A changed diff still needs current coverage.
+If two review/process cycles add no implementation or acceptance evidence, name
+the unresolved defect or risk once and escalate it; do not reroll findings or add
+planning layers. A substantive defect remains a stop, not a reason to waive review.
 
 ## Rules of thumb
 

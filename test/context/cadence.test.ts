@@ -8,10 +8,7 @@ const at = (minutes: number) => Date.parse(pushed) + minutes * 60_000;
 const implementing = { ...initialState(), phase: "implementing" as const, lastPushAt: pushed };
 
 test("over the limit while implementing names the elapsed time in 30-minute buckets", () => {
-  assert.equal(
-    cadenceLine(implementing, at(73), 60),
-    "⚠ over 60 min since last push — is this increment too big?",
-  );
+  assert.match(cadenceLine(implementing, at(73), 60) ?? "", /over 60 min/);
   assert.equal(cadenceLine(implementing, at(89), 60), cadenceLine(implementing, at(61), 60));
   assert.match(cadenceLine(implementing, at(95), 60) ?? "", /over 90 min/);
 });
@@ -28,8 +25,5 @@ test("a clock that is before the push says nothing", () => {
 });
 
 test("a threshold under one bucket never reports less than the threshold", () => {
-  assert.equal(
-    cadenceLine(implementing, at(25), 20),
-    "⚠ over 20 min since last push — is this increment too big?",
-  );
+  assert.match(cadenceLine(implementing, at(25), 20) ?? "", /over 20 min/);
 });

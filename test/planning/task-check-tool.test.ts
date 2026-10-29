@@ -68,16 +68,23 @@ test("a record missing Run is flagged with the section named", async () => {
   assert.match(textOf(r), /missing section: Run/);
 });
 
-test("Jev reading it as vague lists what to add; too big says split", async () => {
+test("subjective flags are advisory, not instructions to rewrite or split", async () => {
   const vague = await setup(online({ interfaces: 0.9 }), RECORD).run("work/T1.md");
   assert.match(textOf(vague), /needs-detail/);
   assert.match(textOf(vague), /Interfaces/);
+  assert.notEqual(vague.isError, true);
+  assert.match(textOf(vague), /advisory/i);
+  assert.match(textOf(vague), /concrete missing decision/i);
+  assert.doesNotMatch(textOf(vague), /Make these more specific/);
   const run = await setup(online({ check: 0.9, firstFailingTest: 0.9 }), RECORD).run("work/T1.md");
   assert.match(textOf(run), /First failing test, Run and Expected/);
   assert.doesNotMatch(textOf(run), /\bcheck\b|firstFailingTest/);
   const big = await setup(online({ tooBig: 0.9 }), RECORD).run("work/T1.md");
   assert.match(textOf(big), /too-big/);
-  assert.match(textOf(big), /split/i);
+  assert.notEqual(big.isError, true);
+  assert.match(textOf(big), /advisory/i);
+  assert.match(textOf(big), /deliverable|deliverability/i);
+  assert.doesNotMatch(textOf(big), /then check each|each need one failing test/);
 });
 
 test("Jev offline still checks structure and says the judgement was skipped", async () => {

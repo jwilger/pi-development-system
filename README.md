@@ -69,7 +69,19 @@ next one starts with `devsys_intake`.
 `devsys_intake` does not interrupt autonomous work: Jev's size is used when Jev is at least 50%
 confident, and the user is asked to pick only when it is less sure (or unavailable). A size decided up
 front, such as in a goal's planning, is passed as `size` and skips the sizing question entirely.
-Fix-sized work retains the required review rounds; intake never offers to waive them.
+Fix-sized work retains independent review; intake never offers to waive it. The default is
+one substantive clean independent review of the current diff, with real findings resolved
+and fixes reviewed. Explicit stronger settings and in-flight review requirements remain.
+
+Task checks validate structure; subjective readiness is advisory, not permission to code.
+Do not rewrite until a classifier says ready or split a capability just because it needs
+multiple tests. Implement directly when context is sufficient; delegate independent work
+or focused expertise with a named integration check. After two process-only attempts
+without new implementation or acceptance evidence, simplify to the next behavioral test
+or escalate one concrete blocker. The push timer asks for this diagnosis; it does not
+measure planning activity or justify bypassing any gate. See the
+[bounded-flow effect evidence](evals/guidance/bounded-flow/README.md) for action traces,
+harmless controls and classifier limitations.
 
 With `codemode` enabled (`"defaultTools": ["+codemode"]` in pi settings), rarely used tools are
 reached through scripts. With `tool_search` instead, search activates them on demand. Without either
@@ -89,7 +101,7 @@ machine can use.
 | Table | Keys | Meaning |
 | --- | --- | --- |
 | `[delivery]` | `mode` (`trunk`, `pull-request`, `local-only`), `trunk`, `remote` | Where work lands; the push guard follows it. `local-only` blocks every push. |
-| `[review]` | `required_clean_rounds` (3), `min_rounds` (1), `thinking_level` (`high`) | The clean streak a slice needs before commit, and the effort of the reviewer and lens agents. |
+| `[review]` | `required_clean_rounds` (1), `min_rounds` (1), `thinking_level` (`high`) | Independent clean review of the current diff; explicit higher round requirements remain supported. Reviewer depth/lenses follow risk. |
 | `[tracker]` | `kind` (`repo-files`, `github`; `jira` and `linear` are not implemented), `repo`, optional GitHub `project_id` | Backlog for `devsys_work_item`; opt-in Project observations and explicit enrollment.  |
 | `[workflow]` | `guidance` (repository-relative file paths; default `[]`) | Explicit repository-owned workflow content for root and SDK child requests. |
 | `[profiles]` | `override` | Languages to apply (`rust`, `typescript`); empty means detect. |

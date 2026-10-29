@@ -208,7 +208,8 @@ async function startRound(
   const { lenses, basis } = chooseLenses(judged);
   const required = requiredRounds(p.config);
   const existing = reviewOf(deps.state.get(), p.slice) ?? startReview(p.slice, required);
-  const review: ReviewState = { ...existing, required };
+  // New defaults or config edits must not lower an in-flight review's requirement.
+  const review: ReviewState = { ...existing, required: Math.max(existing.required, required) };
   // A new round only sees what reviewers submit after it began.
   deps.submissions.clear(p.slice);
   deps.state.update((s) => upsertReview(s, review));
@@ -381,7 +382,7 @@ async function recordRound(
   if (signal?.aborted) return reply("Review recording cancelled; nothing changed.", true);
   if (!p.isCurrent()) return changedReview();
   const review = addRound(
-    { ...before, required },
+    { ...before, required: Math.max(before.required, required) },
     {
       lenses: merged.lenses,
       findings,

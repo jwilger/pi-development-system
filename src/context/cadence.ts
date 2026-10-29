@@ -23,5 +23,5 @@ export function cadenceLine(
     pushMinutes,
     Math.floor(minutes / CADENCE_BUCKET_MINUTES) * CADENCE_BUCKET_MINUTES,
   );
-  return `⚠ over ${bucket} min since last push — is this increment too big?`;
+  return `⚠ over ${bucket} min since last push — check progress toward acceptance, not just task count. If planning, readiness checks, coordination or reviews repeat without new implementation or acceptance evidence, simplify to one usable increment and its next behavioral test, or escalate one concrete blocker. Elapsed time alone does not justify splitting or bypassing gates.`;
 }

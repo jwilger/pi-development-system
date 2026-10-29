@@ -35,7 +35,7 @@ If the plan spells out every line, it has become the implementation, and a revie
 
 - Cut work into slices that each ship and release on their own.
 - Do one slice per clean context. When a slice is done and released, start the next from its task record, not from the memory of the last.
-- The implementer sees only its task record. If it needs something not in the record, the record is incomplete: fix the record, do not paste the conversation.
+- Direct implementation is preferred when you already have the context. A task record is a handoff aid, not a complete specification. For a handoff, include relevant repository references; the implementer may inspect those and make ordinary local design choices.
 
 ## Task records
 
@@ -44,9 +44,13 @@ Format: `## <id> — <title>` then the sections, each written as a bold label wi
 - Goal is one observable sentence.
 - Run is a command and Expected is its concrete result.
 - No `TBD`.
-- If describing the first failing test needs two tests, it is two tasks.
+- Several tests, functions or files may belong to one usable capability. Split only when independently deliverable outcomes and integration boundaries outweigh the extra planning, handoff, review and delivery overhead.
 
-Run `devsys_task_check` on each record. `needs-detail` names what to sharpen; `too-big` means split before anyone implements.
+For a handoff, run `devsys_task_check` once. Fix deterministic structural errors together. Subjective `needs-detail` and `too-big` results are advisory, not gates: section names alone are not missing requirements. Proceed with repository context unless you can name a concrete missing decision that prevents safe implementation; then ask one precise question. Never rewrite or rerun merely to get `ready`.
+
+## Bound the planning
+
+Understand the outcome, choose one usable increment, write a failing behavioral test, implement, verify, obtain independent review, and deliver. Do not expand a small fix into a planning project. After two process-only attempts (rewriting plans, checking readiness, splitting or coordinating) without new implementation or acceptance evidence, stop the loop: simplify to the next behavioral test or escalate one concrete blocker. More paperwork is not progress. This is not permission to bypass safety or verification gates.
 
 ## Where work items live
 

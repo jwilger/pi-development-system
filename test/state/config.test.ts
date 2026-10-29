@@ -28,7 +28,7 @@ test("an empty file yields the defaults", () => {
   assert.equal(c.delivery.mode, "trunk");
   assert.equal(c.delivery.trunk, "main");
   assert.equal(c.delivery.remote, "origin");
-  assert.equal(c.review.requiredCleanRounds, 3);
+  assert.equal(c.review.requiredCleanRounds, 1);
   assert.equal(c.review.thinkingLevel, "high");
   assert.equal(c.tracker.kind, "repo-files");
   assert.equal(c.verifier.maxPerSession, 6);

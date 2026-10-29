@@ -81,3 +81,28 @@ test("question text matches the fixture's pinned hash", () => {
   const combined = Object.values(READINESS_QUESTIONS).map(questionHash).join("");
   assert.equal(loadFixture("readiness").questionHash, combined);
 });
+
+test("readiness sees complete redacted context, including decisions beyond old clipping limits", async () => {
+  const seen: unknown[] = [];
+  const complete = {
+    ...record,
+    interfaces: `${"contract ".repeat(250)}Final decision: use the existing public API.`,
+    steps: [`${"detail ".repeat(60)}Assert both boundary cases.`, "implement", "verify"],
+    outOfScope: "No migration; use ghp_abcdefghijklmnopqrstuvwxyz0123456789ab",
+  };
+  await judgeTaskReadiness(jevWith(answers(), seen), complete);
+  assert.match(JSON.stringify(seen), /Final decision: use the existing public API/);
+  assert.match(JSON.stringify(seen), /Assert both boundary cases/);
+  assert.match(JSON.stringify(seen), /No migration/);
+  assert.doesNotMatch(JSON.stringify(seen), /ghp_abcdef/);
+});
+
+test("oversize context is not silently clipped or classified", async () => {
+  const seen: unknown[] = [];
+  const result = await judgeTaskReadiness(jevWith(answers(), seen), {
+    ...record,
+    interfaces: "x".repeat(40_000),
+  });
+  assert.equal(result.ok, false);
+  assert.equal(seen.length, 0);
+});

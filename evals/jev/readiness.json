@@ -1,6 +1,19 @@
 {
-  "questionHash": "0d2bf1481dda28619c8655dff8e7f082f4fccf7d8aa03706a1bfce698ae79f7139243614a94683ea2f459ac205bc5ffa",
+  "questionHash": "e8b69cb8baed00cad5e596dee77ecdb62d658ef718412122ab298e73f756ce3d43237cf928dcf331245577b1a97bdc31",
   "cases": [
+    {
+      "state": {
+        "title": "Normalize login emails",
+        "goal": "Login trims email whitespace and rejects whitespace-only addresses using the existing error contract.",
+        "files": "src/auth/login.ts,test/auth/login.test.ts",
+        "interfaces": "Keep the existing login API and error return contract; no public signatures change. Choose internal helper names locally.",
+        "firstFailingTest": "test/auth/login.test.ts: add two boundary tests, trailing whitespace succeeds and whitespace-only returns the existing invalid-email error",
+        "steps": "Write failing boundary tests|Implement normalization and rejection in login|Run login and full suites",
+        "run": "npm test",
+        "expected": "Exit 0; both boundary assertions and existing regression suite pass"
+      },
+      "expected": "ready"
+    },
     {
       "state": {
         "title": "Trim emails on login",
@@ -45,7 +58,7 @@
         "title": "Trim emails on login",
         "goal": "Logging in with a trailing space in the email succeeds.",
         "files": "src/auth/login.ts,test/auth/login.test.ts",
-        "interfaces": "some functions as needed",
+        "interfaces": "login returns either a session or an error, but whether invalid credentials throw or return an error value is undecided; clients need that contract.",
         "firstFailingTest": "test/auth/login.test.ts \"trims trailing whitespace\" asserts login resolves for \"a@b.c \"",
         "steps": "Add failing test|Add normalizeEmail|Call it in login|Run suite",
         "run": "npm test -- test/auth/login.test.ts",

@@ -44,8 +44,10 @@ rounding rule on top of this seam.
 
 1. Small increment, tests green locally, commit with rationale.
 2. Push to trunk, then watch CI (`/devsys-ci`). A push is not done until CI is green.
-3. If an hour passes without a pushed commit, stop and ask whether the
-   increment is too big; split it.
+3. If an hour passes without a pushed commit, inspect progress toward acceptance.
+   Repeated planning or coordination without implementation evidence calls for
+   simplifying to the next behavioral test or escalating one concrete blocker,
+   not automatic splitting. Never bypass review or safety to meet the timer.
 
 Do not start unrelated work while trunk CI is red. Fix it first; a red build
 hides every later failure. A push to a red trunk is a hard stop unless the

@@ -14,6 +14,7 @@ import {
 } from "../../src/core/review-flow.ts";
 import { parseReviewPacket } from "../../src/core/review-packet.ts";
 import { initialState, type SliceRef } from "../../src/core/types.ts";
+import { parseConfig } from "../../src/state/config.ts";
 
 const s1 = "s1" as SliceRef;
 const finding = (severity: Finding["severity"], id = "types-1"): Finding => ({
@@ -29,6 +30,28 @@ const round = (findings: Finding[], diffDigest = "d1") => ({
   findings,
   reviewedAt: "2026-10-06T00:00:00Z",
   diffDigest,
+});
+
+test("default review terminates after current independent evidence, but findings and stale diffs stop", () => {
+  const config = parseConfig("version = 1\n");
+  assert.equal(config.ok, true);
+  if (!config.ok) return;
+  const required = Math.max(config.value.review.requiredCleanRounds, config.value.review.minRounds);
+  const empty = startReview(s1, required);
+  const clean = upsertReview(initialState(), addRound(empty, round([])));
+  assert.equal(reviewGap(clean, s1, { digest: "d1" }), undefined);
+  assert.match(reviewGap(clean, s1, { digest: "changed" }) ?? "", /changed since/);
+  const defects = addRound(empty, round([finding("should-fix")]));
+  assert.match(
+    reviewGap(upsertReview(initialState(), defects), s1, { digest: "d1" }) ?? "",
+    /still to fix/,
+  );
+  assert.notEqual(
+    reviewGap(upsertReview(initialState(), defects), s1, { digest: "fixed" }),
+    undefined,
+  );
+  const repaired = upsertReview(initialState(), addRound(defects, round([], "fixed")));
+  assert.equal(reviewGap(repaired, s1, { digest: "fixed" }), undefined);
 });
 
 test("upsertReview replaces a slice's review and keeps the others", () => {

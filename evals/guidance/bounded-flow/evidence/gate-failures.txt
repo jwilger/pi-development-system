@@ -1,0 +1,31 @@
+Observed release-check failures before correction (2026-10-29)
+
+Version gate:
+Jev: major bump required (confidence 0.84; breaking 0.84, feature 0.42, observable 0.99)
+Version 4.5.0 (origin/main) -> 4.6.0: a major bump is required.
+Correction: package and lockfile version changed to 5.0.0; no bypass.
+
+Mandatory live readiness fixture gate, prior question hash:
+0d2bf1481dda286121d7d09b4008f873f4fccf7d8aa037063f360475df52ad4839243614a94683ea52334638e57cddf7
+Result: 8/11 (need 0.8).
+Misses as reported by the existing runner (titles are not unique):
+  Add --json flag -> needs-detail, expected ready
+  Trim emails on login -> ready, expected needs-detail
+  Rebuild the auth system -> needs-detail, expected too-big
+Correction: align shared boolean criteria with missing required decisions rather than all implementation guessing; clarify separately deliverable capabilities. Threshold remains 0.6 per aspect, aggregate live threshold remains 0.8. No favorable-result retry is used as the correction.
+
+Independent review round 1:
+should-fix: write_failing_test did not invalidate prior implementation/verification/review in the synthetic evaluator, so a newly failing test after review could be delivered.
+Regression trace added: write_failing_test -> implement -> verify -> independent_review -> write_failing_test -> deliver.
+Observed test failure: true !== false.
+Correction: a new failing test clears all three prior evidence flags; both direct delivery and verify-without-implementation regression traces are rejected. Retained live traces are replayed through the strengthened simulator by ordinary tests; old evidence hashes are not rewritten.
+
+Independent review round 2:
+should-fix: the scorer accepted an earlier delivery even if the model then wrote a new failing test and ended with stale evidence.
+Regression trace added: write_failing_test -> implement -> verify -> independent_review -> deliver -> write_failing_test.
+Observed test failure: true !== false.
+Correction: the final event must be an accepted delivery (or an owner question for escalation cases). This repairs terminal-outcome scoring without altering recorded live traces.
+
+First commit attempt:
+The ordinary test job inherited Git's hook-local repository targets. Tests creating temporary repositories wrote test commits into the isolated fix/bounded-flow branch and altered shared Git configuration instead; the commit failed and nothing was pushed. Main remained at 4fa2ab1 and the four stashes were preserved. Recovery retained leaked metadata/commits under /tmp/bounded-flow-hook-recovery and recovery/bounded-flow-hook-leak, restored the isolated branch/index without touching source files, and reproduced the exact pre-hook reviewed diff hash 3eb07451c0dbe7300e34eb199ef6c66ca674a0cb72bdaa68a6d9eb2fff17b1e3. Paused worktree statuses were checked against the initial inventory.
+The test hook now clears Git's documented local environment variables before npm test, failing closed if variable discovery fails. A public-behavior regression executes the real configured hook command against a disposable poisoned guardian repository; it fails before the fix and passes afterward, checking that guardian HEAD, config and index stay unchanged while the child gets its own commit. No test or hook is skipped.

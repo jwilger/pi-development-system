@@ -65,6 +65,8 @@ const setup = (
   runGit = exec(diff, untracked),
 ) => {
   const cwd = mkdtempSync(join(tmpdir(), "devsys-review-"));
+  // Legacy multi-round scenarios now exercise an explicit stronger repository policy.
+  writeFileSync(join(cwd, ".development-system.toml"), "[review]\nrequired_clean_rounds = 3\n");
   const fake = createFakePi({ cwd });
   const state = createSessionState(fake.api);
   if (withSlice) state.update((s) => ({ ...s, activeSlice: "s1" as SliceRef }));
@@ -233,7 +235,31 @@ test("review checkpoints preserve independent status updates", async () => {
   assert.equal(t.state.get().lastPushAt, "2026-10-22T00:00:00Z");
 });
 
-test("start picks Jev lenses, returns an agent_spawn payload and shows 0/3 clean", async () => {
+test("default public review flow needs one clean current round, not an arbitrary streak", async () => {
+  const t = setup(offline);
+  rmSync(join(t.cwd, ".development-system.toml"));
+  inPhase(t, "implementing");
+  await t.start();
+  assert.equal(t.state.get().reviews?.[0]?.required, 1);
+  const recorded = await t.record({ packets: [packet("none", "no-blocking")] });
+  assert.match(text(recorded), /review: 1\/1 clean/);
+  assert.match(text(recorded), /next: done/);
+  assert.equal(t.state.get().phase, "delivering");
+  assert.match(text(await t.start()), /already satisfied/);
+});
+
+test("explicit stronger review policy survives config changes for an in-flight review", async () => {
+  const t = setup(offline);
+  await t.start();
+  rmSync(join(t.cwd, ".development-system.toml"));
+  const recorded = await t.record({ packets: [packet("none", "no-blocking")] });
+  assert.match(text(recorded), /next: review/);
+  assert.equal(t.state.get().reviews?.[0]?.required, 3);
+  await t.start();
+  assert.equal(t.state.get().reviews?.[0]?.required, 3);
+});
+
+test("start picks Jev lenses and an agent_spawn payload under explicit 3-round policy", async () => {
   const t = setup(jevWith({ security: 0.9, types: 0.7 }));
   const r = await t.start();
   assert.notEqual(r.isError, true);
