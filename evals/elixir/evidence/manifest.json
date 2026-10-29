@@ -1,0 +1,149 @@
+{
+  "schema": 1,
+  "purpose": "Eight unchanged finite live records. Historical successes under old schema are not new-schema re-verification; no causal uplift or executed Elixir checks are claimed.",
+  "protocolCorrection": {
+    "old": "commandEvidence: Type.String({ minLength: 1, maxLength: 1000 })",
+    "new": "commandEvidence: Type.Literal(\"NOT EXECUTED\")",
+    "scorerChanged": false,
+    "oldRunnerHash": "0cfbb0cf6d0c14007c28580855993264c5c206885ddcaef86506863f40150d53",
+    "newRunnerHash": "938db24da9ac53edb0d991fea7f377534cc3162c44ec2b524f843c748ed656ad",
+    "scorerHashDefinition": "SHA-256 of UTF-8 runner source from export function assessElixirTrace( inclusive to const response = exclusive, including trailing whitespace. Reconstructed from saved old source and current new source; not a field retroactively added to live records.",
+    "oldScorerSourceHash": "ee1ac1287917ab3e8a729e044937a1a8e9465bf186b2a110c54a37e84a1074d5",
+    "newScorerSourceHash": "ee1ac1287917ab3e8a729e044937a1a8e9465bf186b2a110c54a37e84a1074d5"
+  },
+  "limits": {
+    "liveCalls": 8,
+    "originalCalls": 6,
+    "authorizedProtocolCorrectionCalls": 2,
+    "furtherReruns": 0,
+    "syntheticCommands": "NOT EXECUTED",
+    "newProtocolCoverage": [
+      "skill/phoenix",
+      "skill/control"
+    ],
+    "historicalOnlyCoverage": [
+      "baseline/mix",
+      "baseline/phoenix",
+      "baseline/control",
+      "skill/mix"
+    ]
+  },
+  "records": [
+    {
+      "file": "original-baseline-mix.json",
+      "sha256": "e936ee841cb38d27a416cfbd40a2f6b24dad1ebece5dcfc3e6be0926341ffcf6",
+      "case": "mix",
+      "condition": "baseline",
+      "recordedAt": "2026-10-29T01:40:58.135Z",
+      "runnerHash": "0cfbb0cf6d0c14007c28580855993264c5c206885ddcaef86506863f40150d53",
+      "cliHash": "60d411556ee53d188cab56210e1ab3de15e3ae6fdb29f89fc1aa691d5d4036c7",
+      "fixtureHash": "5b56110a72cfd41e065c5f9db7fab328208c35008f2016b635a1155298caa80c",
+      "fixtureFileHash": "ca312365e9ea5732dac3e6a8b925f02a2a3a82a5ab976a8294357986d2b16ab9",
+      "skillHash": null,
+      "failedChecks": [],
+      "pass": true
+    },
+    {
+      "file": "original-baseline-phoenix.json",
+      "sha256": "10d5fa73540513d3fa4be4307394c4b9100ba15311ce0316a29a3ba8d253af11",
+      "case": "phoenix",
+      "condition": "baseline",
+      "recordedAt": "2026-10-29T01:41:22.616Z",
+      "runnerHash": "0cfbb0cf6d0c14007c28580855993264c5c206885ddcaef86506863f40150d53",
+      "cliHash": "60d411556ee53d188cab56210e1ab3de15e3ae6fdb29f89fc1aa691d5d4036c7",
+      "fixtureHash": "0da4663d903083ddf6fa7f0d26919386277a8f11c6ffa4f278125e70ed3d691b",
+      "fixtureFileHash": "5f06d69d40b2415f369a234192fca1405be422fe57f438b0e00722529f8cc4c7",
+      "skillHash": null,
+      "failedChecks": [],
+      "pass": true
+    },
+    {
+      "file": "original-baseline-control.json",
+      "sha256": "efa13ccfe238510904c4c9092c33e5a6fe780ec48cb6010e2566f666bc0555d9",
+      "case": "control",
+      "condition": "baseline",
+      "recordedAt": "2026-10-29T01:41:41.447Z",
+      "runnerHash": "0cfbb0cf6d0c14007c28580855993264c5c206885ddcaef86506863f40150d53",
+      "cliHash": "60d411556ee53d188cab56210e1ab3de15e3ae6fdb29f89fc1aa691d5d4036c7",
+      "fixtureHash": "2b84986d1eb4f8a57bf4f7ece1af4555d0794824fecb085045c9f26bf58079dd",
+      "fixtureFileHash": "d88b42e6f70cbcdfb8a2fdb18144ec6fddb8ec4ff239860970e460c5572eda8e",
+      "skillHash": null,
+      "failedChecks": [],
+      "pass": true
+    },
+    {
+      "file": "original-skill-mix.json",
+      "sha256": "50e4fbb1e8ec27b6256358fa1b803efffdf2917be93abfea9e10eb53fb13e07b",
+      "case": "mix",
+      "condition": "skill",
+      "recordedAt": "2026-10-29T01:43:06.592Z",
+      "runnerHash": "0cfbb0cf6d0c14007c28580855993264c5c206885ddcaef86506863f40150d53",
+      "cliHash": "a4cc0d5436efd699b94755b556ed9ec297c8df2581784c4b94af28021bc82140",
+      "fixtureHash": "5b56110a72cfd41e065c5f9db7fab328208c35008f2016b635a1155298caa80c",
+      "fixtureFileHash": "ca312365e9ea5732dac3e6a8b925f02a2a3a82a5ab976a8294357986d2b16ab9",
+      "skillHash": "84e9a0768069952cda278355a6fde4cd30438e35750f9b14e4d97df1bf40a963",
+      "failedChecks": [],
+      "pass": true
+    },
+    {
+      "file": "original-skill-phoenix.json",
+      "sha256": "c713c0b0a5949caf5631faf61d15912f030ecec8f67fe98f2a45ef30ea110fbb",
+      "case": "phoenix",
+      "condition": "skill",
+      "recordedAt": "2026-10-29T01:43:29.341Z",
+      "runnerHash": "0cfbb0cf6d0c14007c28580855993264c5c206885ddcaef86506863f40150d53",
+      "cliHash": "a4cc0d5436efd699b94755b556ed9ec297c8df2581784c4b94af28021bc82140",
+      "fixtureHash": "0da4663d903083ddf6fa7f0d26919386277a8f11c6ffa4f278125e70ed3d691b",
+      "fixtureFileHash": "5f06d69d40b2415f369a234192fca1405be422fe57f438b0e00722529f8cc4c7",
+      "skillHash": "84e9a0768069952cda278355a6fde4cd30438e35750f9b14e4d97df1bf40a963",
+      "failedChecks": [
+        "not-executed"
+      ],
+      "pass": false
+    },
+    {
+      "file": "original-skill-control.json",
+      "sha256": "ad0e38fdc9d72c28f9eb589f9c6ba051b6c14404ff42839d6a570890271f9040",
+      "case": "control",
+      "condition": "skill",
+      "recordedAt": "2026-10-29T01:43:45.000Z",
+      "runnerHash": "0cfbb0cf6d0c14007c28580855993264c5c206885ddcaef86506863f40150d53",
+      "cliHash": "a4cc0d5436efd699b94755b556ed9ec297c8df2581784c4b94af28021bc82140",
+      "fixtureHash": "2b84986d1eb4f8a57bf4f7ece1af4555d0794824fecb085045c9f26bf58079dd",
+      "fixtureFileHash": "d88b42e6f70cbcdfb8a2fdb18144ec6fddb8ec4ff239860970e460c5572eda8e",
+      "skillHash": "84e9a0768069952cda278355a6fde4cd30438e35750f9b14e4d97df1bf40a963",
+      "failedChecks": [
+        "not-executed"
+      ],
+      "pass": false
+    },
+    {
+      "file": "protocol-skill-phoenix.json",
+      "sha256": "507b904fccf8fc49496dcc0e1125199f16a333971df139cd15ed28acd7ceac54",
+      "case": "phoenix",
+      "condition": "skill",
+      "recordedAt": "2026-10-29T01:56:14.141Z",
+      "runnerHash": "938db24da9ac53edb0d991fea7f377534cc3162c44ec2b524f843c748ed656ad",
+      "cliHash": "313234d40641cc3cd71962a4082266c215f5506d03e81e94a8125899590cc69a",
+      "fixtureHash": "0da4663d903083ddf6fa7f0d26919386277a8f11c6ffa4f278125e70ed3d691b",
+      "fixtureFileHash": "5f06d69d40b2415f369a234192fca1405be422fe57f438b0e00722529f8cc4c7",
+      "skillHash": "84e9a0768069952cda278355a6fde4cd30438e35750f9b14e4d97df1bf40a963",
+      "failedChecks": [],
+      "pass": true
+    },
+    {
+      "file": "protocol-skill-control.json",
+      "sha256": "a05d1dd4614dac6cdee8e6e32dab5600571975faf5ae615f0cfa58f834d2cd12",
+      "case": "control",
+      "condition": "skill",
+      "recordedAt": "2026-10-29T01:56:28.678Z",
+      "runnerHash": "938db24da9ac53edb0d991fea7f377534cc3162c44ec2b524f843c748ed656ad",
+      "cliHash": "313234d40641cc3cd71962a4082266c215f5506d03e81e94a8125899590cc69a",
+      "fixtureHash": "2b84986d1eb4f8a57bf4f7ece1af4555d0794824fecb085045c9f26bf58079dd",
+      "fixtureFileHash": "d88b42e6f70cbcdfb8a2fdb18144ec6fddb8ec4ff239860970e460c5572eda8e",
+      "skillHash": "84e9a0768069952cda278355a6fde4cd30438e35750f9b14e4d97df1bf40a963",
+      "failedChecks": [],
+      "pass": true
+    }
+  ]
+}

@@ -1,0 +1,470 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-29T01:56:28.678Z",
+  "cliHash": "313234d40641cc3cd71962a4082266c215f5506d03e81e94a8125899590cc69a",
+  "fixtureFileHash": "d88b42e6f70cbcdfb8a2fdb18144ec6fddb8ec4ff239860970e460c5572eda8e",
+  "selection": {
+    "provider": "openai",
+    "model": "gpt-6.1-sol",
+    "thinking": null,
+    "explicitModel": false
+  },
+  "case": "control",
+  "condition": "skill",
+  "fixtureHash": "2b84986d1eb4f8a57bf4f7ece1af4555d0794824fecb085045c9f26bf58079dd",
+  "runnerHash": "938db24da9ac53edb0d991fea7f377534cc3162c44ec2b524f843c748ed656ad",
+  "skillHash": "84e9a0768069952cda278355a6fde4cd30438e35750f9b14e4d97df1bf40a963",
+  "pass": true,
+  "checks": [
+    {
+      "name": "single-plan",
+      "pass": true
+    },
+    {
+      "name": "read-evidence",
+      "pass": true
+    },
+    {
+      "name": "error-style",
+      "pass": true
+    },
+    {
+      "name": "business-logic",
+      "pass": true
+    },
+    {
+      "name": "test-levels",
+      "pass": true
+    },
+    {
+      "name": "local-commands",
+      "pass": true
+    },
+    {
+      "name": "no-imposed-dependencies",
+      "pass": true
+    },
+    {
+      "name": "not-executed",
+      "pass": true
+    },
+    {
+      "name": "sandbox-tools-only",
+      "pass": true
+    },
+    {
+      "name": "provider-success",
+      "pass": true
+    }
+  ],
+  "trace": {
+    "reads": [
+      "AGENTS.md",
+      "mix.exs",
+      "lib/slug.ex"
+    ],
+    "plans": [
+      {
+        "errorStyle": "tagged-tuples",
+        "businessLogic": "pure-core",
+        "testLevels": [
+          "domain"
+        ],
+        "commands": [
+          "mix test",
+          "mix format --check-formatted"
+        ],
+        "newDependencies": [],
+        "commandEvidence": "NOT EXECUTED"
+      }
+    ]
+  },
+  "deniedEffects": [],
+  "provider": "openai",
+  "model": "gpt-6.1-sol",
+  "thinkingLevel": "medium",
+  "systemPrompt": "You are evaluating a synthetic repository. Inspect provided evidence and submit a structured plan. You have no real execution or mutation authority.\n\n<addendum>\n---\nname: profile-elixir\ndescription: Repository-aware Elixir and Phoenix idioms — tagged tuples, pattern matching, pure domain logic, ExUnit and appropriately scoped property/LiveView/browser tests. Use for Mix repositories (mix.exs), Elixir code, or Phoenix changes and reviews.\n---\n\n# Elixir profile\n\nApply universal test-first, functional-core, semantic-types, typed-errors and\nbehavior-test principles in Elixir's idioms, not Rust or TypeScript syntax.\n\n## Repository authority comes first\n\nRead local instructions, `mix.exs`, relevant code/tests, task runners and CI before\nchoosing commands or patterns. Preserve public contracts and repository conventions.\nUse the repository's declared environment and exact commands (including Nix/just\nwrappers) instead of substituting generic `mix` commands. Local commands are not\npermission to bypass engineering safeguards or execute destructive operations.\n\nWithout a local override, conventional candidates are `mix test` and\n`mix format --check-formatted`; inspect their suitability before running them.\nTreat compiler warnings according to repository policy. Use warnings-as-errors,\nCredo, Dialyzer, mutation tooling or other checks only when configured/relevant;\ndo not add tools or dependencies just to satisfy this profile. Report missing\nor contradictory command authority rather than inventing a green result.\n\n## Expected failures and business rules\n\n- Use idiomatic `{:ok, value}` / `{:error, reason}` for expected domain failures,\n  with pattern matching, `case`, and `with`. Match error variants deliberately.\n  Preserve an existing public contract; do not mechanically wrap tuples in a\n  Result class, copy Rust `Result` syntax, or invent branded TypeScript types.\n- Exceptions are for exceptional faults and established bang APIs, not the\n  default for expected invalid input. Do not swallow failures or turn them into\n  success. Use typespecs and small domain types where they clarify actual meaning.\n- Keep business decisions in a pure, directly testable domain core. Thin Phoenix\n  controllers/LiveViews coordinate effects and render outcomes; do not bury rules\n  in event handlers. Ecto schemas/changesets handle data boundaries and persistence\n  constraints; they are not a reason to move every business rule into a schema.\n- Follow the current module layout and context boundaries. Do not impose a new\n  architecture, event sourcing, process/GenServer, directory tree or dependency.\n\n## Verification proportional to behavior\n\nStart with a failing public behavior test and observe RED before implementation.\nUse ExUnit domain tests for business rules, boundary values and tagged errors.\nProperties are useful for real invariants and generated edge cases when existing\nrepository tooling supports them; do not mandate a property library for every fix.\n\nFor a Phoenix UI change, cover domain behavior first and use LiveViewTest for\nserver-rendered events, navigation and feedback where appropriate. Use a real\nbrowser when the changed acceptance behavior depends on JavaScript, browser APIs\nor browser integration and the repository provides/authorizes that tooling.\nA pure library change does not require LiveView or browser tests; a server-only\nLiveView change does not automatically need a browser or new property dependency.\n\n## Evidence stays honest\n\nDistinguish selected commands, configured CI commands, and commands actually run.\nReport the exact command, observed result and remaining coverage gaps. Synthetic\nfixture commands are **NOT EXECUTED**: a typed plan or tool acknowledgement is not\nproof of Mix, ExUnit, property, LiveView or browser verification. In an isolated\nplanning evaluation, inspect only supplied fixture evidence, submit one plan, and\nnever attempt filesystem, shell, forge or extension access.\n\n</addendum>\n\n<cwd>\n/tmp/devsys-elixir-eval-uwnLmN\n</cwd>",
+  "prompt": "Plan a small pure slug-normalization boundary fix using the existing public API and test suite. Inspect this ordinary Mix repository and submit one plan; selected commands are not executed.\nThis is a synthetic planning evaluation. Use read_repository for evidence, then submit_elixir_plan once. No filesystem, shell, forge or extension authority exists. Commands are NOT EXECUTED. Do not claim real Elixir verification.",
+  "activeTools": [
+    "read_repository",
+    "submit_elixir_plan"
+  ],
+  "errors": [],
+  "failure": null,
+  "bounded": false,
+  "turns": 4,
+  "transcriptTruncated": false,
+  "messages": [
+    {
+      "role": "system",
+      "content": "",
+      "sections": {
+        "preamble": "You are evaluating a synthetic repository. Inspect provided evidence and submit a structured plan. You have no real execution or mutation authority.",
+        "addendum": "<addendum>\n---\nname: profile-elixir\ndescription: Repository-aware Elixir and Phoenix idioms — tagged tuples, pattern matching, pure domain logic, ExUnit and appropriately scoped property/LiveView/browser tests. Use for Mix repositories (mix.exs), Elixir code, or Phoenix changes and reviews.\n---\n\n# Elixir profile\n\nApply universal test-first, functional-core, semantic-types, typed-errors and\nbehavior-test principles in Elixir's idioms, not Rust or TypeScript syntax.\n\n## Repository authority comes first\n\nRead local instructions, `mix.exs`, relevant code/tests, task runners and CI before\nchoosing commands or patterns. Preserve public contracts and repository conventions.\nUse the repository's declared environment and exact commands (including Nix/just\nwrappers) instead of substituting generic `mix` commands. Local commands are not\npermission to bypass engineering safeguards or execute destructive operations.\n\nWithout a local override, conventional candidates are `mix test` and\n`mix format --check-formatted`; inspect their suitability before running them.\nTreat compiler warnings according to repository policy. Use warnings-as-errors,\nCredo, Dialyzer, mutation tooling or other checks only when configured/relevant;\ndo not add tools or dependencies just to satisfy this profile. Report missing\nor contradictory command authority rather than inventing a green result.\n\n## Expected failures and business rules\n\n- Use idiomatic `{:ok, value}` / `{:error, reason}` for expected domain failures,\n  with pattern matching, `case`, and `with`. Match error variants deliberately.\n  Preserve an existing public contract; do not mechanically wrap tuples in a\n  Result class, copy Rust `Result` syntax, or invent branded TypeScript types.\n- Exceptions are for exceptional faults and established bang APIs, not the\n  default for expected invalid input. Do not swallow failures or turn them into\n  success. Use typespecs and small domain types where they clarify actual meaning.\n- Keep business decisions in a pure, directly testable domain core. Thin Phoenix\n  controllers/LiveViews coordinate effects and render outcomes; do not bury rules\n  in event handlers. Ecto schemas/changesets handle data boundaries and persistence\n  constraints; they are not a reason to move every business rule into a schema.\n- Follow the current module layout and context boundaries. Do not impose a new\n  architecture, event sourcing, process/GenServer, directory tree or dependency.\n\n## Verification proportional to behavior\n\nStart with a failing public behavior test and observe RED before implementation.\nUse ExUnit domain tests for business rules, boundary values and tagged errors.\nProperties are useful for real invariants and generated edge cases when existing\nrepository tooling supports them; do not mandate a property library for every fix.\n\nFor a Phoenix UI change, cover domain behavior first and use LiveViewTest for\nserver-rendered events, navigation and feedback where appropriate. Use a real\nbrowser when the changed acceptance behavior depends on JavaScript, browser APIs\nor browser integration and the repository provides/authorizes that tooling.\nA pure library change does not require LiveView or browser tests; a server-only\nLiveView change does not automatically need a browser or new property dependency.\n\n## Evidence stays honest\n\nDistinguish selected commands, configured CI commands, and commands actually run.\nReport the exact command, observed result and remaining coverage gaps. Synthetic\nfixture commands are **NOT EXECUTED**: a typed plan or tool acknowledgement is not\nproof of Mix, ExUnit, property, LiveView or browser verification. In an isolated\nplanning evaluation, inspect only supplied fixture evidence, submit one plan, and\nnever attempt filesystem, shell, forge or extension access.\n\n</addendum>",
+        "cwd": "<cwd>\n/tmp/devsys-elixir-eval-uwnLmN\n</cwd>"
+      },
+      "timestamp": 1793238974605,
+      "toolsAdded": [
+        {
+          "name": "read_repository",
+          "description": "List synthetic source paths or read one. This is fixture evidence only, never the host filesystem.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        {
+          "name": "submit_elixir_plan",
+          "description": "Submit exactly one final structured plan. commands are selected verification commands, never executed. Set commandEvidence to NOT EXECUTED. No code or real resources are changed.",
+          "parameters": {
+            "type": "object",
+            "required": [
+              "errorStyle",
+              "businessLogic",
+              "testLevels",
+              "commands",
+              "newDependencies",
+              "commandEvidence"
+            ],
+            "properties": {
+              "errorStyle": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "tagged-tuples"
+                  },
+                  {
+                    "type": "string",
+                    "const": "exceptions"
+                  },
+                  {
+                    "type": "string",
+                    "const": "result-class"
+                  }
+                ]
+              },
+              "businessLogic": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "pure-core"
+                  },
+                  {
+                    "type": "string",
+                    "const": "liveview"
+                  },
+                  {
+                    "type": "string",
+                    "const": "ecto-schema"
+                  }
+                ]
+              },
+              "testLevels": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "domain"
+                    },
+                    {
+                      "type": "string",
+                      "const": "property"
+                    },
+                    {
+                      "type": "string",
+                      "const": "liveview"
+                    },
+                    {
+                      "type": "string",
+                      "const": "browser"
+                    }
+                  ]
+                },
+                "maxItems": 4
+              },
+              "commands": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                },
+                "maxItems": 12
+              },
+              "newDependencies": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                },
+                "maxItems": 12
+              },
+              "commandEvidence": {
+                "type": "string",
+                "const": "NOT EXECUTED"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Plan a small pure slug-normalization boundary fix using the existing public API and test suite. Inspect this ordinary Mix repository and submit one plan; selected commands are not executed.\nThis is a synthetic planning evaluation. Use read_repository for evidence, then submit_elixir_plan once. No filesystem, shell, forge or extension authority exists. Commands are NOT EXECUTED. Do not claim real Elixir verification."
+        }
+      ],
+      "timestamp": 1793238974605
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "call_36642ac5696746949dfafa241d861432|fc_03d6b69fa44cecd1016ae2a7c09230819ab61cdf0cd33afd06",
+          "name": "read_repository",
+          "arguments": {}
+        }
+      ],
+      "api": "openai-responses",
+      "provider": "openai",
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input": 1197,
+        "output": 14,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 1211,
+        "cost": {
+          "input": 0.002394,
+          "output": 0.00014000000000000001,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0.002534
+        }
+      },
+      "stopReason": "toolUse",
+      "timestamp": 1793238974639,
+      "responseId": "resp_03d6b69fa44cecd1016ae2a7bf3a40819a84de38faaaa11f98",
+      "rawStopReason": "completed",
+      "durationMs": 2157,
+      "thinkingLevel": "medium"
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "call_36642ac5696746949dfafa241d861432|fc_03d6b69fa44cecd1016ae2a7c09230819ab61cdf0cd33afd06",
+      "toolName": "read_repository",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"sources\":[\"AGENTS.md\",\"mix.exs\",\"lib/slug.ex\"]}"
+        }
+      ],
+      "isError": false,
+      "durationMs": 0,
+      "timestamp": 1793238976798
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "call_b2338f2684ca47dd834d98e0828976b2|fc_03d6b69fa44cecd1016ae2a7c338f0819aabde16a124ba9489",
+          "name": "read_repository",
+          "arguments": {
+            "path": "AGENTS.md"
+          }
+        },
+        {
+          "type": "toolCall",
+          "id": "call_a8f76c53e3c34abfb3b170f9b0a9b57c|fc_03d6b69fa44cecd1016ae2a7c3d9a0819a842e63ff777d91bb",
+          "name": "read_repository",
+          "arguments": {
+            "path": "mix.exs"
+          }
+        },
+        {
+          "type": "toolCall",
+          "id": "call_4c008cd0092b4b6fb8b9fa0c4156677f|fc_03d6b69fa44cecd1016ae2a7c3d9a4819ab2aaf260dd7ccc6d",
+          "name": "read_repository",
+          "arguments": {
+            "path": "lib/slug.ex"
+          }
+        }
+      ],
+      "api": "openai-responses",
+      "provider": "openai",
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input": 215,
+        "output": 69,
+        "cacheRead": 1024,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 1308,
+        "cost": {
+          "input": 0.00043,
+          "output": 0.0006900000000000001,
+          "cacheRead": 0.00010240000000000001,
+          "cacheWrite": 0,
+          "total": 0.0012224000000000002
+        }
+      },
+      "stopReason": "toolUse",
+      "timestamp": 1793238976799,
+      "responseId": "resp_03d6b69fa44cecd1016ae2a7c19550819a9293464fcd80420a",
+      "rawStopReason": "completed",
+      "durationMs": 3252,
+      "thinkingLevel": "medium"
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "call_b2338f2684ca47dd834d98e0828976b2|fc_03d6b69fa44cecd1016ae2a7c338f0819aabde16a124ba9489",
+      "toolName": "read_repository",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"path\":\"AGENTS.md\",\"content\":\"This small library uses standard Mix commands: mix test and mix format --check-formatted. Use exactly these for this change. No Nix/just, browser, Phoenix, property library, Credo, Dialyzer or new dependency is needed.\"}"
+        }
+      ],
+      "isError": false,
+      "durationMs": 0,
+      "timestamp": 1793238980051
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "call_a8f76c53e3c34abfb3b170f9b0a9b57c|fc_03d6b69fa44cecd1016ae2a7c3d9a0819a842e63ff777d91bb",
+      "toolName": "read_repository",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"path\":\"mix.exs\",\"content\":\"Elixir library, no dependencies.\"}"
+        }
+      ],
+      "isError": false,
+      "durationMs": 0,
+      "timestamp": 1793238980051
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "call_4c008cd0092b4b6fb8b9fa0c4156677f|fc_03d6b69fa44cecd1016ae2a7c3d9a4819ab2aaf260dd7ccc6d",
+      "toolName": "read_repository",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"path\":\"lib/slug.ex\",\"content\":\"Pure Slug.parse/1 uses {:ok, slug} and {:error, :empty}. Preserve this contract. Add an ExUnit public boundary test for whitespace-only input.\"}"
+        }
+      ],
+      "isError": false,
+      "durationMs": 0,
+      "timestamp": 1793238980051
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "call_49eb61226ddd41c48ebd913ec3658af6|fc_03d6b69fa44cecd1016ae2a7c64898819abfa922123a3a3900",
+          "name": "submit_elixir_plan",
+          "arguments": {
+            "errorStyle": "tagged-tuples",
+            "businessLogic": "pure-core",
+            "testLevels": [
+              "domain"
+            ],
+            "commands": [
+              "mix test",
+              "mix format --check-formatted"
+            ],
+            "newDependencies": [],
+            "commandEvidence": "NOT EXECUTED"
+          }
+        }
+      ],
+      "api": "openai-responses",
+      "provider": "openai",
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input": 1460,
+        "output": 61,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 1521,
+        "cost": {
+          "input": 0.00292,
+          "output": 0.0006100000000000001,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0.00353
+        }
+      },
+      "stopReason": "toolUse",
+      "timestamp": 1793238980052,
+      "responseId": "resp_03d6b69fa44cecd1016ae2a7c50ff4819a91f16a8cdb68a3f3",
+      "rawStopReason": "completed",
+      "durationMs": 2870,
+      "thinkingLevel": "medium"
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "call_49eb61226ddd41c48ebd913ec3658af6|fc_03d6b69fa44cecd1016ae2a7c64898819abfa922123a3a3900",
+      "toolName": "submit_elixir_plan",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"recorded\":true,\"commandEvidence\":\"NOT EXECUTED\"}"
+        }
+      ],
+      "isError": false,
+      "durationMs": 0,
+      "timestamp": 1793238982923
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Submitted one plan based on `AGENTS.md`, `mix.exs`, and `lib/slug.ex`.\n\n- Add an ExUnit public-boundary regression test asserting that whitespace-only input to `Slug.parse/1` returns `{:error, :empty}`.\n- In a future authorized implementation run, observe that test fail before making the smallest pure normalization fix.\n- Preserve the existing `{:ok, slug}` / `{:error, :empty}` public contract and module layout.\n- Use domain tests only; add no dependencies or unrelated tooling.\n\nSelected verification commands:\n```text\nmix test\nmix format --check-formatted\n```\n\n**NOT EXECUTED.** No code was changed and no Elixir verification result is claimed.",
+          "textSignature": "{\"v\":1,\"id\":\"msg_03d6b69fa44cecd1016ae2a7c95cf8819a985ac1c345d70fca\",\"phase\":\"final_answer\"}"
+        }
+      ],
+      "api": "openai-responses",
+      "provider": "openai",
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input": 396,
+        "output": 153,
+        "cacheRead": 1152,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 1701,
+        "cost": {
+          "input": 0.000792,
+          "output": 0.0015300000000000001,
+          "cacheRead": 0.00011520000000000001,
+          "cacheWrite": 0,
+          "total": 0.0024372000000000005
+        }
+      },
+      "stopReason": "stop",
+      "timestamp": 1793238982924,
+      "responseId": "resp_03d6b69fa44cecd1016ae2a7c777f4819ab88d122624c6c4f2",
+      "rawStopReason": "completed",
+      "durationMs": 5750,
+      "thinkingLevel": "medium"
+    }
+  ]
+}

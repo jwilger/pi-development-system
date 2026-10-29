@@ -59,7 +59,7 @@ export const CI_STATUSES: readonly CiStatusName[] = ["green", "red", "pending", 
 export type CiState = { readonly status: CiStatusName; readonly sha?: string };
 
 /** Language profile: universal principles plus the idioms of one language (decision D3). */
-export type Profile = "rust" | "typescript";
+export type Profile = "rust" | "typescript" | "elixir";
 
 /** Last observed test-runner invocation (see src/state/test-evidence.ts). */
 export type TestRun = {

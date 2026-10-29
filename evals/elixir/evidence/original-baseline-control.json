@@ -1,0 +1,470 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-29T01:41:41.447Z",
+  "cliHash": "60d411556ee53d188cab56210e1ab3de15e3ae6fdb29f89fc1aa691d5d4036c7",
+  "fixtureFileHash": "d88b42e6f70cbcdfb8a2fdb18144ec6fddb8ec4ff239860970e460c5572eda8e",
+  "selection": {
+    "provider": "openai",
+    "model": "gpt-6.1-sol",
+    "thinking": null,
+    "explicitModel": false
+  },
+  "case": "control",
+  "condition": "baseline",
+  "fixtureHash": "2b84986d1eb4f8a57bf4f7ece1af4555d0794824fecb085045c9f26bf58079dd",
+  "runnerHash": "0cfbb0cf6d0c14007c28580855993264c5c206885ddcaef86506863f40150d53",
+  "skillHash": null,
+  "pass": true,
+  "checks": [
+    {
+      "name": "single-plan",
+      "pass": true
+    },
+    {
+      "name": "read-evidence",
+      "pass": true
+    },
+    {
+      "name": "error-style",
+      "pass": true
+    },
+    {
+      "name": "business-logic",
+      "pass": true
+    },
+    {
+      "name": "test-levels",
+      "pass": true
+    },
+    {
+      "name": "local-commands",
+      "pass": true
+    },
+    {
+      "name": "no-imposed-dependencies",
+      "pass": true
+    },
+    {
+      "name": "not-executed",
+      "pass": true
+    },
+    {
+      "name": "sandbox-tools-only",
+      "pass": true
+    },
+    {
+      "name": "provider-success",
+      "pass": true
+    }
+  ],
+  "trace": {
+    "reads": [
+      "AGENTS.md",
+      "mix.exs",
+      "lib/slug.ex"
+    ],
+    "plans": [
+      {
+        "errorStyle": "tagged-tuples",
+        "businessLogic": "pure-core",
+        "testLevels": [
+          "domain"
+        ],
+        "commands": [
+          "mix test",
+          "mix format --check-formatted"
+        ],
+        "newDependencies": [],
+        "commandEvidence": "NOT EXECUTED"
+      }
+    ]
+  },
+  "deniedEffects": [],
+  "provider": "openai",
+  "model": "gpt-6.1-sol",
+  "thinkingLevel": "medium",
+  "systemPrompt": "You are evaluating a synthetic repository. Inspect provided evidence and submit a structured plan. You have no real execution or mutation authority.\n\n<cwd>\n/tmp/devsys-elixir-eval-iK3Sg2\n</cwd>",
+  "prompt": "Plan a small pure slug-normalization boundary fix using the existing public API and test suite. Inspect this ordinary Mix repository and submit one plan; selected commands are not executed.\nThis is a synthetic planning evaluation. Use read_repository for evidence, then submit_elixir_plan once. No filesystem, shell, forge or extension authority exists. Commands are NOT EXECUTED. Do not claim real Elixir verification.",
+  "activeTools": [
+    "read_repository",
+    "submit_elixir_plan"
+  ],
+  "errors": [],
+  "failure": null,
+  "bounded": false,
+  "turns": 4,
+  "transcriptTruncated": false,
+  "messages": [
+    {
+      "role": "system",
+      "content": "",
+      "sections": {
+        "preamble": "You are evaluating a synthetic repository. Inspect provided evidence and submit a structured plan. You have no real execution or mutation authority.",
+        "cwd": "<cwd>\n/tmp/devsys-elixir-eval-iK3Sg2\n</cwd>"
+      },
+      "timestamp": 1793238083065,
+      "toolsAdded": [
+        {
+          "name": "read_repository",
+          "description": "List synthetic source paths or read one. This is fixture evidence only, never the host filesystem.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        {
+          "name": "submit_elixir_plan",
+          "description": "Submit exactly one final structured plan. commands are selected verification commands, never executed. Set commandEvidence to NOT EXECUTED. No code or real resources are changed.",
+          "parameters": {
+            "type": "object",
+            "required": [
+              "errorStyle",
+              "businessLogic",
+              "testLevels",
+              "commands",
+              "newDependencies",
+              "commandEvidence"
+            ],
+            "properties": {
+              "errorStyle": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "tagged-tuples"
+                  },
+                  {
+                    "type": "string",
+                    "const": "exceptions"
+                  },
+                  {
+                    "type": "string",
+                    "const": "result-class"
+                  }
+                ]
+              },
+              "businessLogic": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "pure-core"
+                  },
+                  {
+                    "type": "string",
+                    "const": "liveview"
+                  },
+                  {
+                    "type": "string",
+                    "const": "ecto-schema"
+                  }
+                ]
+              },
+              "testLevels": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "domain"
+                    },
+                    {
+                      "type": "string",
+                      "const": "property"
+                    },
+                    {
+                      "type": "string",
+                      "const": "liveview"
+                    },
+                    {
+                      "type": "string",
+                      "const": "browser"
+                    }
+                  ]
+                },
+                "maxItems": 4
+              },
+              "commands": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                },
+                "maxItems": 12
+              },
+              "newDependencies": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                },
+                "maxItems": 12
+              },
+              "commandEvidence": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Plan a small pure slug-normalization boundary fix using the existing public API and test suite. Inspect this ordinary Mix repository and submit one plan; selected commands are not executed.\nThis is a synthetic planning evaluation. Use read_repository for evidence, then submit_elixir_plan once. No filesystem, shell, forge or extension authority exists. Commands are NOT EXECUTED. Do not claim real Elixir verification."
+        }
+      ],
+      "timestamp": 1793238083065
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "call_3cea2e88dc63419eafe4d9e688cb6c84|fc_0f71fc1ec42f243d016ae2a445e7588199ba3bf59c8796582e",
+          "name": "read_repository",
+          "arguments": {}
+        }
+      ],
+      "api": "openai-responses",
+      "provider": "openai",
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input": 459,
+        "output": 14,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 473,
+        "cost": {
+          "input": 0.000918,
+          "output": 0.00014000000000000001,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0.001058
+        }
+      },
+      "stopReason": "toolUse",
+      "timestamp": 1793238083100,
+      "responseId": "resp_0f71fc1ec42f243d016ae2a4440e588199b2947626e8a341ff",
+      "rawStopReason": "completed",
+      "durationMs": 3177,
+      "thinkingLevel": "medium"
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "call_3cea2e88dc63419eafe4d9e688cb6c84|fc_0f71fc1ec42f243d016ae2a445e7588199ba3bf59c8796582e",
+      "toolName": "read_repository",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"sources\":[\"AGENTS.md\",\"mix.exs\",\"lib/slug.ex\"]}"
+        }
+      ],
+      "isError": false,
+      "durationMs": 0,
+      "timestamp": 1793238086279
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "call_d3571f7565974ce79a275fb93d09602f|fc_0f71fc1ec42f243d016ae2a449dd0c81998026fd2c903eea59",
+          "name": "read_repository",
+          "arguments": {
+            "path": "AGENTS.md"
+          }
+        },
+        {
+          "type": "toolCall",
+          "id": "call_6db655488860405a8e739d74e19471e1|fc_0f71fc1ec42f243d016ae2a44c52848199a4cdea310bd5b369",
+          "name": "read_repository",
+          "arguments": {
+            "path": "mix.exs"
+          }
+        },
+        {
+          "type": "toolCall",
+          "id": "call_83b926171cd147e1b7bc99a586db13ef|fc_0f71fc1ec42f243d016ae2a44c52848199883ec64ea7a9a3d7",
+          "name": "read_repository",
+          "arguments": {
+            "path": "lib/slug.ex"
+          }
+        }
+      ],
+      "api": "openai-responses",
+      "provider": "openai",
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input": 501,
+        "output": 69,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 570,
+        "cost": {
+          "input": 0.0010019999999999999,
+          "output": 0.0006900000000000001,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0.001692
+        }
+      },
+      "stopReason": "toolUse",
+      "timestamp": 1793238086280,
+      "responseId": "resp_0f71fc1ec42f243d016ae2a44806e4819998e2cbefcc668722",
+      "rawStopReason": "completed",
+      "durationMs": 6223,
+      "thinkingLevel": "medium"
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "call_d3571f7565974ce79a275fb93d09602f|fc_0f71fc1ec42f243d016ae2a449dd0c81998026fd2c903eea59",
+      "toolName": "read_repository",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"path\":\"AGENTS.md\",\"content\":\"This small library uses standard Mix commands: mix test and mix format --check-formatted. Use exactly these for this change. No Nix/just, browser, Phoenix, property library, Credo, Dialyzer or new dependency is needed.\"}"
+        }
+      ],
+      "isError": false,
+      "durationMs": 0,
+      "timestamp": 1793238092504
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "call_6db655488860405a8e739d74e19471e1|fc_0f71fc1ec42f243d016ae2a44c52848199a4cdea310bd5b369",
+      "toolName": "read_repository",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"path\":\"mix.exs\",\"content\":\"Elixir library, no dependencies.\"}"
+        }
+      ],
+      "isError": false,
+      "durationMs": 0,
+      "timestamp": 1793238092504
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "call_83b926171cd147e1b7bc99a586db13ef|fc_0f71fc1ec42f243d016ae2a44c52848199883ec64ea7a9a3d7",
+      "toolName": "read_repository",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"path\":\"lib/slug.ex\",\"content\":\"Pure Slug.parse/1 uses {:ok, slug} and {:error, :empty}. Preserve this contract. Add an ExUnit public boundary test for whitespace-only input.\"}"
+        }
+      ],
+      "isError": false,
+      "durationMs": 0,
+      "timestamp": 1793238092504
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "call_4919305a264f43ceb543c5ebd70c9e5a|fc_0f71fc1ec42f243d016ae2a44f4dd48199871e1b5c612dd235",
+          "name": "submit_elixir_plan",
+          "arguments": {
+            "errorStyle": "tagged-tuples",
+            "businessLogic": "pure-core",
+            "testLevels": [
+              "domain"
+            ],
+            "commands": [
+              "mix test",
+              "mix format --check-formatted"
+            ],
+            "newDependencies": [],
+            "commandEvidence": "NOT EXECUTED"
+          }
+        }
+      ],
+      "api": "openai-responses",
+      "provider": "openai",
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input": 722,
+        "output": 61,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 783,
+        "cost": {
+          "input": 0.001444,
+          "output": 0.0006100000000000001,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0.0020540000000000003
+        }
+      },
+      "stopReason": "toolUse",
+      "timestamp": 1793238092504,
+      "responseId": "resp_0f71fc1ec42f243d016ae2a44d31348199b5a464f30dae706a",
+      "rawStopReason": "completed",
+      "durationMs": 3799,
+      "thinkingLevel": "medium"
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "call_4919305a264f43ceb543c5ebd70c9e5a|fc_0f71fc1ec42f243d016ae2a44f4dd48199871e1b5c612dd235",
+      "toolName": "submit_elixir_plan",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"recorded\":true,\"commandEvidence\":\"NOT EXECUTED\"}"
+        }
+      ],
+      "isError": false,
+      "durationMs": 0,
+      "timestamp": 1793238096305
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Submitted one structured plan based on `AGENTS.md`, `mix.exs`, and `lib/slug.ex`.\n\n- Keep the fix in the pure `Slug.parse/1` boundary, treating whitespace-only input as empty.\n- Preserve the existing `{:ok, slug}` / `{:error, :empty}` public contract.\n- Add an ExUnit test through the public API asserting whitespace-only input returns `{:error, :empty}`.\n- Add no dependencies.\n- Select exactly `mix test` and `mix format --check-formatted` for verification.\n\n**Commands were NOT EXECUTED.** No files were changed, and no real Elixir verification was performed.",
+          "textSignature": "{\"v\":1,\"id\":\"msg_0f71fc1ec42f243d016ae2a452c00c8199ac0c02ed6b20ef47\",\"phase\":\"final_answer\"}"
+        }
+      ],
+      "api": "openai-responses",
+      "provider": "openai",
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input": 810,
+        "output": 140,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 950,
+        "cost": {
+          "input": 0.00162,
+          "output": 0.0014000000000000002,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0.00302
+        }
+      },
+      "stopReason": "stop",
+      "timestamp": 1793238096305,
+      "responseId": "resp_0f71fc1ec42f243d016ae2a450ed308199ad6b2bcb64ebf83b",
+      "rawStopReason": "completed",
+      "durationMs": 5139,
+      "thinkingLevel": "medium"
+    }
+  ]
+}

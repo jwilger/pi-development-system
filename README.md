@@ -101,10 +101,10 @@ machine can use.
 | Table | Keys | Meaning |
 | --- | --- | --- |
 | `[delivery]` | `mode` (`trunk`, `pull-request`, `local-only`), `trunk`, `remote` | Where work lands; the push guard follows it. `local-only` blocks every push. |
-| `[review]` | `required_clean_rounds` (1), `min_rounds` (1), `thinking_level` (`high`) | Independent clean review of the current diff; explicit higher round requirements remain supported. Reviewer depth/lenses follow risk. |
+| `[review]` | `required_clean_rounds` (1), `min_rounds` (1), `thinking_level` (`high`), `guidance` (paths; default `[]`) | Independent review of the current diff and configured guidance; explicit higher round requirements remain supported. |
 | `[tracker]` | `kind` (`repo-files`, `github`; `jira` and `linear` are not implemented), `repo`, optional GitHub `project_id` | Backlog for `devsys_work_item`; opt-in Project observations and explicit enrollment.  |
 | `[workflow]` | `guidance` (repository-relative file paths; default `[]`) | Explicit repository-owned workflow content for root and SDK child requests. |
-| `[profiles]` | `override` | Languages to apply (`rust`, `typescript`); empty means detect. |
+| `[profiles]` | `override` | Languages to apply (`rust`, `typescript`, `elixir`); empty means detect. |
 | `[models]` | one ordered candidate list per slot | See Model tiers below. |
 | `[routing]` | `"<difficulty>/<risk>" = ["<slot>", "<thinking level>"]` | What `devsys_route_task` recommends for a subagent. |
 | `[verifier]` | `max_per_session` (6) | Cap on Jev checks of the agent's own claims. |
@@ -144,6 +144,37 @@ also refuses a full-system-prompt override, which would bypass section refresh; 
 the overriding extension to use named prompt sections instead. An empty list adds no
 local workflow content. Review-specific guidance has its own contract; this setting does
 not change typed review submission or grant permission to provision tracker resources.
+
+### Repository-specific review concerns
+
+```toml
+[review]
+guidance = ["docs/review-concerns.md"]
+```
+
+Fresh reviewer tasks, including the Markdown fallback, receive the configured
+workflow and review sources with paths, content hashes and one review input identity.
+The same tracked/contained UTF-8 rules apply, with **one combined 64 KiB budget**
+across both categories and 32 KiB per file. Missing or invalid configured sources
+refuse preparation; an empty review list invents no repository concerns.
+
+Keep local concerns specific to the repository. They supplement engineering review;
+they do not override hard stops, prove obedience or automatically enforce arbitrary
+product policy. Conflicts or inaccessible sources require owner clarification rather
+than silently choosing a policy. External reviewer runtimes must receive the returned
+task explicitly; they do not inherit the parent conversation automatically.
+
+For configured guidance, preserve `reviewInputIdentity` from review start in typed
+submission and record calls, or in the requested fallback packet and record arguments.
+Submissions are bound to the pending round's identity and range. Changes to the diff
+or source content require a fresh review; stale asynchronous judgments cannot record
+clean credit. Removing the final source also invalidates old credit. Commit checks
+reject changed guidance before any staged-file subset exception. Unconfigured legacy
+review flows remain compatible; explicit round requirements and finding severities
+are unchanged. These are fresh local observations, not an atomic lock on future edits.
+
+See [the review effect fixtures](evals/review/README.md) for bounded SDK behavior
+checks, model/hash provenance, controls and limitations. Ordinary tests remain offline.
 
 ### Discovering or defining the local workflow
 
@@ -358,6 +389,23 @@ on an explicit retry; there is no automatic retry or rollback. Assignment neithe
 reserves work nor changes Project fields, labels or issue lifecycle. Concurrent human
 changes can race these observations; even confirmed assignment is not an atomic or
 exclusive claim.
+
+### Elixir and Phoenix
+
+A tracked or untracked repository `mix.exs` marker detects the `elixir` profile;
+explicit `[profiles].override` retains precedence and profiles survive session replay.
+The `profile-elixir` skill follows repository instructions, module boundaries and
+exact configured commands rather than importing Rust/TypeScript syntax or defaults.
+It uses tagged tuple errors and a pure domain core, ExUnit/property testing for
+appropriate invariants, LiveViewTest for relevant server UI behavior and browser
+coverage only when browser-dependent acceptance requires it. It does not mandate
+new libraries, an architecture, event sourcing or a universal Phoenix test stack.
+
+Compiler warnings, formatting, Credo and Dialyzer follow the repository's actual
+configuration; a missing tool is not a passing check. See the [Elixir effect evidence](evals/elixir/README.md)
+for finite actual-SDK plan/command-selection checks and retained failures. Synthetic
+commands in those fixtures were **NOT EXECUTED**; they do not verify a real Elixir
+application or substitute for its Mix, ExUnit, LiveView or browser checks.
 
 ## Model tiers
 

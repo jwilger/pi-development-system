@@ -9,6 +9,7 @@ import {
   DEFAULT_LENSES,
   type Finding,
   nextAction,
+  type ReviewInput,
   type ReviewState,
   selectLenses,
   startReview,
@@ -29,10 +30,11 @@ import type { Jev } from "../jev/client.ts";
 import { withJevToolUsage } from "../jev/execution.ts";
 import { judgeLenses, judgeSeverity } from "../jev/questions/review.ts";
 import { configErrorText, type LoadOptions, loadConfig, POLICY_ONLY } from "../state/config.ts";
+import { type GuidanceSnapshot, loadReviewGuidance } from "../state/local-guidance.ts";
 import { availableModels } from "../state/models-command.ts";
 import type { SessionState } from "../state/session-state.ts";
 import { sameWorkflow } from "../state/workflow.ts";
-import { snapshotDiff } from "./digest.ts";
+import { reviewInput, snapshotDiff } from "./digest.ts";
 import type { SubmissionStore } from "./submissions.ts";
 
 export type ReviewToolDeps = {
@@ -43,6 +45,8 @@ export type ReviewToolDeps = {
   submissions: SubmissionStore;
   now?: () => Date;
 };
+
+const isAborted = (signal: AbortSignal | undefined): boolean => signal?.aborted === true;
 
 const GATE_RANGE_NOTE =
   "Note: the commit gate checks the uncommitted diff (range HEAD). A review of another range does not clear it; review the default range before committing.";
@@ -112,6 +116,8 @@ function spawnPayload(input: {
   model: ReturnType<typeof resolveSlot>;
   thinkingLevel: ThinkingLevel;
   now: Date;
+  guidance?: GuidanceSnapshot;
+  reviewInputIdentity?: string;
 }): Record<string, unknown> {
   return {
     // A fresh path per attempt: a failed spawn must not leave a thread that blocks the retry.
@@ -122,6 +128,10 @@ function spawnPayload(input: {
       round: input.round,
       lenses: input.lenses,
       diffRange: input.range,
+      ...(input.guidance === undefined ? {} : { guidance: input.guidance }),
+      ...(input.reviewInputIdentity === undefined
+        ? {}
+        : { reviewInputIdentity: input.reviewInputIdentity }),
     }),
     ...(input.model.ok ? { model: input.model.value.model } : {}),
     thinkingLevel: input.thinkingLevel,
@@ -138,6 +148,8 @@ type Prepared = {
   config: Config;
   range: string;
   snap: Snapshot;
+  guidance: GuidanceSnapshot;
+  input: ReviewInput;
   isCurrent: () => boolean;
 };
 
@@ -153,7 +165,11 @@ type PendingStart = {
 // Like submissions, dispatch handoffs are session-local, not durable review evidence.
 const pendingStarts = new WeakMap<SessionState, Map<SliceRef, PendingStart>>();
 const startSettings = (p: Prepared): string =>
-  JSON.stringify({ models: p.config.models, thinkingLevel: p.config.review.thinkingLevel });
+  JSON.stringify({
+    models: p.config.models,
+    thinkingLevel: p.config.review.thinkingLevel,
+    input: p.input.identity,
+  });
 
 function pendingStartReply(deps: ReviewToolDeps, p: Prepared): Reply | undefined {
   const pending = pendingStarts.get(deps.state)?.get(p.slice);
@@ -168,9 +184,12 @@ function pendingStartReply(deps: ReviewToolDeps, p: Prepared): Reply | undefined
   )
     return undefined;
   const round = pending.review.rounds.length + 1;
-  if (deps.submissions.forRound(p.slice, round).length > 0)
+  const inputIdentity = review?.pending?.input.identity;
+  const identityArg =
+    inputIdentity === undefined ? "" : ` and reviewInputIdentity "${inputIdentity}"`;
+  if (deps.submissions.forRound(p.slice, round, inputIdentity).length > 0)
     return reply(
-      `Round ${round} of ${p.slice} already has a submitted result. Next: devsys_review_record with slice "${p.slice}", diffDigest "${p.snap.digest}"${p.range === "HEAD" ? "" : ` and diffRange "${p.range}"`}. Do not start another review; the submission is preserved.`,
+      `Round ${round} of ${p.slice} already has a submitted result. Next: devsys_review_record with slice "${p.slice}", diffDigest "${p.snap.digest}"${p.range === "HEAD" ? "" : ` and diffRange "${p.range}"`}${identityArg}. Do not start another review; the submission is preserved.`,
       true,
     );
   return reply(
@@ -207,13 +226,64 @@ async function prepare(
   const snap = await snapshotDiff(deps.exec, ctx.cwd, range);
   if (!snap.ok) return { ok: false, reply: reply(failure(range, snap.error), true) };
   if (!isCurrent()) return { ok: false, reply: changedReview() };
-  return { ok: true, value: { slice, config: config.value, range, snap: snap.value, isCurrent } };
+  const guidance = await loadReviewGuidance(ctx.cwd);
+  if (!guidance.ok)
+    return { ok: false, reply: reply(`guidance-error: ${guidance.error.message}`, true) };
+  if (!isCurrent()) return { ok: false, reply: changedReview() };
+  return {
+    ok: true,
+    value: {
+      slice,
+      config: config.value,
+      range,
+      snap: snap.value,
+      guidance: guidance.value,
+      input: reviewInput(snap.value.digest, guidance.value.identity),
+      isCurrent,
+    },
+  };
+}
+
+async function freshInput(
+  deps: ReviewToolDeps,
+  ctx: ExtensionContext,
+  p: Prepared,
+): Promise<Reply | undefined> {
+  const snap = await snapshotDiff(deps.exec, ctx.cwd, p.range);
+  if (!snap.ok) return reply(`cannot read the diff: ${snap.error}`, true);
+  const guidance = await loadReviewGuidance(ctx.cwd);
+  if (!guidance.ok) return reply(`guidance-error: ${guidance.error.message}`, true);
+  return reviewInput(snap.value.digest, guidance.value.identity).identity === p.input.identity
+    ? undefined
+    : reply(
+        "stale-review-input: diff or repository guidance changed while waiting; start a fresh review.",
+        true,
+      );
 }
 
 const rangeNote = (range: string): string => (range === "HEAD" ? "" : ` ${GATE_RANGE_NOTE}`);
 
+function matchesPendingInput(
+  p: Prepared,
+  current: ReviewState | undefined,
+  digest: string,
+  identity: string | undefined,
+): boolean {
+  const pending = current?.pending;
+  if (pending === undefined) return p.guidance.sources.length === 0 && identity === undefined;
+  return (
+    pending.round === (current?.rounds.length ?? 0) + 1 &&
+    pending.range === p.range &&
+    pending.input.diffDigest === digest &&
+    pending.input.identity === identity &&
+    pending.input.identity === p.input.identity
+  );
+}
+
 /** The reply for a round that must not start: already satisfied, or findings still open. */
 function startRefusal(review: ReviewState, p: Prepared): Reply | undefined {
+  const guidanceIdentity = p.guidance.sources.length === 0 ? undefined : p.guidance.identity;
+  if (review.rounds.at(-1)?.input?.guidanceIdentity !== guidanceIdentity) return undefined;
   const action = nextAction(review, p.snap.digest);
   if (action === "done") {
     return reply(
@@ -243,21 +313,30 @@ async function startRound(
     diffSample: p.snap.sample,
     profiles: deps.state.get().profiles ?? [],
   });
-  if (signal?.aborted) return reply("Review start cancelled; nothing changed.", true);
+  if (isAborted(signal)) return reply("Review start cancelled; nothing changed.", true);
+  if (!p.isCurrent()) return changedReview();
+  const stale = await freshInput(deps, ctx, p);
+  if (stale !== undefined) return stale;
+  if (isAborted(signal)) return reply("Review start cancelled; nothing changed.", true);
   if (!p.isCurrent()) return changedReview();
   const { lenses, basis } = chooseLenses(judged);
   const required = requiredRounds(p.config);
   const existing = reviewOf(deps.state.get(), p.slice) ?? startReview(p.slice, required);
+  const round = existing.rounds.length + 1;
+  const configured = p.guidance.sources.length > 0;
   // New defaults or config edits must not lower an in-flight review's requirement.
-  const review: ReviewState = { ...existing, required: Math.max(existing.required, required) };
-  // A new round only sees what reviewers submit after it began.
-  deps.submissions.clear(p.slice);
-  deps.state.update((s) => upsertReview(s, review));
-  deps.state.update((s) => afterReviewRound(s, nextAction(review, p.snap.digest), p.slice));
+  const review: ReviewState = {
+    slice: existing.slice,
+    required: Math.max(existing.required, required),
+    rounds: existing.rounds,
+    ...(configured ? { pending: { round, range: p.range, input: p.input } } : {}),
+  };
   const refusal = startRefusal(review, p);
   if (refusal !== undefined) return refusal;
-
-  const round = review.rounds.length + 1;
+  // Only a successful new preparation replaces pending submissions.
+  deps.submissions.clear(p.slice);
+  deps.state.update((s) => upsertReview(s, review));
+  deps.state.update((s) => afterReviewRound(s, "review", p.slice));
   const spawn = spawnPayload({
     slice: p.slice,
     round,
@@ -266,12 +345,14 @@ async function startRound(
     model: resolveSlot(p.config.models, "reviewer", availableModels(ctx.modelRegistry)),
     thinkingLevel: p.config.review.thinkingLevel,
     now: deps.now?.() ?? new Date(),
+    ...(configured ? { guidance: p.guidance, reviewInputIdentity: p.input.identity } : {}),
   });
+  const identityArg = configured ? ` and reviewInputIdentity "${p.input.identity}"` : "";
   const rangeArg = p.range === "HEAD" ? "" : ` and diffRange "${p.range}"`;
   const handoff = [
     `${reviewLabel(review)}; round ${round}; diff ${p.snap.digest}. ${basis}`,
     `lenses: ${lenses.join(", ")}`,
-    `Spawn the reviewer with agent_spawn using exactly this payload, then call devsys_review_record with slice "${p.slice}", diffDigest "${p.snap.digest}"${rangeArg}. The reviewer submits its result with devsys_submit_review, so pass no packets (only a markdown packet the reviewer returned instead goes in packets):`,
+    `Spawn the reviewer with agent_spawn using exactly this payload, then call devsys_review_record with slice "${p.slice}", diffDigest "${p.snap.digest}"${rangeArg}${identityArg}. The reviewer submits its result with devsys_submit_review, so pass no packets (only a markdown packet the reviewer returned instead goes in packets):`,
     JSON.stringify(spawn),
   ].join("\n");
   const starts = pendingStarts.get(deps.state) ?? new Map<SliceRef, PendingStart>();
@@ -320,6 +401,9 @@ function buildReviewStartTool(deps: ReviewToolDeps): ToolDefinition<typeof Start
 }
 
 const RecordParameters = Type.Object({
+  reviewInputIdentity: Type.Optional(
+    Type.String({ description: "The configured review input identity returned by review start." }),
+  ),
   slice: Type.Optional(
     Type.String({ description: "Slice reviewed; defaults to the active slice." }),
   ),
@@ -428,7 +512,10 @@ async function recordRound(
 
   const merged = combinePackets(packets);
   const { findings, notes } = await adjusted(deps, ctx, merged.findings, p.snap.sample);
-  if (signal?.aborted) return reply("Review recording cancelled; nothing changed.", true);
+  if (isAborted(signal)) return reply("Review recording cancelled; nothing changed.", true);
+  const stale = await freshInput(deps, ctx, p);
+  if (stale !== undefined) return stale;
+  if (isAborted(signal)) return reply("Review recording cancelled; nothing changed.", true);
   if (!p.isCurrent()) return changedReview();
   const review = addRound(
     { ...before, required: Math.max(before.required, required) },
@@ -438,6 +525,7 @@ async function recordRound(
       reviewedAt: (deps.now?.() ?? new Date()).toISOString(),
       diffDigest: p.snap.digest,
       files: p.snap.files,
+      ...(before.pending === undefined ? {} : { input: before.pending.input }),
     },
   );
   deps.state.update((s) => upsertReview(s, review));
@@ -465,10 +553,26 @@ function buildReviewRecordTool(deps: ReviewToolDeps): ToolDefinition<typeof Reco
     ) {
       const slice = sliceOf(params.slice, deps.state);
       if (slice === undefined) return reply(NO_SLICE, true);
-      const round = (reviewOf(deps.state.get(), slice)?.rounds.length ?? 0) + 1;
+      const prepared = await prepare(
+        deps,
+        ctx,
+        params,
+        (_range, error) => `cannot read the diff: ${error}`,
+        POLICY_ONLY,
+      );
+      if (!prepared.ok) return prepared.reply;
+      const p = prepared.value;
+      const current = reviewOf(deps.state.get(), slice);
+      const round = (current?.rounds.length ?? 0) + 1;
+      if (!matchesPendingInput(p, current, params.diffDigest, params.reviewInputIdentity))
+        return reply(
+          "stale-review-input: start and record the current diff and repository guidance with its matching identity.",
+          true,
+        );
+      const inputIdentity = current?.pending?.input.identity;
       const markdown = parsePackets(params.packets ?? []);
       if (!markdown.ok) {
-        return deps.submissions.forRound(slice, round).length === 0
+        return deps.submissions.forRound(slice, round, inputIdentity).length === 0
           ? markdown.reply
           : reply(
               `${replyText(markdown.reply)}. A submitted result for round ${round} is waiting: omit \`packets\` to record it.`,
@@ -477,18 +581,9 @@ function buildReviewRecordTool(deps: ReviewToolDeps): ToolDefinition<typeof Reco
       }
       const { packets, dropped } = mergeResults(
         markdown.value,
-        deps.submissions.forRound(slice, round),
+        deps.submissions.forRound(slice, round, inputIdentity),
       );
       if (packets.length === 0) return reply(NO_RESULT(slice, round), true);
-      const prepared = await prepare(
-        deps,
-        ctx,
-        params,
-        (_range, error) => `cannot read the diff: ${error}`,
-        // Recording reads only review policy, never the models, so the user config is skipped.
-        POLICY_ONLY,
-      );
-      if (!prepared.ok) return prepared.reply;
       if (params.diffDigest !== prepared.value.snap.digest) {
         return reply(
           `the diff changed since the review started (reviewed ${params.diffDigest}, now ${prepared.value.snap.digest}); the reviewer did not see the current code. Run devsys_review_start again.`,

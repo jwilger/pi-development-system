@@ -3,11 +3,21 @@ import { lstat, readlink } from "node:fs/promises";
 import { join } from "node:path";
 import type { Exec } from "../core/exec.ts";
 import { err, ok, type Result } from "../core/result.ts";
+import type { ReviewInput } from "../core/review.ts";
 import { splitDiffByFile } from "../core/review-flow.ts";
 
 /** A short, stable identity for some text. Pure. */
 export const digestOf = (text: string): string =>
   createHash("sha256").update(text).digest("hex").slice(0, 16);
+
+/** Full identity of the exact diff and guidance snapshot presented for review. Pure. */
+export const reviewInput = (diffDigest: string, guidanceIdentity: string): ReviewInput => ({
+  diffDigest,
+  guidanceIdentity,
+  identity: createHash("sha256")
+    .update(JSON.stringify([diffDigest, guidanceIdentity]))
+    .digest("hex"),
+});
 
 export type DiffSnapshot = {
   /** Identity of everything reviewed: the tracked diff plus the content of untracked files. */

@@ -29,6 +29,9 @@ test("an empty file yields the defaults", () => {
   assert.equal(c.delivery.trunk, "main");
   assert.equal(c.delivery.remote, "origin");
   assert.equal(c.review.requiredCleanRounds, 1);
+  assert.equal(c.review.minRounds, 1);
+  assert.deepEqual(c.review.guidance, []);
+  assert.deepEqual(c.workflow.guidance, []);
   assert.equal(c.review.thinkingLevel, "high");
   assert.equal(c.tracker.kind, "repo-files");
   assert.equal(c.verifier.maxPerSession, 6);
@@ -62,6 +65,29 @@ max_per_session = 2
   assert.equal(c.tracker.repo, "o/n");
   assert.deepEqual(c.profiles.override, ["typescript"]);
   assert.equal(c.verifier.maxPerSession, 2);
+});
+
+test("workflow and review guidance accept ordered non-empty paths and empty arrays", () => {
+  const c = value(
+    '[workflow]\nguidance = ["docs/workflow.md"]\n[review]\nguidance = ["docs/first.md", "docs/second.md"]\n',
+  );
+  assert.deepEqual(c.workflow.guidance, ["docs/workflow.md"]);
+  assert.deepEqual(c.review.guidance, ["docs/first.md", "docs/second.md"]);
+  assert.deepEqual(value("[review]\nguidance = []\n").review.guidance, []);
+  assert.deepEqual(value("[workflow]\nguidance = []\n").workflow.guidance, []);
+  assert.equal(c.review.requiredCleanRounds, 1);
+  assert.equal(c.review.minRounds, 1);
+  assert.equal(c.review.thinkingLevel, "high");
+});
+
+test("workflow and review guidance reject invalid arrays with the qualified key", () => {
+  for (const category of ["workflow", "review"]) {
+    for (const raw of ['"docs/concern.md"', '[""]', '["  "]', "[1]", '["valid.md", false]', "{}"]) {
+      const error = failure(`[${category}]\nguidance = ${raw}\n`);
+      assert.equal(error.key, `${category}.guidance`);
+      assert.match(error.message, /array of non-empty paths/);
+    }
+  }
 });
 
 test("a [models] table replaces only the slots it names", () => {

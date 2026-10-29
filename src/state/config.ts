@@ -34,6 +34,7 @@ export type DevsysConfig = {
   readonly review: {
     readonly requiredCleanRounds: number;
     readonly minRounds: number;
+    readonly guidance: readonly string[];
     /** Effort of the reviewer and lens agents that devsys_review_start and devsys_lens_review spawn. */
     readonly thinkingLevel: ThinkingLevel;
   };
@@ -253,11 +254,24 @@ function deliveryAndReview(
   root: Table,
 ): Result<Pick<DevsysConfig, "delivery" | "review" | "tracker">, ConfigError> {
   const d = section(root, "delivery", ["mode", "trunk", "remote"]);
-  const r = section(root, "review", ["required_clean_rounds", "min_rounds", "thinking_level"]);
+  const r = section(root, "review", [
+    "required_clean_rounds",
+    "min_rounds",
+    "thinking_level",
+    "guidance",
+  ]);
   const t = section(root, "tracker", ["kind", "repo", "project_id"]);
   if (!d.ok) return d;
   if (!r.ok) return r;
   if (!t.ok) return t;
+  const guidance = r.value.guidance ?? [];
+  if (
+    !(
+      Array.isArray(guidance) &&
+      guidance.every((path) => typeof path === "string" && path.trim() !== "")
+    )
+  )
+    return fail("review.guidance must be an array of non-empty paths", "review.guidance");
   const mode = choice(d.value, "delivery", "mode", DELIVERY_MODES, "trunk");
   const trunk = text(d.value, "delivery", "trunk", "main");
   const remote = text(d.value, "delivery", "remote", "origin");
@@ -298,6 +312,7 @@ function deliveryAndReview(
     review: {
       requiredCleanRounds: required.value,
       minRounds: min.value,
+      guidance: guidance.map(String),
       thinkingLevel: effort.value,
     },
     tracker: {

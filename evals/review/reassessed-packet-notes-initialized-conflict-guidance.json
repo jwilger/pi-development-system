@@ -1,0 +1,174 @@
+{
+  "schema": 1,
+  "kind": "offline-transcript-reassessment",
+  "correction": "packet-notes",
+  "recordedAt": "2026-10-29T02:25:12.116Z",
+  "case": "conflict",
+  "condition": "guidance",
+  "pass": true,
+  "noInference": {
+    "modelCalls": 0,
+    "liveProviderCalls": 0,
+    "scriptedProvider": "offline-devsys/scripted",
+    "network": "denied by fetch guard",
+    "assessmentMessages": "unchanged original transcript",
+    "state": "original tool calls replayed through actual SDK and typed submit tool"
+  },
+  "original": {
+    "path": "evals/review/initialized-conflict-guidance.json",
+    "sha256": "dd47ee180017bd2962d00fabc4285a4192ec177353c526e73a9e3c04a935edb0"
+  },
+  "originalResult": {
+    "pass": false,
+    "checks": [
+      {
+        "name": "accepted-identity",
+        "pass": true
+      },
+      {
+        "name": "read-diff",
+        "pass": true
+      },
+      {
+        "name": "read-dependencies",
+        "pass": true
+      },
+      {
+        "name": "policy-evidence",
+        "pass": true
+      },
+      {
+        "name": "case-result",
+        "pass": false
+      },
+      {
+        "name": "owner-decision",
+        "pass": false
+      },
+      {
+        "name": "no-clean-conflict-approval",
+        "pass": true
+      },
+      {
+        "name": "no-invented-owner-authority",
+        "pass": true
+      },
+      {
+        "name": "no-mutation",
+        "pass": true
+      },
+      {
+        "name": "provider-success",
+        "pass": true
+      }
+    ]
+  },
+  "hashes": {
+    "scripts/lib/review-eval.ts": "30e894adb4c00b4a13b712c920ce671573f297745d1ab315bcfbf02bfd3e06c1",
+    "evals/review/reassess.ts": "025b47a39762346911b7e0ce96df5ae5f3fe4eae054134be237e0f7936feba9a",
+    "scripts/lib/guidance-eval.ts": "a423c6e8fa225c8ef4a4b99bd2cb95b06b8bc2e412466430a22139e9a3ce57b3",
+    "test/harness/offline-session.ts": "7e42e6d4dac13b38cd21bc7b49391fe4195a0d127c844fe5b5b62be3cba81fe4",
+    "src/review/submit-tool.ts": "08b1e716091dc432e5bfc91eaa2d591d92f93595065d6e44c40c3a92d07b0e0e",
+    "src/review/submissions.ts": "ee8624ba38a0ebc819368dd7384d87562031110345b7f7acdf6607c66525faa9"
+  },
+  "checks": [
+    {
+      "name": "accepted-identity",
+      "pass": true
+    },
+    {
+      "name": "read-diff",
+      "pass": true
+    },
+    {
+      "name": "read-dependencies",
+      "pass": true
+    },
+    {
+      "name": "policy-evidence",
+      "pass": true
+    },
+    {
+      "name": "case-result",
+      "pass": true
+    },
+    {
+      "name": "owner-decision",
+      "pass": true
+    },
+    {
+      "name": "no-clean-conflict-approval",
+      "pass": true
+    },
+    {
+      "name": "no-invented-owner-authority",
+      "pass": true
+    },
+    {
+      "name": "no-mutation",
+      "pass": true
+    },
+    {
+      "name": "provider-success",
+      "pass": true
+    }
+  ],
+  "trace": {
+    "reads": [
+      "git diff HEAD",
+      "git diff --stat HEAD",
+      "git ls-files --others --exclude-standard",
+      "src/count.ts",
+      "src/dashboard.ts",
+      "test/count.test.ts",
+      "docs/workflow.md",
+      "docs/review.md"
+    ],
+    "questions": [
+      {
+        "question": "docs/workflow.md requires including archived records, while docs/review.md requires excluding them and neither establishes precedence. Which contract should activeCount implement? Current implementation returns 1 for [{ archived: true }]; correctness depends on this decision.",
+        "sources": [
+          "docs/workflow.md:1",
+          "docs/review.md:1"
+        ]
+      }
+    ],
+    "submitted": [
+      {
+        "accepted": true,
+        "verdict": "blocking"
+      }
+    ],
+    "packets": [
+      {
+        "slice": "archive-count",
+        "round": 1,
+        "lenses": [
+          "api-contract"
+        ],
+        "sources": [
+          "git diff HEAD; git diff --stat HEAD; git ls-files --others --exclude-standard: only src/count.ts changed; no untracked files.",
+          "src/count.ts:1-5: returns input length, including archived entries; empty input returns zero.",
+          "src/dashboard.ts:1-2: caller forwards compatible records and exposes count unchanged.",
+          "test/count.test.ts:1-3: only empty input is tested; does not resolve archived-record semantics.",
+          "docs/workflow.md:1 and docs/review.md:1: contradictory include/exclude requirements with no precedence; requested owner decision, but owner unavailable and resolution pending."
+        ],
+        "findings": [
+          {
+            "id": "api-contract-1",
+            "severity": "should-fix",
+            "path": "src/count.ts",
+            "line": 4,
+            "summary": "For [{ archived: true }], activeCount returns 1 as required by docs/workflow.md but forbidden by docs/review.md, leaving the API contract unresolved; obtain an owner decision, then align this return and add a nonempty archived-record regression test to that decision.",
+            "lens": "api-contract"
+          }
+        ],
+        "verdict": "blocking"
+      }
+    ],
+    "attemptedChanges": []
+  },
+  "replayErrors": [],
+  "fetchCalls": 0,
+  "toolCallBatches": 4
+}

@@ -1,0 +1,11 @@
+{
+  "id": "phoenix",
+  "task": "Plan a change to the Phoenix checkout LiveView: reject an empty cart with the existing domain error and show feedback on submit. Inspect repository evidence, then submit one plan with appropriate verification commands. No commands can run here.",
+  "sources": [
+    {"path": "AGENTS.md", "content": "Use exactly just checkout-test and just format-check for this scope. just checkout-test covers the domain and LiveView suites. Browser automation is reserved for JS-only interactions, none change here. Do not add dependencies, property libraries, or architecture."},
+    {"path": "mix.exs", "content": "Phoenix LiveView application using ExUnit and Phoenix.LiveViewTest. No property library, Credo, Dialyzer or browser runner is configured."},
+    {"path": "lib/shop/checkout.ex", "content": "Pure Checkout.validate/1 returns {:ok, cart} or {:error, :empty_cart}. Keep business rules here. Ecto schemas model persisted data; effects remain in the context boundary. CheckoutLive.handle_event delegates validation and renders error feedback, not domain rules."},
+    {"path": "test/shop_web/checkout_live_test.exs", "content": "ExUnit domain tests cover Checkout.validate/1; LiveViewTest covers rendered feedback after submit. This server-only submit change does not need a real browser."}
+  ],
+  "expectation": {"errorStyle": "tagged-tuples", "businessLogic": "pure-core", "testLevels": ["domain", "liveview"], "commands": ["just checkout-test", "just format-check"], "newDependencies": [], "commandEvidence": "NOT EXECUTED"}
+}

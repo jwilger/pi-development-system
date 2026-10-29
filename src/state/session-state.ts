@@ -29,7 +29,7 @@ const PHASES: ReadonlyArray<Phase> = [
   "delivering",
   "idle",
 ];
-const PROFILE_NAMES: ReadonlyArray<Profile> = ["rust", "typescript"];
+const PROFILE_NAMES: ReadonlyArray<Profile> = ["rust", "typescript", "elixir"];
 const SIZINGS: ReadonlyArray<Sizing> = ["fix", "change", "capability", "product"];
 const JEV: ReadonlyArray<JevStatus> = ["online", "offline", "unknown"];
 

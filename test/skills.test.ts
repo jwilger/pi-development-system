@@ -66,6 +66,6 @@ for (const file of files) {
 for (const file of files.filter((f) => /\/profile-/.test(f))) {
   test(`${file.slice(ROOT.length)}: description says which files it applies to`, () => {
     const description = frontmatter(readFileSync(file, "utf8"))?.description ?? "";
-    assert.match(description, /\.(?:rs|ts|tsx|toml|json)\b/);
+    assert.match(description, /\.(?:rs|ts|tsx|toml|json|ex|exs)\b/);
   });
 }

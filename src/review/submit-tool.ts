@@ -8,6 +8,9 @@ import type { SessionState } from "../state/session-state.ts";
 import type { SubmissionStore } from "./submissions.ts";
 
 export const SubmitParameters = Type.Object({
+  reviewInputIdentity: Type.Optional(
+    Type.String({ description: "Exact configured input identity supplied in the reviewer task." }),
+  ),
   slice: Type.String({ description: "The slice you were asked to review, exactly as given." }),
   round: Type.Integer({ minimum: 1, description: "The round number you were asked to review." }),
   lenses: Type.Array(Type.String({ minLength: 1 }), {
@@ -60,9 +63,19 @@ function submit(deps: SubmitDeps, params: Static<typeof SubmitParameters>) {
       true,
     );
   }
+  const pending = review?.pending;
+  if (
+    pending === undefined
+      ? params.reviewInputIdentity !== undefined
+      : pending.round !== params.round || pending.input.identity !== params.reviewInputIdentity
+  )
+    return reply(
+      "stale-review-input: use the exact current review input identity from your task.",
+      true,
+    );
   const packet = packetFromSubmission(params);
   if ("id" in packet) return reply(`${packet.id}: ${packet.message}`, true);
-  deps.submissions.put(packet);
+  deps.submissions.put(packet, pending?.input.identity);
   return reply(
     `submitted: ${params.slice} round ${params.round}, lenses ${params.lenses.join(", ")}, verdict ${params.verdict}, ${params.findings.length} finding(s). End with one short line.`,
   );

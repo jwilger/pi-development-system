@@ -23,6 +23,7 @@ import type { Jev } from "../jev/client.ts";
 import { ARCHITECTURE_THRESHOLD, judgeArchitectureShaping } from "../jev/questions/architecture.ts";
 import { judgeCommit, MIX_THRESHOLD, RATIONALE_FLOOR } from "../jev/questions/commit.ts";
 import { snapshotDiff } from "../review/digest.ts";
+import { loadReviewGuidance } from "../state/local-guidance.ts";
 import type { SessionState } from "../state/session-state.ts";
 import { type ApprovalStore, requestHardStop } from "./approvals.ts";
 import { departureUse } from "./departure-use.ts";
@@ -298,6 +299,19 @@ async function reviewNeeds(
   const { phase, activeSlice } = deps.state.get();
   const inFlight = phase === "implementing" || phase === "reviewing" || phase === "delivering";
   if (!inFlight || activeSlice === undefined) return [];
+  const guidance = await loadReviewGuidance(ctx.cwd);
+  if (!guidance.ok) return [{ gate: REVIEW, why: `guidance-error: ${guidance.error.message}` }];
+  const review = deps.state.get().reviews?.find((r) => r.slice === activeSlice);
+  const lastInput = review?.rounds.at(-1)?.input;
+  const guidanceIdentity =
+    guidance.value.sources.length === 0 ? undefined : guidance.value.identity;
+  if (lastInput?.guidanceIdentity !== guidanceIdentity)
+    return [
+      {
+        gate: REVIEW,
+        why: "stale-review-input: repository guidance changed or was not reviewed; run devsys_review_start with the current guidance before committing.",
+      },
+    ];
   const snap = await snapshotDiff(deps.exec, ctx.cwd, "HEAD");
   // An unreadable diff cannot be compared; the gate asks for a departure rather than guessing.
   const gap = reviewGap(

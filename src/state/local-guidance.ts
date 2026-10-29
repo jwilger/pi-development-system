@@ -17,6 +17,7 @@ export type GuidanceError = {
   readonly path?: string;
 };
 type GuidanceSource = {
+  readonly category?: "workflow" | "review";
   readonly path: string;
   readonly content: string;
   readonly hash: string;
@@ -39,15 +40,25 @@ const inside = (root: string, path: string): boolean => {
   return rel !== "" && rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
 };
 
-function snapshot(sources: readonly GuidanceSource[]): GuidanceSnapshot {
-  const identity = digest(JSON.stringify(sources.map(({ path, hash }) => ({ path, hash }))));
+function snapshot(
+  sources: readonly GuidanceSource[],
+  kind: "workflow" | "review",
+): GuidanceSnapshot {
+  const identity = digest(
+    JSON.stringify(
+      sources.map(({ category, path, hash }) =>
+        category === undefined ? { path, hash } : { category, path, hash },
+      ),
+    ),
+  );
   const section =
     sources.length === 0
-      ? "Repository workflow: unconfigured."
+      ? `Repository ${kind}: unconfigured.`
       : [
-          `Repository workflow snapshot: ${identity}`,
+          `Repository ${kind} snapshot: ${identity}`,
           ...sources.map(
-            (source) => `Source: ${source.path}\nSHA256: ${source.hash}\n\n${source.content}`,
+            (source) =>
+              `${source.category === undefined ? "" : `Category: ${source.category}\n`}Source: ${source.path}\nSHA256: ${source.hash}\n\n${source.content}`,
           ),
         ].join("\n\n");
   return { sources, identity, section };
@@ -56,15 +67,17 @@ function snapshot(sources: readonly GuidanceSource[]): GuidanceSnapshot {
 /** Explicit references only; does not discover instructions or interpret operational policy. */
 async function loadGuidance(
   cwd: string,
-  paths: readonly string[],
+  entries: readonly Pick<GuidanceSource, "path" | "category">[],
+  kind: "workflow" | "review",
 ): Promise<Result<GuidanceSnapshot, GuidanceError>> {
-  if (paths.length === 0) return ok(snapshot([]));
+  if (entries.length === 0) return ok(snapshot([], kind));
   try {
     const { stdout } = await execute("git", ["-C", cwd, "rev-parse", "--show-toplevel"]);
     const root = await realpath(stdout.replace(/\n$/, ""));
     const sources: GuidanceSource[] = [];
     let total = 0;
-    for (const path of paths) {
+    for (const entry of entries) {
+      const { path } = entry;
       if (
         isAbsolute(path) ||
         path.split(/[\\/]/).includes("..") ||
@@ -108,9 +121,9 @@ async function loadGuidance(
       } catch {
         return failure("Guidance must be valid UTF-8", path);
       }
-      sources.push({ path, content, hash: digest(content) });
+      sources.push({ ...entry, content, hash: digest(content) });
     }
-    return ok(snapshot(sources));
+    return ok(snapshot(sources, kind));
   } catch (cause) {
     return failure(
       `Cannot load repository guidance: ${cause instanceof Error ? cause.message : String(cause)}`,
@@ -118,8 +131,9 @@ async function loadGuidance(
   }
 }
 
-export async function loadWorkflowGuidance(
+async function loadConfiguredGuidance(
   cwd: string,
+  kind: "workflow" | "review",
 ): Promise<Result<GuidanceSnapshot, GuidanceError>> {
   // A session may start below the repository root; workflow paths belong to the root.
   let root = cwd;
@@ -143,7 +157,26 @@ export async function loadWorkflowGuidance(
     // Only genuine non-repository sessions may use their own directory's defaults.
   }
   const config = await loadConfig(root, POLICY_ONLY);
-  return config.ok
-    ? loadGuidance(root, config.value.workflow.guidance)
-    : failure(configErrorText(config.error));
+  if (!config.ok) return failure(configErrorText(config.error));
+  const entries =
+    kind === "workflow"
+      ? config.value.workflow.guidance.map((path) => ({ path }))
+      : [
+          ...config.value.workflow.guidance.map((path) => ({
+            path,
+            category: "workflow" as const,
+          })),
+          ...config.value.review.guidance.map((path) => ({ path, category: "review" as const })),
+        ];
+  return loadGuidance(root, entries, kind);
+}
+
+export function loadWorkflowGuidance(
+  cwd: string,
+): Promise<Result<GuidanceSnapshot, GuidanceError>> {
+  return loadConfiguredGuidance(cwd, "workflow");
+}
+
+export function loadReviewGuidance(cwd: string): Promise<Result<GuidanceSnapshot, GuidanceError>> {
+  return loadConfiguredGuidance(cwd, "review");
 }

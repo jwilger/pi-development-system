@@ -14,6 +14,12 @@ export type Finding = {
   readonly lens: string;
 };
 
+export type ReviewInput = {
+  readonly diffDigest: string;
+  readonly guidanceIdentity: string;
+  readonly identity: string;
+};
+
 export type ReviewRound = {
   readonly n: number;
   readonly lenses: ReadonlyArray<string>;
@@ -21,6 +27,7 @@ export type ReviewRound = {
   readonly reviewedAt: string;
   /** Digest of the diff the round reviewed (see `digestOf` in src/review/digest.ts). */
   readonly diffDigest: string;
+  readonly input?: ReviewInput;
   /** Per-file digests of the reviewed diff, so a commit of part of it is still covered. */
   readonly files?: Readonly<Record<string, string>>;
 };
@@ -30,6 +37,11 @@ export type ReviewState = {
   readonly rounds: ReadonlyArray<ReviewRound>;
   /** Consecutive clean rounds needed (config `review.required_clean_rounds`, at least `min_rounds`). */
   readonly required: number;
+  readonly pending?: {
+    readonly round: number;
+    readonly range: string;
+    readonly input: ReviewInput;
+  };
 };
 
 export type ReviewAction = "review" | "fix-findings" | "done" | "stale-diff";
@@ -38,14 +50,15 @@ export const isClean = (round: ReviewRound): boolean =>
   round.findings.every((f) => f.severity !== "blocking" && f.severity !== "should-fix");
 
 /**
- * Trailing clean rounds. Real findings reset it; a changed diff alone does not, so a trivial fix
- * commit keeps the clean rounds already earned unless findings reappear (decision D11).
+ * Trailing clean rounds for the last round's input identity. Legacy rounds only count other
+ * legacy rounds; their changed diff alone does not reset credit (decision D11).
  */
 export function cleanStreak(state: ReviewState): number {
   let streak = 0;
+  const identity = state.rounds.at(-1)?.input?.identity;
   for (let i = state.rounds.length - 1; i >= 0; i--) {
     const round = state.rounds[i];
-    if (round === undefined || !isClean(round)) break;
+    if (round === undefined || round.input?.identity !== identity || !isClean(round)) break;
     streak += 1;
   }
   return streak;
@@ -69,14 +82,17 @@ export const startReview = (slice: SliceRef, required: number): ReviewState => (
   rounds: [],
 });
 
-export const addRound = (state: ReviewState, round: Omit<ReviewRound, "n">): ReviewState => ({
-  ...state,
-  // Only the last round's per-file digests are ever compared, so earlier ones are not carried along.
-  rounds: [
-    ...state.rounds.map(({ files: _files, ...earlier }) => earlier),
-    { ...round, n: state.rounds.length + 1 },
-  ],
-});
+export const addRound = (state: ReviewState, round: Omit<ReviewRound, "n">): ReviewState => {
+  const { pending: _pending, ...accepted } = state;
+  return {
+    ...accepted,
+    // Only the last round's per-file digests are ever compared, so earlier ones are not carried along.
+    rounds: [
+      ...state.rounds.map(({ files: _files, ...earlier }) => earlier),
+      { ...round, n: state.rounds.length + 1 },
+    ],
+  };
+};
 
 /** Review lenses Jev can select (plan I6.2). A lens applies at probability ≥ LENS_THRESHOLD. */
 export const LENSES = [
@@ -135,6 +151,32 @@ function parseFiles(input: unknown): Record<string, string> | undefined | null {
   return out;
 }
 
+function parseInput(input: unknown): ReviewInput | ParseError {
+  if (!isRecord(input)) return parseError("review input must be an object");
+  const { diffDigest, guidanceIdentity, identity } = input;
+  if (typeof diffDigest !== "string" || typeof guidanceIdentity !== "string") {
+    return parseError("review input needs string diffDigest and guidanceIdentity");
+  }
+  if (typeof identity !== "string" || identity === "") {
+    return parseError("review input identity must be a nonempty string");
+  }
+  return { diffDigest, guidanceIdentity, identity };
+}
+
+function parsePending(input: unknown): NonNullable<ReviewState["pending"]> | ParseError {
+  if (!isRecord(input)) return parseError("review pending must be an object");
+  const { round, range } = input;
+  if (typeof round !== "number" || !Number.isInteger(round) || round < 1) {
+    return parseError("review pending round must be a positive integer");
+  }
+  if (typeof range !== "string" || range === "") {
+    return parseError("review pending range must be a nonempty string");
+  }
+  const parsed = parseInput(input.input);
+  if ("kind" in parsed) return parsed;
+  return { round, range, input: parsed };
+}
+
 function parseRound(input: unknown): ReviewRound | ParseError {
   if (!isRecord(input)) return parseError("round must be an object");
   const { n, lenses, findings, reviewedAt, diffDigest } = input;
@@ -153,12 +195,20 @@ function parseRound(input: unknown): ReviewRound | ParseError {
   }
   const files = parseFiles(input.files);
   if (files === null) return parseError("round files must map paths to digest strings");
+  const reviewInput = input.input === undefined ? undefined : parseInput(input.input);
+  if (reviewInput !== undefined) {
+    if ("kind" in reviewInput) return reviewInput;
+    if (reviewInput.diffDigest !== diffDigest) {
+      return parseError("round input diffDigest must match round diffDigest");
+    }
+  }
   return {
     n,
     lenses: lenses as string[],
     findings: parsed,
     reviewedAt,
     diffDigest,
+    ...(reviewInput === undefined ? {} : { input: reviewInput }),
     ...(files === undefined ? {} : { files }),
   };
 }
@@ -178,5 +228,12 @@ export function parseReviewState(input: unknown): ReviewState | ParseError {
     if ("kind" in round) return round;
     parsed.push(round);
   }
-  return { slice: slice as SliceRef, required, rounds: parsed };
+  const pending = input.pending === undefined ? undefined : parsePending(input.pending);
+  if (pending !== undefined && "kind" in pending) return pending;
+  return {
+    slice: slice as SliceRef,
+    required,
+    rounds: parsed,
+    ...(pending === undefined ? {} : { pending }),
+  };
 }

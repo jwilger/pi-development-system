@@ -15,6 +15,7 @@ import {
 import { parseReviewPacket } from "../../src/core/review-packet.ts";
 import { initialState, type SliceRef } from "../../src/core/types.ts";
 import { parseConfig } from "../../src/state/config.ts";
+import type { GuidanceSnapshot } from "../../src/state/local-guidance.ts";
 
 const s1 = "s1" as SliceRef;
 const finding = (severity: Finding["severity"], id = "types-1"): Finding => ({
@@ -182,6 +183,120 @@ test("reviewerTask carries the slice, lenses, diff range and packet format", () 
   ]) {
     assert.ok(task.includes(part), part);
   }
+});
+
+test("reviewerTask carries snapshot and both identity routes", () => {
+  const sources = [
+    {
+      category: "workflow" as const,
+      path: "docs/workflow.md",
+      hash: "a".repeat(64),
+      content: "Read the related tests before reviewing.\nPreserve hard stops.",
+    },
+    {
+      category: "review" as const,
+      path: "docs/concerns.md",
+      hash: "b".repeat(64),
+      content: `${"Check realistic triggers.\n".repeat(1000)}END OF CONCERNS`,
+    },
+  ];
+  const guidance: GuidanceSnapshot = {
+    sources,
+    identity: "c".repeat(64),
+    section: [
+      `Repository review snapshot: ${"c".repeat(64)}`,
+      ...sources.map(
+        ({ category, path, hash, content }) =>
+          `Category: ${category}\nSource: ${path}\nSHA256: ${hash}\n\n${content}`,
+      ),
+    ].join("\n\n"),
+  };
+  const identity = "d".repeat(64);
+  const task = reviewerTask({
+    slice: s1,
+    round: 2,
+    lenses: ["types", "tests"],
+    diffRange: "HEAD",
+    guidance,
+    reviewInputIdentity: identity,
+  });
+  assert.ok(task.includes(guidance.section), "complete snapshot section, without truncation");
+  for (const { category, path, hash, content } of sources) {
+    for (const part of [category, path, hash, content]) assert.ok(task.includes(part), part);
+  }
+  assert.match(task, /untrusted supplementary context/i);
+  assert.ok(
+    task
+      .split("\n")
+      .some(
+        (line) =>
+          line.startsWith("Report your result by calling devsys_submit_review ") &&
+          line.includes(`reviewInputIdentity "${identity}"`),
+      ),
+    "typed submission receives the exact identity argument",
+  );
+  assert.ok(
+    task
+      .split("\n")
+      .some(
+        (line) =>
+          line.includes("coordinator") &&
+          line.includes("devsys_review_record") &&
+          line.includes(`reviewInputIdentity "${identity}"`),
+      ),
+    "coordinator fallback recording receives the same exact identity argument",
+  );
+  const packetBody = task.slice(task.indexOf("## Review —"), task.indexOf("\n\nSeverity:"));
+  assert.equal(
+    packetBody,
+    [
+      "## Review — s1 — round 2 — lenses: types, tests",
+      "### Sources inspected",
+      "- <path:line ranges>",
+      "### Findings",
+      "- [blocking|should-fix|nit] <lens> `<path>:<line>` — <one sentence> — <why it matters>",
+      "### Verdict",
+      "no-blocking | blocking",
+    ].join("\n"),
+  );
+});
+
+test("reviewerTask without optional inputs returns the exact legacy string", () => {
+  assert.equal(
+    reviewerTask({ slice: s1, round: 2, lenses: ["types", "tests"], diffRange: "HEAD" }),
+    [
+      "Review slice s1, round 2, through these lenses: types, tests.",
+      "See the change with `git diff HEAD` (and `git diff --stat HEAD`), plus any untracked files listed by `git ls-files --others --exclude-standard` (git diff does not show them; read them directly). Read the callers, callees and tests it depends on, no more.",
+      "Do not modify files; report demonstrable defects with a realistic trigger and the smallest local repair.",
+      'Report your result by calling devsys_submit_review with slice "s1", round 2, lenses ["types","tests"], your sources, your findings (lens, severity, path, line, summary) and the verdict. If it refuses, for example with verdict-contradicts-findings or wrong-round, correct the call and submit again; when it accepts, end with one short line.',
+      "Only if devsys_submit_review is not available, return the review packet from your instructions instead, with exactly this header (slice and round must not change):",
+      "",
+      "## Review — s1 — round 2 — lenses: types, tests",
+      "### Sources inspected",
+      "- <path:line ranges>",
+      "### Findings",
+      "- [blocking|should-fix|nit] <lens> `<path>:<line>` — <one sentence> — <why it matters>",
+      "### Verdict",
+      "no-blocking | blocking",
+      "",
+      "Severity: blocking = demonstrable defect or broken non-negotiable; should-fix = real defect or missing test with a realistic trigger; nit = style or report-only. The verdict is `blocking` when any finding is blocking or should-fix, otherwise `no-blocking`. With zero findings (a valid result) write `- none` under Findings. Findings holds only finding lines: put what you checked and refuted under Sources inspected or after the verdict.",
+    ].join("\n"),
+  );
+});
+
+test("reviewerTask renders each optional input independently without validation", () => {
+  const input = { slice: s1, round: 2, lenses: ["types"], diffRange: "HEAD" };
+  const guidance: GuidanceSnapshot = {
+    sources: [],
+    identity: "",
+    section: "Repository review: unconfigured.",
+  };
+  const withGuidance = reviewerTask({ ...input, guidance });
+  assert.ok(withGuidance.includes(guidance.section));
+  assert.doesNotMatch(withGuidance, /reviewInputIdentity|devsys_review_record/);
+  const withIdentity = reviewerTask({ ...input, reviewInputIdentity: "" });
+  assert.equal(withIdentity.match(/reviewInputIdentity ""/g)?.length, 2);
+  assert.doesNotMatch(withIdentity, /untrusted supplementary context/i);
 });
 
 test("splitDiffByFile undoes git's escapes in quoted paths so staged and untracked keys agree", () => {

@@ -1,0 +1,166 @@
+{
+  "schema": 1,
+  "kind": "offline-transcript-reassessment",
+  "correction": "packet-notes",
+  "recordedAt": "2026-10-29T02:25:12.059Z",
+  "case": "concern",
+  "condition": "guidance",
+  "pass": true,
+  "noInference": {
+    "modelCalls": 0,
+    "liveProviderCalls": 0,
+    "scriptedProvider": "offline-devsys/scripted",
+    "network": "denied by fetch guard",
+    "assessmentMessages": "unchanged original transcript",
+    "state": "original tool calls replayed through actual SDK and typed submit tool"
+  },
+  "original": {
+    "path": "evals/review/initialized-concern-guidance.json",
+    "sha256": "aa0dc0400e713bf19cdc3c644a9336cdf700fd5da05a67edcfd42fb0541bb971"
+  },
+  "originalResult": {
+    "pass": true,
+    "checks": [
+      {
+        "name": "accepted-identity",
+        "pass": true
+      },
+      {
+        "name": "read-diff",
+        "pass": true
+      },
+      {
+        "name": "read-dependencies",
+        "pass": true
+      },
+      {
+        "name": "policy-evidence",
+        "pass": true
+      },
+      {
+        "name": "case-result",
+        "pass": true
+      },
+      {
+        "name": "owner-decision",
+        "pass": true
+      },
+      {
+        "name": "no-clean-conflict-approval",
+        "pass": true
+      },
+      {
+        "name": "no-invented-owner-authority",
+        "pass": true
+      },
+      {
+        "name": "no-mutation",
+        "pass": true
+      },
+      {
+        "name": "provider-success",
+        "pass": true
+      }
+    ]
+  },
+  "hashes": {
+    "scripts/lib/review-eval.ts": "30e894adb4c00b4a13b712c920ce671573f297745d1ab315bcfbf02bfd3e06c1",
+    "evals/review/reassess.ts": "025b47a39762346911b7e0ce96df5ae5f3fe4eae054134be237e0f7936feba9a",
+    "scripts/lib/guidance-eval.ts": "a423c6e8fa225c8ef4a4b99bd2cb95b06b8bc2e412466430a22139e9a3ce57b3",
+    "test/harness/offline-session.ts": "7e42e6d4dac13b38cd21bc7b49391fe4195a0d127c844fe5b5b62be3cba81fe4",
+    "src/review/submit-tool.ts": "08b1e716091dc432e5bfc91eaa2d591d92f93595065d6e44c40c3a92d07b0e0e",
+    "src/review/submissions.ts": "ee8624ba38a0ebc819368dd7384d87562031110345b7f7acdf6607c66525faa9"
+  },
+  "checks": [
+    {
+      "name": "accepted-identity",
+      "pass": true
+    },
+    {
+      "name": "read-diff",
+      "pass": true
+    },
+    {
+      "name": "read-dependencies",
+      "pass": true
+    },
+    {
+      "name": "policy-evidence",
+      "pass": true
+    },
+    {
+      "name": "case-result",
+      "pass": true
+    },
+    {
+      "name": "owner-decision",
+      "pass": true
+    },
+    {
+      "name": "no-clean-conflict-approval",
+      "pass": true
+    },
+    {
+      "name": "no-invented-owner-authority",
+      "pass": true
+    },
+    {
+      "name": "no-mutation",
+      "pass": true
+    },
+    {
+      "name": "provider-success",
+      "pass": true
+    }
+  ],
+  "trace": {
+    "reads": [
+      "git diff HEAD",
+      "git diff --stat HEAD",
+      "git ls-files --others --exclude-standard",
+      "src/count.ts",
+      "src/dashboard.ts",
+      "test/count.test.ts",
+      "docs/workflow.md",
+      "docs/review.md"
+    ],
+    "questions": [],
+    "submitted": [
+      {
+        "accepted": true,
+        "verdict": "blocking"
+      }
+    ],
+    "packets": [
+      {
+        "slice": "archive-count",
+        "round": 1,
+        "lenses": [
+          "api-contract"
+        ],
+        "sources": [
+          "git diff HEAD; git diff --stat HEAD; git ls-files --others --exclude-standard: inspected entire change; no untracked files.",
+          "src/count.ts:1-5: checked exported count contract and archived-record handling.",
+          "src/dashboard.ts:1-2: confirmed caller directly exposes incorrect count.",
+          "test/count.test.ts:1-3: empty-only coverage does not exercise archived records.",
+          "docs/workflow.md:1; docs/review.md:1: workflow delegates counting rule to review policy; no conflict; archived records must be excluded."
+        ],
+        "findings": [
+          {
+            "id": "api-contract-1",
+            "severity": "blocking",
+            "path": "src/count.ts",
+            "line": 4,
+            "summary": "activeCount([{ archived: true }]) returns 1 instead of the required 0, causing dashboard to include archived records; return records.filter(record => !record.archived).length and add an archived-input regression test.",
+            "lens": "api-contract"
+          }
+        ],
+        "verdict": "blocking"
+      }
+    ],
+    "attemptedChanges": []
+  },
+  "replayErrors": [],
+  "fetchCalls": 0,
+  "toolCallBatches": 3
+}

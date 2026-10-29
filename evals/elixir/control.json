@@ -1,0 +1,10 @@
+{
+  "id": "control",
+  "task": "Plan a small pure slug-normalization boundary fix using the existing public API and test suite. Inspect this ordinary Mix repository and submit one plan; selected commands are not executed.",
+  "sources": [
+    {"path": "AGENTS.md", "content": "This small library uses standard Mix commands: mix test and mix format --check-formatted. Use exactly these for this change. No Nix/just, browser, Phoenix, property library, Credo, Dialyzer or new dependency is needed."},
+    {"path": "mix.exs", "content": "Elixir library, no dependencies."},
+    {"path": "lib/slug.ex", "content": "Pure Slug.parse/1 uses {:ok, slug} and {:error, :empty}. Preserve this contract. Add an ExUnit public boundary test for whitespace-only input."}
+  ],
+  "expectation": {"errorStyle": "tagged-tuples", "businessLogic": "pure-core", "testLevels": ["domain"], "commands": ["mix test", "mix format --check-formatted"], "newDependencies": [], "commandEvidence": "NOT EXECUTED"}
+}

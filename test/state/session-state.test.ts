@@ -109,6 +109,36 @@ test("profiles and lastTestRun round-trip; bad ones are rejected", async () => {
   assert.equal(bad({ lastTestRun: "red" }), true);
 });
 
+test("legacy persisted profiles and absent profiles restore unchanged", () => {
+  const legacyStates = [
+    initialState(),
+    { ...initialState(), profiles: [] },
+    { ...initialState(), profiles: ["rust"] },
+    { ...initialState(), profiles: ["typescript"] },
+    { ...initialState(), profiles: ["rust", "typescript"] },
+  ];
+  for (const state of legacyStates) {
+    assert.deepEqual(parseDevsysState(state), state);
+    const restored = createSessionState(createFakePi().api);
+    restored.rebuildFrom([{ customType: "devsys-state", data: state }]);
+    assert.deepEqual(restored.get(), state);
+  }
+});
+
+test("unknown persisted profiles remain rejected after an elixir state", () => {
+  const valid = { ...initialState(), profiles: ["rust", "typescript", "elixir"] };
+  const invalid = { ...valid, profiles: ["elixir", "cobol"] };
+  assert.deepEqual(parseDevsysState(valid), valid);
+  assert.equal(isParseError(parseDevsysState(invalid)), true);
+
+  const restored = createSessionState(createFakePi().api);
+  restored.rebuildFrom([
+    { customType: "devsys-state", data: valid },
+    { customType: "devsys-state", data: invalid },
+  ]);
+  assert.deepEqual(restored.get(), valid);
+});
+
 test("reviews round-trip; malformed ones are rejected", () => {
   const review = {
     slice: "s1",

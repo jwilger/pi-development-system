@@ -1,11 +1,41 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import type { Exec } from "../../src/core/exec.ts";
-import { digestOf, snapshotDiff } from "../../src/review/digest.ts";
+import { digestOf, reviewInput, snapshotDiff } from "../../src/review/digest.ts";
+
+test("reviewInput deterministically hashes the diff and guidance tuple with full SHA256", () => {
+  const expected = createHash("sha256")
+    .update(JSON.stringify(["diff", "guidance"]))
+    .digest("hex");
+  assert.deepEqual(reviewInput("diff", "guidance"), {
+    diffDigest: "diff",
+    guidanceIdentity: "guidance",
+    identity: expected,
+  });
+  assert.deepEqual(reviewInput("diff", "guidance"), reviewInput("diff", "guidance"));
+  assert.match(reviewInput("diff", "guidance").identity, /^[0-9a-f]{64}$/);
+});
+
+test("reviewInput identity changes with the diff or guidance", () => {
+  const original = reviewInput("diff", "guidance").identity;
+  assert.notEqual(reviewInput("changed-diff", "guidance").identity, original);
+  assert.notEqual(reviewInput("diff", "changed-guidance").identity, original);
+  assert.notEqual(reviewInput("guidance", "diff").identity, original);
+});
+
+test("reviewInput hashes an unambiguous JSON tuple rather than joined strings", () => {
+  assert.notEqual(reviewInput("a", "bc").identity, reviewInput("ab", "c").identity);
+  assert.notEqual(reviewInput("a,b", "c").identity, reviewInput("a", "b,c").identity);
+  const expected = createHash("sha256")
+    .update(JSON.stringify(['a"\\n', "b\\0c"]))
+    .digest("hex");
+  assert.equal(reviewInput('a"\\n', "b\\0c").identity, expected);
+});
 
 // Real git, because the defects here were about what git actually prints under a user's config.
 const git = (cwd: string, ...args: string[]): string =>

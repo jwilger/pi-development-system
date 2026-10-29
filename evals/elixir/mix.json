@@ -1,0 +1,11 @@
+{
+  "id": "mix",
+  "task": "Plan a boundary-tested change to reject negative invoice quantities while preserving the public expected-error contract. Inspect the synthetic repository and submit one Elixir plan. Select verification commands; do not execute them.",
+  "sources": [
+    {"path": "AGENTS.md", "content": "Use the existing Nix/just environment. Verification commands for this change are exactly: nix develop --command just domain-test; nix develop --command just format-check. No direct mix commands outside this environment. No new dependencies. Do not run unrelated checks."},
+    {"path": "mix.exs", "content": "Invoice application, Elixir ~> 1.18. Existing test dependencies include stream_data. No Phoenix, Credo or Dialyzer configured."},
+    {"path": "lib/invoice.ex", "content": "Invoice.quote/1 is pure, returns {:ok, total} or {:error, :invalid_quantity}; callers use case/with pattern matching, not a Result class or exceptions for expected errors."},
+    {"path": "test/invoice_test.exs", "content": "ExUnit tests cover public Invoice.quote/1. Existing ExUnitProperties generators check nonnegative quantities and total invariants. Add the negative boundary regression and extend this appropriate property. No UI or browser behavior changes."}
+  ],
+  "expectation": {"errorStyle": "tagged-tuples", "businessLogic": "pure-core", "testLevels": ["domain", "property"], "commands": ["nix develop --command just domain-test", "nix develop --command just format-check"], "newDependencies": [], "commandEvidence": "NOT EXECUTED"}
+}
