@@ -335,6 +335,30 @@ no automatic retry, rollback, schema provisioning, assignment, lifecycle or othe
 field update. Option names have no built-in workflow meaning. Preflight/readback
 cannot eliminate concurrent human races or provide an exclusive claim.
 
+### Explicit issue assignment
+
+With `tracker.repo` configured, `assign` adds or removes only explicitly named
+GitHub logins. A Project is not required:
+
+```json
+{"action":"assign","id":"7","operation":"add","assignees":["alice"]}
+```
+
+Use `operation:"remove"` to remove the named assignees. Empty or duplicate lists,
+`@me`, switches and invalid identities are refused. The tool verifies issue identity
+and complete current assignees before an edit. Already-satisfied requests are verified
+no-ops. Otherwise it sends one assignee-only edit and re-reads the issue to confirm
+requested membership and preservation of unrelated assignees. Existing `gh`
+repository access and Issues write permission must already be available.
+
+Results contain `kind`, `message`, `before`, `after` and `ownership:"not-exclusive"`.
+Preflight refusals are `not-attempted`; dispatched failures, invalid acknowledgements
+and failed readback are `uncertain`. Both are tool errors. Re-read before deciding
+on an explicit retry; there is no automatic retry or rollback. Assignment neither
+reserves work nor changes Project fields, labels or issue lifecycle. Concurrent human
+changes can race these observations; even confirmed assignment is not an atomic or
+exclusive claim.
+
 ## Model tiers
 
 Models are asked for by slot, never by id. Three capability tiers (`frontier`, `strong`, `fast`)

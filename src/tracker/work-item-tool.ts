@@ -14,6 +14,7 @@ const Parameters = Type.Object({
       Type.Literal("project-member"),
       Type.Literal("project-enroll"),
       Type.Literal("project-set"),
+      Type.Literal("assign"),
       Type.Literal("list"),
       Type.Literal("get"),
       Type.Literal("create"),
@@ -25,7 +26,17 @@ const Parameters = Type.Object({
   id: Type.Optional(
     Type.String({
       description:
-        "Work item id (get, update, comment); issue number (project-member, project-enroll, project-set).",
+        "Work item id (get, update, comment); issue number (project-member, project-enroll, project-set, assign).",
+    }),
+  ),
+  operation: Type.Optional(
+    Type.Union([Type.Literal("add"), Type.Literal("remove")], {
+      description: "Explicit assignee membership operation (assign); never an exclusive claim.",
+    }),
+  ),
+  assignees: Type.Optional(
+    Type.Array(Type.String(), {
+      description: "Nonempty unique explicit GitHub logins (assign); no @me or defaults.",
     }),
   ),
   fieldId: Type.Optional(
@@ -125,6 +136,17 @@ async function comment(tracker: Tracker, p: Params) {
   return show(await tracker.comment(id, body), () => `commented on ${id}`);
 }
 
+async function assign(tracker: Tracker, p: Params) {
+  if (p.id === undefined) return missing("assign", "id");
+  if (p.operation === undefined) return missing("assign", "operation");
+  if (p.assignees === undefined) return missing("assign", "assignees");
+  if (tracker.assign === undefined) return reply("assign is unsupported by this tracker", true);
+  const result = await tracker.assign(p.id, { operation: p.operation, assignees: p.assignees });
+  return result.ok
+    ? reply(JSON.stringify(result.value), result.value.kind !== "confirmed")
+    : reply(result.error.message, true);
+}
+
 async function projectSet(tracker: Tracker, p: Params) {
   if (p.id === undefined || p.id.trim() === "") return missing(p.action, "id");
   if (p.fieldId === undefined || p.fieldId.trim() === "") return missing(p.action, "fieldId");
@@ -201,6 +223,8 @@ async function run(tracker: Tracker, p: Params) {
       }
     case "project-set":
       return projectSet(tracker, p);
+    case "assign":
+      return assign(tracker, p);
     case "list": {
       const items = await tracker.list(optional("status", p.status));
       return show(items, (all) => (all.length === 0 ? "no work items" : all.map(line).join("\n")));
@@ -225,7 +249,8 @@ export function createWorkItemTool(deps: { exec: Exec }): ToolDefinition<typeof 
     label: "Work items",
     description:
       "List, read, create, update or comment on work items in the project's tracker (repo files by default, GitHub issues when configured). " +
-      "Use it for the backlog instead of editing tracker files or running gh by hand.",
+      "Use it for the backlog instead of editing tracker files or running gh by hand. " +
+      "Explicitly add/remove named GitHub assignees with assign; assignment is not an exclusive claim or a Project/lifecycle change.",
     promptSnippet: "Read and write the project's work items",
     parameters: Parameters,
     exposure: "codemode",

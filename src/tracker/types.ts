@@ -20,6 +20,19 @@ export type NewWorkItem = {
 
 export type WorkItemPatch = Partial<Pick<WorkItem, "title" | "body" | "status" | "labels">>;
 
+export type AssignmentRequest = {
+  readonly operation: "add" | "remove";
+  readonly assignees: readonly string[];
+};
+
+export type AssignmentResult = {
+  readonly kind: "confirmed" | "not-attempted" | "uncertain";
+  readonly message: string;
+  readonly before: readonly string[];
+  readonly after: readonly string[] | null;
+  readonly ownership: "not-exclusive";
+};
+
 export type ItemFilter = { readonly status?: WorkStatus };
 
 export type TrackerError = { readonly kind: "tracker-error"; readonly message: string };
@@ -161,6 +174,7 @@ export interface Tracker {
   projectMember?(id: string): Promise<TrackerResult<ProjectMembership>>;
   projectEnroll?(id: string): Promise<TrackerResult<ProjectEnrollment>>;
   projectSet?(id: string, request: ProjectSetRequest): Promise<TrackerResult<ProjectSetResult>>;
+  assign?(id: string, request: AssignmentRequest): Promise<TrackerResult<AssignmentResult>>;
   list(filter: ItemFilter): Promise<TrackerResult<WorkItem[]>>;
   get(id: string): Promise<TrackerResult<WorkItem>>;
   create(item: NewWorkItem): Promise<TrackerResult<WorkItem>>;

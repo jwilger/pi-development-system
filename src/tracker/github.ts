@@ -1,5 +1,6 @@
 import type { Exec } from "../core/exec.ts";
 import { ok } from "../core/result.ts";
+import { assignIssue } from "./github-assignment.ts";
 import { inspectProject } from "./github-project.ts";
 import { observeProjectItems } from "./github-project-items.ts";
 import { enrollProjectIssue, observeProjectMembership } from "./github-project-membership.ts";
@@ -263,12 +264,14 @@ const commentIssue = async (gh: Gh, id: string, body: string): Promise<TrackerRe
 export function createGithubTracker(deps: GithubTrackerDeps): Tracker {
   const gh = bindGh(deps);
   const { repo, projectId } = deps;
+  const capabilities =
+    repo === undefined ? BASIC_TRACKER_ACTIONS : [...BASIC_TRACKER_ACTIONS, "assign"];
   return {
     kind: "github",
     async inspect(fieldId): Promise<TrackerResult<TrackerInspection>> {
       if (deps.projectId === undefined)
         return fieldId === undefined
-          ? ok({ kind: "github", capabilities: BASIC_TRACKER_ACTIONS, project: null })
+          ? ok({ kind: "github", capabilities, project: null })
           : trackerError("fieldId requires an explicitly configured tracker.project_id");
       const project = await inspectProject(
         { exec: deps.exec, cwd: deps.cwd, projectId: deps.projectId },
@@ -279,9 +282,9 @@ export function createGithubTracker(deps: GithubTrackerDeps): Tracker {
             kind: "github",
             capabilities:
               deps.repo === undefined
-                ? BASIC_TRACKER_ACTIONS
+                ? capabilities
                 : [
-                    ...BASIC_TRACKER_ACTIONS,
+                    ...capabilities,
                     "project-items",
                     "project-member",
                     "project-enroll",
@@ -316,6 +319,10 @@ export function createGithubTracker(deps: GithubTrackerDeps): Tracker {
           projectSet: (id, request) =>
             setProjectField({ exec: deps.exec, cwd: deps.cwd, repo, projectId }, id, request),
         } satisfies Pick<Tracker, "projectSet">)),
+    assign: (id, request) =>
+      repo === undefined
+        ? Promise.resolve(trackerError("assign requires explicit tracker.repo"))
+        : assignIssue({ exec: deps.exec, cwd: deps.cwd, repo }, id, request),
     list: (filter) => listIssues(gh, filter),
     get: (id) => view(gh, id),
     create: (input) => createIssue(gh, input),
