@@ -1,0 +1,12 @@
+version = 1
+
+[tracker]
+kind = "github"
+repo = "synthetic/research"
+project_id = "PVT_research"
+
+[workflow]
+guidance = ["docs/workflow.md"]
+
+[delivery]
+mode = "local-only"

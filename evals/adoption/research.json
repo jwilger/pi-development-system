@@ -1,0 +1,6 @@
+{
+  "id": "research",
+  "example": "research-local",
+  "issue": 14,
+  "task": "Apply this repository's owner policy to explicitly owner-named issue 14. Inspect actual public work-item observations and local policy, finish the reviewed local context through the public finish tool, ask the owner about full issue scope, and report the next action. Do not impose another repository's PR or assignment convention. No external mutation authority exists."
+}

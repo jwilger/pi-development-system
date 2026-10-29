@@ -48,17 +48,17 @@ function reviewCleared(state: DevsysState): boolean {
   return reviewWaived(state) || (review !== undefined && isSatisfied(review));
 }
 
-/** What delivered the slice: a commit when nothing leaves the machine, otherwise a push. */
+/** Local closure trigger: a commit in local-only mode, otherwise a push; never PR or issue evidence. */
 const shipped = (mode: string, command: string): boolean =>
   mode === "local-only" ? extractCommits(command).length > 0 : pushTargets(command).length > 0;
 
 const closedMessage = (slice: string, how: string): string =>
-  `Slice ${slice} ${how}. Phase: idle; the next request starts new work with devsys_intake.`;
+  `Local slice ${slice} ${how}. PR delivery and whole-issue completion are not evaluated by this closure. Phase: idle; the next request starts new work with devsys_intake.`;
 
 /**
- * Closes the slice when it ships: in any in-flight phase whose review is satisfied (`delivering`, or a session
- * saved before the life cycle existed) or waived by a recorded departure, a successful push (trunk, pull-request) or commit (local-only) that
- * leaves a clean working tree. CI is not awaited; the push guard already refuses to build on a red trunk.
+ * Closes local work context after its review is satisfied or explicitly waived and a clean push
+ * (trunk, pull-request) or local-only commit. CI, PR delivery and whole-issue completion are not
+ * evaluated here; closing local context supplies no evidence for those separate claims.
  */
 export function registerSliceClose(deps: SliceCloseDeps): void {
   deps.pi.on("tool_result", async (event, ctx) => {
@@ -83,7 +83,12 @@ export function registerSliceClose(deps: SliceCloseDeps): void {
     deps.pi.sendMessage(
       {
         customType: SLICE_ENTRY_TYPE,
-        content: closedMessage(activeSlice, "was delivered"),
+        content: closedMessage(
+          activeSlice,
+          config.value.delivery.mode === "local-only"
+            ? "closed after a clean local commit"
+            : "closed after a clean push",
+        ),
         display: true,
       },
       { triggerTurn: false },
@@ -137,8 +142,8 @@ async function finishBlocker(deps: Pick<SliceCloseDeps, "state" | "exec">, cwd: 
 }
 
 /**
- * `devsys_finish_slice`: the explicit way to close a slice. The push guard closes a delivered slice by itself;
- * this covers what it cannot see (a push made outside pi, a slice that is dropped) and checks the same facts.
+ * Explicit local-context closure, with the same checks as automatic closure. Neither route
+ * establishes PR delivery or whole-issue completion; abandonment additionally requires owner confirmation.
  */
 export function createFinishSliceTool(
   deps: Pick<SliceCloseDeps, "state" | "exec">,
@@ -147,8 +152,8 @@ export function createFinishSliceTool(
     name: "devsys_finish_slice",
     label: "Finish slice",
     description:
-      "Close the active slice and return to idle. Checks that its review is satisfied (or waived by a recorded departure), the tree is clean and the commits are pushed. With abandon and a reason it drops the slice without delivering it, after the user confirms.",
-    promptSnippet: "Close the active slice once it is delivered, or abandon it",
+      "Close local slice context and return to idle after review (or explicit waiver), a clean tree and the configured commit/push checks. This does not evaluate CI, PR delivery or whole-issue completion. With abandon and a reason it drops the slice after user confirmation.",
+    promptSnippet: "Close local slice context; PR delivery and whole-issue completion are separate",
     parameters: Parameters,
     exposure: "model-only",
     executionMode: "sequential",
@@ -190,7 +195,7 @@ export function createFinishSliceTool(
       }
       if (deps.state.get().activeSlice !== activeSlice) return changedMeanwhile(activeSlice);
       deps.state.update(closeSlice);
-      return reply(closedMessage(activeSlice, "is finished"));
+      return reply(closedMessage(activeSlice, "is finished locally"));
     },
   };
 }

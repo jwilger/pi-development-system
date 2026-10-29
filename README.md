@@ -61,10 +61,11 @@ A dedicated extension that offers `event_model_validate`, or `event_model.provid
 
 A slice has a life cycle: `implementing` → `reviewing` (when a review round starts) → `delivering`
 (review satisfied) → `idle`. Editing production source while delivering reopens `implementing`,
-and red-first stays on throughout. A push of a clean tree closes a delivered slice by itself (a commit
-in `local-only` mode; CI is not awaited), and `devsys_finish_slice` closes it explicitly or, with a
-reason, abandons it. A plan's increments each end in a push, so each increment is its own slice: the
-next one starts with `devsys_intake`.
+and red-first stays on throughout. A push of a clean tree closes the local slice context by itself
+(a commit in `local-only` mode; CI is not awaited), and `devsys_finish_slice` closes it explicitly or,
+with a reason, abandons it. This does **not** establish PR delivery or whole-issue completion.
+Consolidate preparatory steps into usable increments; the approved plan is not a requirement for
+one handoff or release per step. After a local slice closes, the next increment starts with `devsys_intake`.
 
 `devsys_intake` does not interrupt autonomous work: Jev's size is used when Jev is at least 50%
 confident, and the user is asked to pick only when it is less sure (or unavailable). A size decided up
@@ -389,6 +390,72 @@ on an explicit retry; there is no automatic retry or rollback. Assignment neithe
 reserves work nor changes Project fields, labels or issue lifecycle. Concurrent human
 changes can race these observations; even confirmed assignment is not an atomic or
 exclusive claim.
+
+### PR observations and whole-issue completion
+
+`delivery-check` reads explicit PR references without writing or polling:
+
+```json
+{"action":"delivery-check","refs":[{"repository":"o/r","number":11}],"conditions":{"requireMerge":true,"targetBase":"main","requiredChecks":["CI"]}}
+```
+
+The result reports only those requested conditions: `satisfied`, `pending`, `failed`,
+`blocked`, `unknown` or `unassessed`. Auto-merge being armed is not a merge. Missing,
+old-head, incomplete or unsupported evidence never passes a required condition.
+Manual requirements stay `unknown`; there is no universal CodeRabbit, deployment,
+merge or priority policy. These are bounded observations, not an atomic snapshot.
+
+For resumable repository-owned completion, opt in explicitly:
+
+```toml
+[tracker]
+kind = "github"
+repo = "o/r"
+
+[delivery.evidence]
+manifest_dir = "docs/delivery"
+require_manifest = true
+require_merged = true
+base = "main"
+required_checks = ["CI"]
+```
+
+Author and track `docs/delivery/7.json` with the **complete required PR set**:
+
+```json
+{"version":1,"issue":{"repository":"o/r","number":7},"pullRequests":[{"repository":"o/r","number":11},{"repository":"o/r","number":12}],"manualRequirements":[]}
+```
+
+Manifests contain references, not cached workflow/status/credential data. They must
+be Git-tracked regular UTF-8 files within the repository, at most 32 KiB; symlinks,
+unknown versions/fields, malformed or duplicate refs, escapes and wrong issue identity
+are refused. Existing invalid files are not ignored. Optional absent manifests may
+use explicit refs, but explicit refs cannot replace a present manifest's declared set.
+Nothing writes or provisions manifests automatically.
+
+`{"action":"delivery-check","id":"7"}` evaluates configured policy using the
+current manifest. `{"action":"complete","id":"7","scopeConfirmed":true}` requires
+explicit confirmation of the **whole issue scope**, fresh configured evidence and
+unchanged local manifest/config before sending one issue close and verifying it.
+The tool cannot prove that the declared PR set or a scope assertion covers all work;
+the repository owner remains responsible for that declaration. An uncertain close
+is an error requiring re-read before any explicit retry, never automatic rollback.
+
+With evidence configured, legacy `update status:"done"` refuses before title, label
+or lifecycle edits; use `complete`. Caller conditions cannot weaken configured
+completion policy. `require_manifest` alone does not imply merge; an empty policy is
+unassessed, not a hidden default. With no evidence configuration, legacy behavior is
+unchanged and `complete` says delivery is unconfigured/not evaluated. Completion
+changes issue lifecycle only, never a Project terminal field or other local workflow.
+GitHub PR/check reads and issue-write permissions must already exist; Project scopes
+are needed only for separate Project operations. External `gh`, UI and automation
+writes are outside this guard.
+
+See the [product PR workflow](docs/examples/product-pr/workflow.md),
+[research/local workflow](docs/examples/research-local/workflow.md),
+[finite adoption effects and limitations](evals/adoption/README.md), and
+[Simulac adoption recipe](docs/adoption/simulac.md). The same primitives support both
+examples without upstream workflow code changes.
 
 ### Elixir and Phoenix
 

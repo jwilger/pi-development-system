@@ -1,4 +1,29 @@
 import type { Result } from "../core/result.ts";
+import type {
+  DeliveryAssessment,
+  DeliveryConditions,
+  PullRequestRef,
+} from "./delivery-assessment.ts";
+
+export type DeliveryRequest = {
+  readonly refs: readonly PullRequestRef[];
+  readonly conditions?: DeliveryConditions;
+};
+
+export type ConfiguredDeliveryRequest = {
+  readonly id: string;
+  readonly refs?: readonly PullRequestRef[];
+};
+export type CompletionRequest = {
+  readonly scopeConfirmed: true;
+  readonly refs?: readonly PullRequestRef[];
+};
+export type CompletionResult = {
+  readonly kind: "confirmed" | "uncertain";
+  readonly message: string;
+  readonly issue: WorkItem | null;
+  readonly delivery: DeliveryAssessment | { readonly status: "unconfigured" };
+};
 
 export const WORK_STATUSES = ["open", "in-progress", "done"] as const;
 export type WorkStatus = (typeof WORK_STATUSES)[number];
@@ -169,6 +194,10 @@ export const BASIC_TRACKER_ACTIONS = [
 /** Where work items live. One adapter per `[tracker] kind`; callers never see the backend. */
 export interface Tracker {
   readonly kind: string;
+  complete?(id: string, request: CompletionRequest): Promise<TrackerResult<CompletionResult>>;
+  deliveryCheck?(
+    request: DeliveryRequest | ConfiguredDeliveryRequest,
+  ): Promise<TrackerResult<DeliveryAssessment>>;
   inspect?(fieldId?: string): Promise<TrackerResult<TrackerInspection>>;
   projectItems?(filter: ProjectItemFilter): Promise<TrackerResult<ProjectItems>>;
   projectMember?(id: string): Promise<TrackerResult<ProjectMembership>>;

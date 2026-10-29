@@ -3,6 +3,7 @@ import { type Static, Type } from "typebox";
 import type { Exec } from "../core/exec.ts";
 import { assertNever } from "../core/exhaustive.ts";
 import { CONFIG_FILE, configErrorText, loadConfig, POLICY_ONLY } from "../state/config.ts";
+import { deliveryRoot } from "../state/delivery-manifest.ts";
 import { createTracker } from "./select.ts";
 import { BASIC_TRACKER_ACTIONS, type Tracker, type TrackerResult, type WorkItem } from "./types.ts";
 
@@ -10,6 +11,8 @@ const Parameters = Type.Object({
   action: Type.Union(
     [
       Type.Literal("inspect"),
+      Type.Literal("delivery-check"),
+      Type.Literal("complete"),
       Type.Literal("project-items"),
       Type.Literal("project-member"),
       Type.Literal("project-enroll"),
@@ -22,6 +25,29 @@ const Parameters = Type.Object({
       Type.Literal("comment"),
     ],
     { description: "What to do with the work tracker." },
+  ),
+  scopeConfirmed: Type.Optional(
+    Type.Boolean({
+      description:
+        "Explicit confirmation that the whole issue scope is complete; not merely a local slice.",
+    }),
+  ),
+  refs: Type.Optional(
+    Type.Array(
+      Type.Object({
+        repository: Type.String(),
+        number: Type.Integer({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER }),
+      }),
+      { minItems: 1 },
+    ),
+  ),
+  conditions: Type.Optional(
+    Type.Object({
+      requireMerge: Type.Optional(Type.Boolean()),
+      targetBase: Type.Optional(Type.String()),
+      requiredChecks: Type.Optional(Type.Array(Type.String())),
+      manualRequirements: Type.Optional(Type.Array(Type.String())),
+    }),
   ),
   id: Type.Optional(
     Type.String({
@@ -168,8 +194,41 @@ async function projectSet(tracker: Tracker, p: Params) {
     : reply(result.error.message, true);
 }
 
+async function complete(tracker: Tracker, p: Params) {
+  if (p.id === undefined) return missing(p.action, "id");
+  if (p.scopeConfirmed !== true)
+    return missing(p.action, "scopeConfirmed:true for the whole issue");
+  if (tracker.complete === undefined) return reply("complete requires a GitHub tracker", true);
+  const result = await tracker.complete(p.id, {
+    scopeConfirmed: true,
+    ...optional("refs", p.refs),
+  });
+  return result.ok
+    ? reply(JSON.stringify(result.value), result.value.kind === "uncertain")
+    : reply(result.error.message, true);
+}
+async function deliveryCheck(tracker: Tracker, p: Params) {
+  if (p.id !== undefined && p.conditions !== undefined)
+    return reply("id mode uses configured conditions; omit caller conditions", true);
+  if (p.id === undefined && p.refs === undefined) return missing(p.action, "explicit refs or id");
+  return tracker.deliveryCheck === undefined
+    ? reply("delivery-check requires a GitHub tracker", true)
+    : show(
+        await tracker.deliveryCheck(
+          p.id === undefined
+            ? { refs: p.refs ?? [], ...optional("conditions", p.conditions) }
+            : { id: p.id, ...optional("refs", p.refs) },
+        ),
+        (assessment) => JSON.stringify(assessment),
+      );
+}
+
 async function run(tracker: Tracker, p: Params) {
   switch (p.action) {
+    case "complete":
+      return complete(tracker, p);
+    case "delivery-check":
+      return deliveryCheck(tracker, p);
     case "inspect":
       if (tracker.inspect !== undefined)
         return show(await tracker.inspect(p.fieldId), (inspection) => JSON.stringify(inspection));
@@ -261,12 +320,13 @@ export function createWorkItemTool(deps: { exec: Exec }): ToolDefinition<typeof 
       _onUpdate,
       ctx: ExtensionContext,
     ) {
-      const config = await loadConfig(ctx.cwd, POLICY_ONLY);
+      const cwd = await deliveryRoot(ctx.cwd);
+      const config = await loadConfig(cwd, POLICY_ONLY);
       if (!config.ok) return reply(configErrorText(config.error), true);
       const tracker = createTracker({
         tracker: config.value.tracker,
         exec: deps.exec,
-        cwd: ctx.cwd,
+        cwd,
       });
       if (!tracker.ok) return reply(`${CONFIG_FILE}: ${tracker.error.message}`, true);
       return run(tracker.value, params);

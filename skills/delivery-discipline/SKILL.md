@@ -67,6 +67,30 @@ branch, open the PR, and wait for its checks.
 
 Pushes are blocked. Commit locally, tell the user what is unpublished.
 
+## Local closure is not delivery
+
+`devsys_finish_slice` closes only the reviewed, clean local context (and, outside
+local-only mode, checks that commits are pushed). It does **not** prove CI, PR
+merge, Project terminal state, or whole-issue scope. A branch, push, open PR, or
+one merged PR is not evidence that every required PR is delivered.
+
+Inspect the repository's explicit workflow and delivery policy first. Where the
+owner opts into delivery evidence, use its tracked, resumable issue manifest and
+supported conditions through `devsys_work_item {action:"delivery-check",id}`;
+caller-requested conditions cannot weaken configured policy. Missing, manual,
+stale, changed, inaccessible, or unknown evidence is not success. Scope
+confirmation is separate from PR evidence: use
+`devsys_work_item {action:"complete",id,scopeConfirmed:true}` only after explicit
+human confirmation of full issue scope and fresh configured evidence. Never infer a terminal Project update
+or issue closure from local finish. With no evidence policy, say **unassessed**;
+local-only repositories need not adopt a PR, merge, queue, or claim convention.
+Assignment is not necessarily exclusive ownership.
+
+Report local context, configured PR assessment, whole-issue scope, and the next
+missing evidence separately. These instructions and public completion checks are
+not a universal wall against raw external forge writes; do not bypass the
+supported operation or invent external authority.
+
 ## Worktrees
 
 Use `.worktrees/<name>` only when two pieces of work genuinely run in
@@ -89,4 +113,5 @@ Copy and tick:
 - [ ] No AI trailer
 - [ ] Local gates green (see references/lefthook.yml for the template)
 - [ ] Pushed per delivery mode; CI watched to green
+- [ ] Local closure distinguished from PR evidence and human-confirmed whole-issue scope
 ```

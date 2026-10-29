@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "issue": { "repository": "synthetic/product", "number": 7 },
+  "pullRequests": [
+    { "repository": "synthetic/product", "number": 31 },
+    { "repository": "synthetic/product", "number": 32 }
+  ],
+  "manualRequirements": []
+}

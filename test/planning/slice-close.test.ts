@@ -279,3 +279,44 @@ test("in local-only mode finish does not ask whether anything is pushed", async 
   const t = setup({ mode: "local-only", noUpstream: true });
   assert.notEqual((await t.finish()).isError, true);
 });
+
+test("automatic closure reports only local context completion, never PR or whole-issue delivery", async () => {
+  const t = setup({ mode: "pull-request" });
+  await t.result("git push origin feature");
+  assert.equal(t.state.get().phase, "idle");
+  const message = t.fake.sentMessages.find(
+    (m) => (m as { customType?: string }).customType === "devsys-slice",
+  ) as { content: string } | undefined;
+  assert.ok(message);
+  assert.match(message.content, /local slice/i);
+  assert.match(message.content, /PR delivery.*not evaluated/i);
+  assert.match(message.content, /whole.issue completion.*not evaluated/i);
+  assert.equal(
+    t.calls.some((call) => /issue|project|pull|pr checks/.test(call)),
+    false,
+  );
+});
+
+test("explicit finish and local-only closure preserve the same delivery uncertainty", async () => {
+  for (const mode of ["trunk", "pull-request", "local-only"]) {
+    const t = setup({ mode, waived: true, satisfied: false });
+    const finished = await t.finish();
+    assert.notEqual(finished.isError, true);
+    assert.equal(t.state.get().phase, "idle");
+    assert.match(text(finished), /local slice/i);
+    assert.match(text(finished), /PR delivery.*not evaluated/i);
+    assert.match(text(finished), /whole.issue completion.*not evaluated/i);
+    assert.equal(
+      t.calls.some((call) => /issue|project|pull|pr checks/.test(call)),
+      false,
+    );
+  }
+  const local = setup({ mode: "local-only" });
+  await local.result("git commit -m 'feat: a slice'");
+  const message = local.fake.sentMessages.find(
+    (m) => (m as { customType?: string }).customType === "devsys-slice",
+  ) as { content: string } | undefined;
+  assert.ok(message);
+  assert.match(message.content, /local commit/i);
+  assert.match(message.content, /whole.issue completion.*not evaluated/i);
+});

@@ -1,6 +1,8 @@
 import type { Exec } from "../core/exec.ts";
 import { ok } from "../core/result.ts";
 import { assignIssue } from "./github-assignment.ts";
+import { completeIssue, completionConfig, configuredDeliveryCheck } from "./github-completion.ts";
+import { observeDelivery } from "./github-delivery.ts";
 import { inspectProject } from "./github-project.ts";
 import { observeProjectItems } from "./github-project-items.ts";
 import { enrollProjectIssue, observeProjectMembership } from "./github-project-membership.ts";
@@ -265,9 +267,14 @@ export function createGithubTracker(deps: GithubTrackerDeps): Tracker {
   const gh = bindGh(deps);
   const { repo, projectId } = deps;
   const capabilities =
-    repo === undefined ? BASIC_TRACKER_ACTIONS : [...BASIC_TRACKER_ACTIONS, "assign"];
+    repo === undefined
+      ? [...BASIC_TRACKER_ACTIONS, "delivery-check", "complete"]
+      : [...BASIC_TRACKER_ACTIONS, "delivery-check", "complete", "assign"];
   return {
     kind: "github",
+    deliveryCheck: (request) =>
+      "id" in request ? configuredDeliveryCheck(deps, request) : observeDelivery(deps, request),
+    complete: (id, request) => completeIssue(deps, id, request),
     async inspect(fieldId): Promise<TrackerResult<TrackerInspection>> {
       if (deps.projectId === undefined)
         return fieldId === undefined
@@ -326,7 +333,17 @@ export function createGithubTracker(deps: GithubTrackerDeps): Tracker {
     list: (filter) => listIssues(gh, filter),
     get: (id) => view(gh, id),
     create: (input) => createIssue(gh, input),
-    update: (id, patch) => updateIssue(gh, id, patch),
+    async update(id, patch) {
+      if (patch.status === "done") {
+        const config = await completionConfig(deps);
+        if (!config.ok) return config;
+        if (config.value.config.delivery.evidence !== undefined)
+          return trackerError(
+            "Configured delivery evidence requires complete with scopeConfirmed:true; update status done cannot close or partly edit the issue",
+          );
+      }
+      return updateIssue(gh, id, patch);
+    },
     comment: (id, body) => commentIssue(gh, id, body),
   };
 }

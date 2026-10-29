@@ -227,3 +227,34 @@ test("a repository config error is reported against the repository file", async 
   assert.ok(!bad.ok);
   assert.match(configErrorText(bad.error), /^\.development-system\.toml: delivery\.mode/);
 });
+
+test("delivery evidence is explicit optional GitHub owner policy with independent merge requirement", () => {
+  assert.equal(value("").delivery.evidence, undefined);
+  const prefix = '[tracker]\nkind="github"\n[delivery.evidence]\n';
+  assert.deepEqual(value(prefix).delivery.evidence, {
+    require_manifest: false,
+    require_merged: false,
+    required_checks: [],
+  });
+  assert.deepEqual(
+    value(`${prefix}require_manifest=true\nmanifest_dir="docs/delivery"\n`).delivery.evidence,
+    {
+      require_manifest: true,
+      require_merged: false,
+      required_checks: [],
+      manifest_dir: "docs/delivery",
+    },
+  );
+  for (const source of [
+    "[delivery.evidence]\n",
+    `${prefix}require_manifest=true\n`,
+    `${prefix}require_merged="yes"\n`,
+    `${prefix}base=" "\n`,
+    `${prefix}required_checks=[""]\n`,
+    `${prefix}required_checks=["CI","CI"]\n`,
+    `${prefix}manifest_dir="../outside"\n`,
+    `${prefix}manifest_dir="/absolute"\n`,
+    `${prefix}guessed=true\n`,
+  ])
+    assert.equal(parseConfig(source).ok, false, source);
+});

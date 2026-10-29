@@ -1,0 +1,21 @@
+version = 1
+
+[tracker]
+kind = "github"
+repo = "synthetic/product"
+project_id = "PVT_product"
+
+[workflow]
+guidance = ["docs/workflow.md"]
+
+[delivery]
+mode = "pull-request"
+trunk = "main"
+remote = "origin"
+
+[delivery.evidence]
+manifest_dir = "delivery"
+require_manifest = true
+require_merged = true
+base = "main"
+required_checks = ["ci"]

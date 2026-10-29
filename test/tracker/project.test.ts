@@ -101,6 +101,8 @@ test("inspection advertises its public schema and returns actual Project field a
     "create",
     "update",
     "comment",
+    "delivery-check",
+    "complete",
     "assign",
     "project-items",
     "project-member",

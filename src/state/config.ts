@@ -30,6 +30,13 @@ export type DevsysConfig = {
     readonly mode: DeliveryMode;
     readonly trunk: string;
     readonly remote: string;
+    readonly evidence?: {
+      readonly manifest_dir?: string;
+      readonly require_manifest: boolean;
+      readonly require_merged: boolean;
+      readonly base?: string;
+      readonly required_checks: readonly string[];
+    };
   };
   readonly review: {
     readonly requiredCleanRounds: number;
@@ -250,10 +257,50 @@ const TOP_LEVEL = [
   "workflow",
 ];
 
+function evidence(
+  raw: unknown,
+): Result<NonNullable<DevsysConfig["delivery"]["evidence"]>, ConfigError> {
+  if (!isTable(raw)) return fail("delivery.evidence must be a table", "delivery.evidence");
+  const allowed = ["manifest_dir", "require_manifest", "require_merged", "base", "required_checks"];
+  const unknown = Object.keys(raw).find((key) => !allowed.includes(key));
+  if (unknown !== undefined) return fail(`unknown key delivery.evidence.${unknown}`);
+  for (const key of ["require_manifest", "require_merged"]) {
+    if (raw[key] !== undefined && typeof raw[key] !== "boolean")
+      return fail(`delivery.evidence.${key} must be boolean`);
+  }
+  for (const key of ["manifest_dir", "base"]) {
+    if (raw[key] !== undefined && (typeof raw[key] !== "string" || !raw[key].trim()))
+      return fail(`delivery.evidence.${key} must be nonempty`);
+  }
+  const dir = raw.manifest_dir;
+  if (
+    typeof dir === "string" &&
+    (dir.includes("\\") ||
+      dir.split("/").some((part) => !part || part === "." || part === "..") ||
+      dir.includes("\0"))
+  )
+    return fail("delivery.evidence.manifest_dir must be repository-root-relative and contained");
+  if (raw.require_manifest === true && dir === undefined)
+    return fail("delivery.evidence.require_manifest requires manifest_dir");
+  const checks = raw.required_checks ?? [];
+  if (
+    !(Array.isArray(checks) && checks.every((c) => typeof c === "string" && c.trim())) ||
+    new Set(checks).size !== checks.length
+  )
+    return fail("delivery.evidence.required_checks must be unique nonempty strings");
+  return ok({
+    require_manifest: raw.require_manifest === true,
+    require_merged: raw.require_merged === true,
+    required_checks: checks.map(String),
+    ...(typeof dir === "string" ? { manifest_dir: dir } : {}),
+    ...(typeof raw.base === "string" ? { base: raw.base } : {}),
+  });
+}
+
 function deliveryAndReview(
   root: Table,
 ): Result<Pick<DevsysConfig, "delivery" | "review" | "tracker">, ConfigError> {
-  const d = section(root, "delivery", ["mode", "trunk", "remote"]);
+  const d = section(root, "delivery", ["mode", "trunk", "remote", "evidence"]);
   const r = section(root, "review", [
     "required_clean_rounds",
     "min_rounds",
@@ -307,8 +354,17 @@ function deliveryAndReview(
       "tracker.project_id must be an opaque GitHub Project node id and requires kind = github",
       "tracker.project_id",
     );
+  const policy = d.value.evidence === undefined ? ok(undefined) : evidence(d.value.evidence);
+  if (!policy.ok) return policy;
+  if (policy.value !== undefined && kind.value !== "github")
+    return fail("delivery.evidence requires tracker.kind = github", "delivery.evidence");
   return ok({
-    delivery: { mode: mode.value, trunk: trunk.value, remote: remote.value },
+    delivery: {
+      mode: mode.value,
+      trunk: trunk.value,
+      remote: remote.value,
+      ...(policy.value === undefined ? {} : { evidence: policy.value }),
+    },
     review: {
       requiredCleanRounds: required.value,
       minRounds: min.value,
