@@ -63,6 +63,7 @@ const setup = (
   withSlice = true,
   untracked = "",
   runGit = exec(diff, untracked),
+  now = () => new Date("2026-10-06T10:00:00Z"),
 ) => {
   const cwd = mkdtempSync(join(tmpdir(), "devsys-review-"));
   // Legacy multi-round scenarios now exercise an explicit stronger repository policy.
@@ -76,7 +77,7 @@ const setup = (
     submissions,
     jev: () => jev,
     exec: runGit,
-    now: () => new Date("2026-10-06T10:00:00Z"),
+    now,
   };
   const recordRaw = (p: Record<string, unknown>) =>
     createReviewRecordTool(deps).execute("c", p as never, undefined, undefined, fake.ctx as never);
@@ -101,6 +102,87 @@ const text = (r: { content: readonly { type: string }[] }): string =>
 
 const packet = (findings: string, verdict: string, round = 1, lenses = "types, tests") =>
   `## Review — s1 — round ${round} — lenses: ${lenses}\n### Sources inspected\n- a.ts:1-5\n### Findings\n${findings}\n### Verdict\n${verdict}\n`;
+
+test("repeating a pending review start preserves its handoff instead of preparing another", async () => {
+  let judgements = 0;
+  let tick = 0;
+  const fast = jevWith({ types: 1 });
+  const counted: Jev = {
+    ...fast,
+    ask: async (...args) => {
+      judgements += 1;
+      return fast.ask(...args);
+    },
+  };
+  const t = setup(counted, DIFF, true, "", exec(DIFF), () => new Date(1000 + tick++));
+  const first = await t.start();
+  const state = t.state.get();
+  const path = /"path":"([^"]+)"/.exec(text(first))?.[1];
+  assert.ok(path);
+  const again = await t.start();
+  assert.equal(judgements, 1, "a pending round must not be reclassified");
+  assert.equal(again.isError, true);
+  assert.equal(t.state.get(), state);
+  assert.equal(/"path":"([^"]+)"/.exec(text(again))?.[1], path);
+  assert.match(text(again), /already prepared|pending/i);
+});
+
+test("a repeated start preserves submitted results and directs the coordinator to record", async () => {
+  const t = setup(offline);
+  const started = await t.start();
+  const submission = {
+    slice: "s1" as SliceRef,
+    round: 1,
+    lenses: ["types"],
+    sources: ["a.ts:1"],
+    findings: [],
+    verdict: "no-blocking" as const,
+  };
+  t.submissions.put(submission);
+  const again = await t.start();
+  assert.equal(again.isError, true);
+  assert.match(text(again), /Next: devsys_review_record/);
+  assert.doesNotMatch(text(again), /"path":/);
+  assert.deepEqual(t.submissions.forRound("s1", 1), [submission]);
+  const recorded = await t.record({});
+  assert.notEqual(recorded.isError, true, text(recorded));
+  assert.equal(t.state.get().reviews?.[0]?.rounds.length, 1);
+  assert.match(text(started), /round 1/);
+  const next = await t.start();
+  assert.notEqual(next.isError, true);
+  assert.match(text(next), /round 2/);
+});
+
+test("changed diffs, ranges and independent sessions can prepare their own handoff", async () => {
+  let diff = DIFF;
+  let tick = 0;
+  const runGit: Exec = async (...args) => exec(diff)(...args);
+  const t = setup(offline, DIFF, true, "", runGit, () => new Date(1000 + tick++));
+  const first = await t.start();
+  const pathOf = (r: Awaited<ReturnType<typeof t.start>>) => /"path":"([^"]+)"/.exec(text(r))?.[1];
+  assert.ok(pathOf(first));
+  diff += "+2\n";
+  const changed = await t.start();
+  assert.notEqual(changed.isError, true);
+  assert.notEqual(pathOf(changed), pathOf(first));
+  const ranged = await t.start({ diffRange: "main..HEAD" });
+  assert.notEqual(ranged.isError, true);
+  assert.notEqual(pathOf(ranged), pathOf(changed));
+  assert.match(text(ranged), /git diff main\.\.HEAD/);
+  const independent = setup(offline);
+  assert.notEqual((await independent.start()).isError, true);
+});
+
+test("a workflow transition invalidates a handoff and still enters the reviewing phase", async () => {
+  const t = setup(offline);
+  inPhase(t, "planning");
+  await t.start();
+  assert.equal(t.state.get().phase, "planning");
+  inPhase(t, "implementing");
+  const started = await t.start();
+  assert.notEqual(started.isError, true);
+  assert.equal(t.state.get().phase, "reviewing");
+});
 
 test("a delayed review record cannot overwrite a competing recorded round", async () => {
   const entered = deferred();

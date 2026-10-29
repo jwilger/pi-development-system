@@ -24,7 +24,7 @@ import {
 } from "../core/review-flow.ts";
 import { parseReviewPacket, type ReviewPacket } from "../core/review-packet.ts";
 import type { ThinkingLevel } from "../core/spawn-overrides.ts";
-import { isParseError, type SliceRef } from "../core/types.ts";
+import { type DevsysState, isParseError, type SliceRef } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
 import { withJevToolUsage } from "../jev/execution.ts";
 import { judgeLenses, judgeSeverity } from "../jev/questions/review.ts";
@@ -141,6 +141,44 @@ type Prepared = {
   isCurrent: () => boolean;
 };
 
+type PendingStart = {
+  readonly workflow: DevsysState;
+  readonly review: ReviewState;
+  readonly range: string;
+  readonly digest: string;
+  readonly settings: string;
+  readonly handoff: string;
+};
+
+// Like submissions, dispatch handoffs are session-local, not durable review evidence.
+const pendingStarts = new WeakMap<SessionState, Map<SliceRef, PendingStart>>();
+const startSettings = (p: Prepared): string =>
+  JSON.stringify({ models: p.config.models, thinkingLevel: p.config.review.thinkingLevel });
+
+function pendingStartReply(deps: ReviewToolDeps, p: Prepared): Reply | undefined {
+  const pending = pendingStarts.get(deps.state)?.get(p.slice);
+  const review = reviewOf(deps.state.get(), p.slice);
+  if (
+    pending === undefined ||
+    pending.review !== review ||
+    !sameWorkflow(pending.workflow, deps.state.get()) ||
+    pending.range !== p.range ||
+    pending.digest !== p.snap.digest ||
+    pending.settings !== startSettings(p)
+  )
+    return undefined;
+  const round = pending.review.rounds.length + 1;
+  if (deps.submissions.forRound(p.slice, round).length > 0)
+    return reply(
+      `Round ${round} of ${p.slice} already has a submitted result. Next: devsys_review_record with slice "${p.slice}", diffDigest "${p.snap.digest}"${p.range === "HEAD" ? "" : ` and diffRange "${p.range}"`}. Do not start another review; the submission is preserved.`,
+      true,
+    );
+  return reply(
+    `Round ${round} is already prepared; no new review was started. Next: use the original agent_spawn handoff below, not devsys_review_start. If that child already exists, wait for it or resume it with agent_steer rather than creating a duplicate.\n${pending.handoff}`,
+    true,
+  );
+}
+
 const changedReview = (): Reply =>
   reply("Workflow or review changed while waiting; start or record the current round again.", true);
 
@@ -198,6 +236,8 @@ async function startRound(
   p: Prepared,
   signal: AbortSignal | undefined,
 ): Promise<Reply> {
+  const pending = pendingStartReply(deps, p);
+  if (pending !== undefined) return pending;
   const judged = await judgeLenses(deps.jev(ctx), {
     diffStat: p.snap.stat,
     diffSample: p.snap.sample,
@@ -228,14 +268,23 @@ async function startRound(
     now: deps.now?.() ?? new Date(),
   });
   const rangeArg = p.range === "HEAD" ? "" : ` and diffRange "${p.range}"`;
-  return reply(
-    [
-      `${reviewLabel(review)}; round ${round}; diff ${p.snap.digest}. ${basis}`,
-      `lenses: ${lenses.join(", ")}`,
-      `Spawn the reviewer with agent_spawn using exactly this payload, then call devsys_review_record with slice "${p.slice}", diffDigest "${p.snap.digest}"${rangeArg}. The reviewer submits its result with devsys_submit_review, so pass no packets (only a markdown packet the reviewer returned instead goes in packets):`,
-      JSON.stringify(spawn),
-    ].join("\n"),
-  );
+  const handoff = [
+    `${reviewLabel(review)}; round ${round}; diff ${p.snap.digest}. ${basis}`,
+    `lenses: ${lenses.join(", ")}`,
+    `Spawn the reviewer with agent_spawn using exactly this payload, then call devsys_review_record with slice "${p.slice}", diffDigest "${p.snap.digest}"${rangeArg}. The reviewer submits its result with devsys_submit_review, so pass no packets (only a markdown packet the reviewer returned instead goes in packets):`,
+    JSON.stringify(spawn),
+  ].join("\n");
+  const starts = pendingStarts.get(deps.state) ?? new Map<SliceRef, PendingStart>();
+  starts.set(p.slice, {
+    workflow: deps.state.get(),
+    review,
+    range: p.range,
+    digest: p.snap.digest,
+    settings: startSettings(p),
+    handoff,
+  });
+  pendingStarts.set(deps.state, starts);
+  return reply(handoff);
 }
 
 /** `devsys_review_start`: Jev picks lenses for the diff; the reply carries the agent_spawn payload for a fresh reviewer. */
@@ -449,6 +498,7 @@ function buildReviewRecordTool(deps: ReviewToolDeps): ToolDefinition<typeof Reco
       const recorded = await recordRound(deps, ctx, prepared.value, packets, _signal);
       if (recorded.isError === true) return recorded;
       deps.submissions.clear(slice);
+      pendingStarts.get(deps.state)?.delete(slice);
       return dropped === 0
         ? recorded
         : reply(
