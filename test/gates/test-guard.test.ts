@@ -8,6 +8,7 @@ import { err, ok } from "../../src/core/result.ts";
 import { createApprovalStore } from "../../src/gates/approvals.ts";
 import { createRecordDepartureTool } from "../../src/gates/record-departure-tool.ts";
 import { registerTestGuard } from "../../src/gates/test-guard.ts";
+import { withReasoningFallback } from "../../src/jev/cascade.ts";
 import type { Jev } from "../../src/jev/client.ts";
 import { createSessionState } from "../../src/state/session-state.ts";
 import { createFakePi } from "../harness/fake-pi.ts";
@@ -89,6 +90,98 @@ test("an ordinary edit while Jev is offline is allowed", async () => {
     await call("edit", { path: TEST_FILE, edits: [{ oldText: "3", newText: "4" }] }),
     undefined,
   );
+});
+
+test("an unresolved reasoning assessment blocks with evidence guidance, not a permission request", async () => {
+  const { call, fake } = setup(
+    {
+      ...offlineJev,
+      ask: async () =>
+        err({ kind: "assessment-unresolved", message: "Need the intended output contract" }),
+    },
+    true,
+  );
+  const r = await call("edit", { path: TEST_FILE, edits: [{ oldText: "3", newText: "4" }] });
+  assert.equal(r?.block, true);
+  assert.match(r?.reason ?? "", /intended output contract/);
+  assert.doesNotMatch(r?.reason ?? "", /devsys_record_departure|requires user approval/);
+  assert.equal(fake.ui.calls.filter((c) => c.kind === "confirm").length, 0);
+});
+
+test("blank-line padding correction reaches reasoning and preserves exact assertions without approval", async () => {
+  let assessed = false;
+  const primary = jevJudging(0.85, "unclear", 0.21);
+  const jev = withReasoningFallback(primary, async (evidence) => {
+    assert.match(String(evidence.recentFailure), /Contract: unpadded rows/);
+    assessed = true;
+    return ok({
+      weakens: { type: "bool", probability: 0.02 },
+      motive: {
+        type: "choice",
+        choice: "test-correction",
+        probabilities: {
+          "test-correction": 0.96,
+          "requirement-change": 0.01,
+          "gate-gaming": 0.01,
+          refactor: 0.01,
+          unclear: 0.01,
+        },
+        confidence: 0.95,
+      },
+    });
+  });
+  const { call, cwd, fake, state } = setup(jev, true);
+  state.update((current) => ({
+    ...current,
+    lastTestRun: {
+      at: now().toISOString(),
+      exitCode: 1,
+      summary:
+        "Contract: unpadded rows with internal blank lines and height 5, no terminal newline. Expected padding differed from actual exact output.",
+    },
+  }));
+  const before =
+    '#[test]\nfn blank_lines() {\nassert_eq!(buffer.height(), 5);\nassert_eq!(buffer.text(), "one   \\n      \\ntwo   \\n      \\nthree \\n");\n}\n';
+  const after =
+    '#[test]\nfn blank_lines() {\nassert_eq!(buffer.height(), 5);\nassert_eq!(buffer.text(), "one\\n\\ntwo\\n\\nthree");\n}\n';
+  writeFileSync(join(cwd, TEST_FILE), before);
+  assert.equal(await call("write", { path: TEST_FILE, content: after }), undefined);
+  assert.equal(assessed, true);
+  assert.equal(fake.ui.calls.filter((c) => c.kind === "confirm").length, 0);
+});
+
+test("test guard forwards regression evidence to reasoning before preserving its hard stop", async () => {
+  const jev = withReasoningFallback(jevJudging(0.5, "unclear", 0.1), async (evidence) => {
+    assert.match(String(evidence.recentFailure), /Anonymous access must be denied/);
+    return ok({
+      weakens: { type: "bool", probability: 0.99 },
+      motive: {
+        type: "choice",
+        choice: "gate-gaming",
+        confidence: 0.98,
+        probabilities: {
+          "test-correction": 0.01,
+          "requirement-change": 0.01,
+          "gate-gaming": 0.96,
+          refactor: 0.01,
+          unclear: 0.01,
+        },
+      },
+    });
+  });
+  const { state, call, fake } = setup(jev, true);
+  state.update((current) => ({
+    ...current,
+    lastTestRun: {
+      at: now().toISOString(),
+      exitCode: 1,
+      summary: "Anonymous access must be denied. Observed true is a regression.",
+    },
+  }));
+  const result = await call("edit", { path: TEST_FILE, edits: [{ oldText: "3", newText: "4" }] });
+  assert.equal(result?.block, true);
+  assert.match(result?.reason ?? "", /hard stop/);
+  assert.equal(fake.ui.calls.filter((c) => c.kind === "confirm").length, 1);
 });
 
 test("non-test files are ignored", async () => {

@@ -59,6 +59,19 @@ test("Jev offline routes as routine/low and says so", async () => {
   assert.match(textOf(r), /Jev unavailable/i);
 });
 
+test("unresolved reasoning never silently downgrades to routine low", async () => {
+  const r = await run(
+    {
+      ...offline,
+      ask: async () => err({ kind: "assessment-unresolved", message: "Need risk evidence" }),
+    },
+    { task: "migrate secrets" },
+  );
+  assert.equal(r.isError, true);
+  assert.match(textOf(r), /risk evidence/);
+  assert.doesNotMatch(textOf(r), /defaulted|Pass to agent_spawn/);
+});
+
 test("an empty task is an error", async () => {
   const r = await run(online("trivial", "low"), { task: "  " });
   assert.equal(r.isError, true);

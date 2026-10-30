@@ -16,7 +16,7 @@ Ask these in order and stop at the first yes:
 3. Does it change existing behaviour in one area? That is a `change`.
 4. Otherwise it is a `fix`.
 
-`/devsys-start` sizes the work with Jev and proceeds when Jev is at least 50% confident, saying so; below that it asks you to pick. If the size is already decided (a goal's planning, a plan's increment), pass it as `size` and nobody is asked to size it. Intake never offers to waive review, including for a `fix`. If you disagree with a size, change it; it is a judgement, not a rule.
+`/devsys-start` sizes the work with Jev; uncertain or unavailable classifier judgments go to configured LLM reasoning before any human involvement. If reasoning remains unresolved, inspect the evidence, narrow the request or supply an evidence-backed explicit `size`. Do not ask the user merely to resolve classifier uncertainty. Still ask for actual user-owned choices, such as replacing active work or missing product requirements. If the size is already decided (a goal's planning, a plan's increment), pass it as `size` and nobody is asked to size it. Intake never offers to waive review, including for a `fix`. If you disagree with a size, change it; it is a judgement, not a rule.
 
 ## Artifacts follow size
 

@@ -34,8 +34,6 @@ const Parameters = Type.Object({
   ),
 });
 
-const SIZES: readonly Sizing[] = ["fix", "change", "capability", "product"];
-
 const reply = (text: string, isError = false) => ({
   content: [{ type: "text" as const, text }],
   details: undefined,
@@ -61,12 +59,6 @@ function sizingDecision(
     judgement?.ok === false ? judgement.error.kind : "not asked",
   );
 }
-
-/** Proposed size first, so the default selection is the proposal. */
-const sizeChoices = (proposed: Sizing): string[] => [
-  proposed,
-  ...SIZES.filter((s) => s !== proposed),
-];
 
 const slicesInUse = (state: DevsysState): Set<string> =>
   new Set([
@@ -95,27 +87,21 @@ async function declinedToReplace(
 
 type Chosen = { readonly sizing: Sizing } | { readonly stop: string; readonly isError: boolean };
 
-/** A decided size passes through; an undecided one asks the user (headless: stops with the proposal). */
-async function chooseSize(
-  ctx: ExtensionContext,
+/** Unresolved assessment returns to the agent for evidence, never to a permission dialog. */
+function chooseSize(
   decision: SizeDecision,
   proposalFor: (size: Sizing) => ReturnType<typeof proposeArtifacts>,
-): Promise<Chosen> {
+): Chosen {
   if (decision.kind === "decided") return { sizing: decision.size };
   const { basis, proposed } = decision;
   const proposal = renderProposal({ sizing: proposed, basis, proposal: proposalFor(proposed) });
-  if (!ctx.hasUI) {
-    return { stop: `${proposal}\nHeadless: proposal only, not applied.`, isError: false };
-  }
-  const picked = await ctx.ui.select(`Size this work (${basis})`, sizeChoices(proposed));
-  if (picked === undefined) {
-    return { stop: `${proposal}\nIntake cancelled; nothing changed.`, isError: false };
-  }
-  const parsed = parseSizing(picked);
-  return isParseError(parsed) ? { stop: parsed.message, isError: true } : { sizing: parsed };
+  return {
+    stop: `${proposal}\nSizing assessment unresolved; inspect repository evidence and retry, or pass an evidence-backed explicit size. Nothing applied. Classifier uncertainty does not require human permission.`,
+    isError: true,
+  };
 }
 
-/** `devsys_intake`: Jev (or the caller) sizes the work; only a doubtful Jev asks the user; state moves to the first phase. */
+/** `devsys_intake`: Jev (or the caller) sizes the work; uncertainty reaches reasoning before any human decision; state moves to the first phase. */
 function buildIntakeTool(deps: {
   pi: ExtensionAPI;
   state: SessionState;
@@ -126,7 +112,7 @@ function buildIntakeTool(deps: {
     label: "Start work",
     description:
       "Size a request (fix, change, capability, product) and list the planning artifacts that size needs. " +
-      "Jev sizes the work and the user is asked only when Jev is under 50% confident; pass `size` when it is already decided. Then phase, sizing and the active slice are set. Call at the start of any non-trivial work.",
+      "Jev sizes the work; uncertain judgments reach the configured reasoning model. If still unresolved, inspect evidence and retry rather than asking for permission. Pass `size` when already decided. Then phase, sizing and the active slice are set. Call at the start of any non-trivial work.",
     promptSnippet: "Size new work and propose the planning artifacts it needs",
     parameters: Parameters,
     exposure: "model-only",
@@ -147,7 +133,7 @@ function buildIntakeTool(deps: {
       const decision = sizingDecision(given, judged);
       const artifactNeed = judged?.ok ? judged.value.artifactNeed : {};
       const proposalFor = (size: Sizing) => proposeArtifacts(size, artifactNeed);
-      const chosen = await chooseSize(ctx, decision, proposalFor);
+      const chosen = chooseSize(decision, proposalFor);
       if ("stop" in chosen) return reply(chosen.stop, chosen.isError);
       const { sizing } = chosen;
       if (!sameWorkflow(initial, deps.state.get())) {

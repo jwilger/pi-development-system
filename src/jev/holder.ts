@@ -1,5 +1,6 @@
 import type { ClassifierResult } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { withReasoningFallback } from "./cascade.ts";
 import {
   type ClassifierRegistry,
   createJev,
@@ -8,10 +9,13 @@ import {
   resolveJevModel,
 } from "./client.ts";
 import { DEFAULT_JEV_CANDIDATES } from "./models.ts";
+import { createReasoningAssessor, type ReasoningUsage } from "./reasoning.ts";
 
 export type JevHolder = {
   /** The Jev bound to this context's model registry (one per registry, shared cache). */
-  forContext(ctx: Pick<ExtensionContext, "modelRegistry">): Jev;
+  forContext(
+    ctx: Pick<ExtensionContext, "modelRegistry"> & Partial<Pick<ExtensionContext, "cwd">>,
+  ): Jev;
   /** Cheap, offline probe of whether a Jev credential is configured. */
   probe(ctx: Pick<ExtensionContext, "modelRegistry">): {
     availability: JevAvailability;
@@ -23,6 +27,7 @@ export function createJevHolder(opts?: {
   candidates?: readonly string[];
   timeoutMs?: number;
   now?: () => number;
+  onReasoningUsage?: (reported: ReasoningUsage) => void;
 }): JevHolder {
   const candidates = opts?.candidates ?? DEFAULT_JEV_CANDIDATES;
   const cache = new Map<string, ClassifierResult>();
@@ -33,16 +38,25 @@ export function createJevHolder(opts?: {
     forContext(ctx) {
       const registry = registryOf(ctx);
       const existing = bound.get(registry);
-      if (existing !== undefined) return existing;
-      const jev = createJev({
-        registry,
-        candidates,
-        timeoutMs: opts?.timeoutMs ?? 15_000,
-        cache,
-        now: opts?.now ?? Date.now,
-      });
+      const jev =
+        existing ??
+        createJev({
+          registry,
+          candidates,
+          timeoutMs: opts?.timeoutMs ?? 15_000,
+          cache,
+          now: opts?.now ?? Date.now,
+        });
       bound.set(registry, jev);
-      return jev;
+      return ctx.cwd === undefined
+        ? jev
+        : withReasoningFallback(
+            jev,
+            createReasoningAssessor(
+              { cwd: ctx.cwd, modelRegistry: ctx.modelRegistry },
+              opts?.onReasoningUsage,
+            ),
+          );
     },
     probe(ctx) {
       const model = resolveJevModel(registryOf(ctx), candidates);

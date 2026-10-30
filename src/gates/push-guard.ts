@@ -147,7 +147,7 @@ async function judgeRepair(
   ctx: ExtensionContext,
   config: DevsysConfig,
   runId: number | undefined,
-): Promise<boolean> {
+): Promise<boolean | string> {
   const message = await deps.exec("git", ["log", "-1", "--format=%B"], {
     cwd: ctx.cwd,
     timeout: 5000,
@@ -167,6 +167,7 @@ async function judgeRepair(
     failingLog,
     message: message.stdout,
   });
+  if (!judged.ok && judged.error.kind === "assessment-unresolved") return judged.error.message;
   return judged.ok && judged.value >= FIX_RELATED_THRESHOLD;
 }
 
@@ -176,7 +177,7 @@ async function repairsRedTrunk(
   ctx: ExtensionContext,
   config: DevsysConfig,
   runId: number | undefined,
-): Promise<boolean> {
+): Promise<boolean | string> {
   try {
     return await judgeRepair(deps, ctx, config, runId);
   } catch {
@@ -253,7 +254,9 @@ async function trunkVerdict(
       reason: `CI on ${trunk} is red and this call commits and pushes together, so the push cannot be judged as a fix for it. Commit first in one call, then push in the next.`,
     };
   }
-  if (await repairsRedTrunk(deps, ctx, config, status.runId)) return undefined;
+  const repair = await repairsRedTrunk(deps, ctx, config, status.runId);
+  if (typeof repair === "string") return { block: true, reason: repair };
+  if (repair) return undefined;
   return hardStop(deps, {
     ctx,
     toolCallId: event.toolCallId,

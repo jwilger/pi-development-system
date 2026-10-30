@@ -40,7 +40,19 @@ const run = async (prompt: string, opts: Setup = {}) => {
     classifyAnswers:
       label === undefined
         ? undefined
-        : { intent: { type: "choice", choice: label, probabilities: {}, confidence: 0.9 } },
+        : {
+            intent: {
+              type: "choice",
+              choice: label,
+              probabilities: Object.fromEntries(
+                ["new-work", "fix", "review", "question", "continuation"].map((key) => [
+                  key,
+                  key === label ? 1 : 0,
+                ]),
+              ),
+              confidence: 0.9,
+            },
+          },
   });
   const system = createDevelopmentSystem(fake.api);
   await fake.emit({ type: "session_start" } as never);
@@ -95,7 +107,7 @@ test("a busy session is not judged at all: no Jev call is made", async () => {
   assert.equal(r.message, undefined);
 });
 
-test("a Jev that is known to be offline costs no call; a failing one adds nothing", async () => {
+test("classifier failure can be retried for assessment and an unresolved result adds no nudge", async () => {
   const fake = createFakePi({ classifiers: ["typesafe/jev-latest"], classifyAnswers: undefined });
   createDevelopmentSystem(fake.api);
   await fake.emit({ type: "session_start" } as never);
@@ -110,9 +122,9 @@ test("a Jev that is known to be offline costs no call; a failing one adds nothin
     (await fake.emitAll(event() as never)).filter((r) => (r as Nudge)?.message);
   assert.deepEqual(await nudges(), []);
   assert.equal(fake.classifyCalls.count, 1);
-  // The first failure marked Jev offline; the next prompt must not pay for a call.
+  // Availability describes the classifier, not whether reasoning may run.
   assert.deepEqual(await nudges(), []);
-  assert.equal(fake.classifyCalls.count, 1);
+  assert.equal(fake.classifyCalls.count, 2);
 });
 
 test("a bare skill block with no request after it costs no Jev call", async () => {

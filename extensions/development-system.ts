@@ -65,7 +65,9 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   const state = createSessionState(pi);
   const approvals = createApprovalStore(pi);
 
-  const jevHolder = createJevHolder();
+  const jevHolder = createJevHolder({
+    onReasoningUsage: (report) => pi.appendEntry("devsys-reasoning-usage", report),
+  });
   let jevModel: string | undefined;
   let lastCtx: ExtensionContext | undefined;
   let pushMinutes = DEFAULT_PUSH_MINUTES;

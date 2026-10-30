@@ -14,6 +14,7 @@ import { splitModelRef } from "./models.ts";
 
 export type JevAvailability = "online" | "offline" | "unknown";
 export type JevError =
+  | { kind: "assessment-unresolved"; message: string }
   | { kind: "no-model" }
   | { kind: "timeout" }
   | { kind: "provider"; message: string }

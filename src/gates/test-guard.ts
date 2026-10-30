@@ -43,6 +43,7 @@ type Change = {
 
 type Verdict =
   | { kind: "allow" }
+  | { kind: "unresolved"; why: string }
   | { kind: "require-departure"; why: string }
   | { kind: "hard-stop"; why: string };
 
@@ -118,7 +119,14 @@ const judge = async (
     path: change.path,
     before: change.before,
     after: after === "" ? undefined : redactSecrets(after),
+    recentFailure:
+      deps.state.get().lastTestRun?.exitCode !== 0
+        ? deps.state.get().lastTestRun?.summary
+        : undefined,
   });
+  if (!judged.ok && judged.error.kind === "assessment-unresolved" && deterministic === undefined) {
+    return { kind: "unresolved", why: judged.error.message };
+  }
   const fromJev = judged.ok ? jevVerdict(judged.value, deterministic !== undefined) : undefined;
   if (fromJev !== undefined) return fromJev;
   return deterministic !== undefined
@@ -196,10 +204,10 @@ const hardStop = async (
 };
 
 const departureReason = (needing: ReadonlyArray<{ change: Change; why: string }>): string =>
-  `${GATE_ID}: ${needing[0]?.why} (${needing.map((n) => n.change.path).join(", ")}). Tests are the oracle; ` +
+  `${GATE_ID}: ${needing[0]?.why} (${needing.map((n) => n.change.path).join(", ")}). Tests protect the behavior contract; ` +
   "weakening them needs a recorded decision. If this is deliberate, call devsys_record_departure " +
   `with gate "${GATE_ID}", what you are doing instead, why, and the cost if wrong; then retry. ` +
-  "Otherwise fix the code, not the test.";
+  "Correcting an erroneous expectation while preserving behavior coverage is normal development, not weakening; supply contract evidence and reassess a suspected false positive.";
 
 /**
  * Soft gate `tests.weaken`: deleting, skipping, emptying or loosening tests needs a recorded
@@ -214,6 +222,10 @@ export function registerTestGuard(deps: TestGuardDeps): void {
     const verdicts: Array<{ change: Change; verdict: Verdict }> = [];
     for (const change of collectChanges(event, ctx)) {
       verdicts.push({ change, verdict: await judge(deps, change, ctx) });
+    }
+    const unresolved = verdicts.find(({ verdict }) => verdict.kind === "unresolved");
+    if (unresolved?.verdict.kind === "unresolved") {
+      return { block: true, reason: unresolved.verdict.why };
     }
     for (const { change, verdict } of verdicts) {
       if (verdict.kind !== "hard-stop") continue;

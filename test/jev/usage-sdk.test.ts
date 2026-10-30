@@ -157,7 +157,8 @@ test("real SDK retains classifier usage on a returned tool error without extensi
   );
   assert.ok(result?.role === "toolResult");
   assert.equal(result.isError, true);
-  assert.match(JSON.stringify(result.content), /deliberate provider failure/);
+  assert.match(JSON.stringify(result.content), /assessment-unresolved/);
+  assert.match(JSON.stringify(result.content), /configure a reasoning model/);
   assert.equal(host.session.getSessionStats().tokens.total, 6);
   assert.equal(host.session.getSessionStats().cost, 0.06);
   assert.deepEqual(host.errors, []);

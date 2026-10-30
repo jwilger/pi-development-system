@@ -14,12 +14,15 @@ pi install npm:@jwilger/pi-development-system
 Then `/reload`. To move to a newer release use
 `pi install npm:@jwilger/pi-development-system@<version>`.
 
-Jev, the classifier behind the judgements, is optional. Without a credential configured, the checks
-that rest on a judgement do not run or fall back to a default: the motive behind a test change, whether a
-diff needs an ADR, the quality of a commit rationale and whether a commit mixes changes, the intent
-nudges, the verifier's check of the agent's own claims, and the lens and severity choices in review.
-The status line shows `jev offline` when that is so. Everything deterministic holds without Jev: the
-hard stops, the delivery mode, the review streak, red-first and the slice life cycle.
+Jev, the fast classifier behind the judgements, is optional. Ambiguous, invalid or unavailable
+classifier answers now go to a bounded, tool-free reasoning assessment through the configured
+`advisor` model slot and Pi's authenticated model registry. The status line can still show
+`jev offline` while reasoning is available. Reasoning usage is recorded separately from Jev usage.
+If reasoning lacks evidence or a configured model, guarded operations return actionable errors to
+the agent rather than asking the user solely because a classifier is uncertain. Advisory checks
+remain advisory. Configure an authenticated advisor candidate through `[models]` to use the fallback.
+Everything deterministic still holds: hard stops, delivery mode, review, red-first and slice life cycle.
+Actual human-owned approvals remain separate; a reasoning answer cannot grant permission.
 
 ## Replaces pi-subagent-manager
 
@@ -67,9 +70,10 @@ with a reason, abandons it. This does **not** establish PR delivery or whole-iss
 Consolidate preparatory steps into usable increments; the approved plan is not a requirement for
 one handoff or release per step. After a local slice closes, the next increment starts with `devsys_intake`.
 
-`devsys_intake` does not interrupt autonomous work: Jev's size is used when Jev is at least 50%
-confident, and the user is asked to pick only when it is less sure (or unavailable). A size decided up
-front, such as in a goal's planning, is passed as `size` and skips the sizing question entirely.
+`devsys_intake` does not ask the user to resolve classifier uncertainty. Jev's uncertain or unavailable
+sizing goes through configured LLM reasoning first. If still unresolved, the agent gathers evidence
+or supplies an evidence-backed explicit `size`; it does not ask the user merely to classify the work.
+A size decided up front, such as in a goal's planning, is passed as `size` and skips assessment entirely.
 Fix-sized work retains independent review; intake never offers to waive it. The default is
 one substantive clean independent review of the current diff, with real findings resolved
 and fixes reviewed. Explicit stronger settings and in-flight review requirements remain.

@@ -182,7 +182,6 @@ export function registerTurnVerifier(deps: TurnVerifierDeps): void {
     }
     if (asksUser(parts.text) || corrected >= (await deps.maxPerSession(ctx))) return undefined;
     const jev = deps.jev(ctx);
-    if (jev.availability() === "offline") return undefined;
     const judged = await judgeTurn(jev, {
       assistantText: parts.text,
       toolEvidence: evidence,

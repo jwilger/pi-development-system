@@ -18,6 +18,49 @@ import { createSessionState } from "../../src/state/session-state.ts";
 import { createFakePi } from "../harness/fake-pi.ts";
 
 const now = () => new Date("2026-10-06T17:12:00Z");
+test("unresolved semantic assessment blocks without suggesting a departure", async () => {
+  const { bash } = setup({
+    ...offlineJev,
+    ask: async () => err({ kind: "assessment-unresolved", message: "Need commit evidence" }),
+  });
+  const result = (await bash(`git commit -m "${GOOD}"`)) as { block: boolean; reason: string };
+  assert.equal(result.block, true);
+  assert.match(result.reason, /commit evidence/);
+  assert.doesNotMatch(result.reason, /devsys_record_departure/);
+});
+
+test("unresolved commit judgment survives a deterministic rationale collision and departure", async () => {
+  const { bash, depart } = setup({
+    ...offlineJev,
+    ask: async () => err({ kind: "assessment-unresolved", message: "Need semantic evidence" }),
+  });
+  await depart("commit.rationale");
+  const result = await bash('git commit -m "fix: correct output"');
+  assert.equal(result?.block, true);
+  assert.match(result?.reason ?? "", /semantic evidence/);
+});
+
+test("unresolved later commit message survives gate deduplication across messages", async () => {
+  let calls = 0;
+  const { bash, depart } = setup({
+    ...offlineJev,
+    ask: async () => {
+      calls++;
+      return calls <= 2
+        ? ok({
+            rationale: { type: "bool", probability: 0.1 },
+            mix: { type: "bool", probability: 0.1 },
+            architecture: { type: "bool", probability: 0.1 },
+          })
+        : err({ kind: "assessment-unresolved", message: "Second message needs evidence" });
+    },
+  });
+  await depart("commit.rationale");
+  const result = await bash(`git commit -m '${GOOD}' && git commit -m '${GOOD}'`);
+  assert.equal(result?.block, true);
+  assert.match(result?.reason ?? "", /Second message/);
+});
+
 const BODY =
   "Slots hold ordered candidates so one committed file works for collaborators with different accounts.";
 const GOOD = `feat(config): add matrix\n\n${BODY}`;

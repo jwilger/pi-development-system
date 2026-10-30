@@ -69,6 +69,8 @@ export function createRouteTaskTool(baseDeps: {
         filesTouched: params.files ?? [],
         riskSignals: params.riskSignals ?? [],
       });
+      if (!judged.ok && judged.error.kind === "assessment-unresolved")
+        return reply(judged.error.message, true);
       const judgement = judged.ok
         ? { difficulty: judged.value.difficulty, risk: judged.value.risk }
         : { difficulty: "routine" as const, risk: "low" as const };

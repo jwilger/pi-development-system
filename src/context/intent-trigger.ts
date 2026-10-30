@@ -35,7 +35,7 @@ export async function intentLineFor(
   state: DevsysState,
   jev: Jev,
 ): Promise<string | undefined> {
-  if (state.phase !== "idle" || requestText(prompt) === "" || jev.availability() === "offline") {
+  if (state.phase !== "idle" || requestText(prompt) === "") {
     return undefined;
   }
   const judged = await judgeIntent(jev, { prompt, phase: state.phase });

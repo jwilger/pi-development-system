@@ -4,7 +4,6 @@ import {
   isToolCallEventType,
 } from "@earendil-works/pi-coding-agent";
 import { classifyGitCommand, type GitIntent } from "../core/git-intent.ts";
-import { redactSecrets } from "../core/redact.ts";
 import { isParseError, parseGateId } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
 import { judgeShellIntent } from "../jev/questions/shell-intent.ts";
@@ -28,7 +27,7 @@ export type GitGuardDeps = {
 
 type Resolved = { intent: GitIntent } | { block: true; reason: string };
 
-/** An unclassifiable command: Jev may classify it; otherwise the user decides (headless: blocked). */
+/** Classification must finish before authorization; uncertainty is not blanket permission. */
 async function resolveUnknown(
   deps: GitGuardDeps,
   ctx: ExtensionContext,
@@ -42,19 +41,9 @@ async function resolveUnknown(
   if (judged?.ok === true && judged.value.intent !== "unknown") {
     return { intent: judged.value.intent };
   }
-  const why = judged?.ok === false ? `unavailable: ${judged.error.kind}` : "not confident";
-  const approved = ctx.hasUI
-    ? await ctx.ui.confirm(
-        "Development system — unclassified command",
-        `${redactSecrets(command)}\nCould not classify this command (Jev ${why}). It may run an irreversible git operation. Approve?`,
-      )
-    : false;
-  if (approved) return { intent: "ordinary" };
   return {
     block: true,
-    reason: ctx.hasUI
-      ? "the user declined an unclassifiable command; propose a simpler, explicit git command"
-      : "could not classify this command and Jev is unavailable or unsure; run interactively or use an explicit git command",
+    reason: `could not classify this command after assessment; use a simpler, explicit git command or supply missing evidence and retry. ${judged?.ok === false && judged.error.kind === "assessment-unresolved" ? judged.error.message : "Classifier uncertainty is not a request for human approval."}`,
   };
 }
 

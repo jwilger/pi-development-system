@@ -121,7 +121,7 @@ test("status updates during confirmation do not invalidate intake or get overwri
 });
 
 test("the confirmed size sets sizing, phase and a slice named after the request", async () => {
-  const { fake, state, run } = setup(unsure("capability"));
+  const { fake, state, run } = setup(online("capability"));
   fake.ui.selectResponses.push("capability");
   const r = await run({ request: "Let users share a saved report by link" });
   assert.notEqual(r.isError, true);
@@ -131,45 +131,47 @@ test("the confirmed size sets sizing, phase and a slice named after the request"
   assert.match(textOf(r), /event-model/);
 });
 
-test("the user can pick a different size than the one proposed", async () => {
+test("an evidence-backed explicit size overrides uncertain classification", async () => {
   const { fake, state, run } = setup(unsure("capability"));
-  fake.ui.selectResponses.push("fix");
-  await run({ request: "trim the email" });
+  await run({ request: "trim the email", size: "fix" });
   assert.equal(state.get().sizing, "fix");
   assert.equal(state.get().phase, "implementing");
-  const select = fake.ui.calls.find((c) => c.kind === "select");
-  assert.ok(select);
-  assert.equal((select.args[1] as string[])[0], "capability");
+  assert.equal(fake.ui.calls.length, 0);
 });
 
-test("a cancelled confirmation changes nothing", async () => {
+test("an unresolved assessment changes nothing and never opens a sizing dialog", async () => {
   const { fake, state, run } = setup(unsure("change"));
-  fake.ui.selectResponses.push(undefined);
   const r = await run({ request: "r" });
+  assert.equal(r.isError, true);
   assert.equal(state.get().phase, "idle");
   assert.equal(state.get().sizing, undefined);
-  assert.match(textOf(r), /cancel/i);
+  assert.equal(fake.ui.calls.length, 0);
+  assert.match(textOf(r), /unresolved/);
 });
 
-test("headless returns the proposal only and leaves state alone", async () => {
+test("headless unresolved sizing returns evidence guidance and leaves state alone", async () => {
   const { state, run } = setup(unsure("change"), false);
   const r = await run({ request: "r" });
-  assert.notEqual(r.isError, true);
+  assert.equal(r.isError, true);
   assert.equal(state.get().phase, "idle");
   assert.match(textOf(r), /Proposed sizing: change/);
-  assert.match(textOf(r), /not applied/i);
+  assert.match(textOf(r), /Nothing applied/i);
 });
 
-test("Jev offline defaults to change, says so, and still asks the user", async () => {
-  const { fake, state, run } = setup(offline);
-  fake.ui.selectResponses.push("change");
-  const r = await run({ request: "r" });
-  assert.match(textOf(r), /Jev unavailable/);
-  assert.equal(state.get().sizing, "change");
+test("unresolved sizing returns actionable evidence guidance without asking or changing state", async () => {
+  for (const jev of [offline, unsure("change")]) {
+    const { fake, state, run } = setup(jev);
+    fake.ui.selectResponses.push("change");
+    const r = await run({ request: "r" });
+    assert.equal(r.isError, true);
+    assert.match(textOf(r), /evidence|assessment/);
+    assert.equal(state.get().sizing, undefined);
+    assert.equal(fake.ui.calls.length, 0);
+  }
 });
 
 test("high-need artifacts beyond the table are offered as 'also consider'", async () => {
-  const { fake, run } = setup(unsure("change", 0.9));
+  const { fake, run } = setup(online("change", 0.9));
   fake.ui.selectResponses.push("change");
   assert.match(textOf(await run({ request: "r" })), /Also consider: .*event-model/);
 });
@@ -180,7 +182,7 @@ test("an empty request is an error", async () => {
 });
 
 test("a second intake with the same wording gets its own slice, not the old one's state", async () => {
-  const { fake, state, run } = setup(unsure("change"));
+  const { fake, state, run } = setup(online("change"));
   fake.ui.selectResponses.push("change", "change");
   fake.ui.confirmResponses.push(true);
   await run({ request: "trim the email" });
@@ -190,14 +192,14 @@ test("a second intake with the same wording gets its own slice, not the old one'
 });
 
 test("a fix judged by an online Jev with no extra need lists nothing to consider", async () => {
-  const { fake, run } = setup(unsure("fix", 0.01));
+  const { fake, run } = setup(online("fix", 0.01));
   fake.ui.selectResponses.push("fix");
   const r = await run({ request: "trim the email" });
   assert.doesNotMatch(textOf(r), /Also consider/);
 });
 
 test("selecting fix preserves required reviews without offering a waiver", async () => {
-  const { fake, state, run } = setup(unsure("fix"));
+  const { fake, state, run } = setup(online("fix"));
   fake.ui.selectResponses.push("fix");
   fake.ui.confirmResponses.push(true);
   const r = await run({ request: "trim the email on login" });
@@ -208,14 +210,14 @@ test("selecting fix preserves required reviews without offering a waiver", async
 });
 
 test("sizes other than fix record no departure", async () => {
-  const { fake, state, run } = setup(unsure("change"));
+  const { fake, state, run } = setup(online("change"));
   fake.ui.selectResponses.push("change");
   await run({ request: "make retry configurable" });
   assert.deepEqual(state.get().openDepartures, []);
 });
 
 test("a fix requires review without asking for confirmation", async () => {
-  const { fake, state, run } = setup(unsure("fix"));
+  const { fake, state, run } = setup(online("fix"));
   fake.ui.selectResponses.push("fix");
   fake.ui.confirmResponses.push(false);
   const r = await run({ request: "trim the email on login" });
@@ -225,7 +227,7 @@ test("a fix requires review without asking for confirmation", async () => {
 });
 
 test("a slice that is reviewed but not yet shipped still asks before it is replaced", async () => {
-  const { fake, state, run } = setup(unsure("fix"));
+  const { fake, state, run } = setup(online("fix"));
   fake.ui.selectResponses.push("change");
   await run({ request: "make retry configurable" });
   state.update((s) => ({ ...s, phase: "delivering" }));
@@ -237,7 +239,7 @@ test("a slice that is reviewed but not yet shipped still asks before it is repla
 });
 
 test("intake in the middle of a slice asks first and leaves the slice alone when declined", async () => {
-  const { fake, state, run } = setup(unsure("fix"));
+  const { fake, state, run } = setup(online("fix"));
   fake.ui.selectResponses.push("change");
   await run({ request: "make retry configurable" });
   fake.ui.selectResponses.push("fix");
@@ -257,15 +259,16 @@ test("a confident Jev sizes the work without asking and says so", async () => {
   assert.match(textOf(r), /Jev judged capability \(confidence 0\.90\); proceeding without asking/);
 });
 
-test("Jev confidence just under one half asks, and exactly one half proceeds", async () => {
+test("adapter uncertainty never asks a human while a resolved assessment proceeds", async () => {
   const under = setup(judging("change", 0.49, 0));
-  under.fake.ui.selectResponses.push("fix");
-  await under.run({ request: "r" });
-  assert.equal(under.state.get().sizing, "fix");
-  const at = setup(judging("change", 0.5, 0));
-  await at.run({ request: "r" });
-  assert.equal(at.fake.ui.calls.filter((c) => c.kind === "select").length, 0);
-  assert.equal(at.state.get().sizing, "change");
+  const result = await under.run({ request: "r" });
+  assert.equal(result.isError, true);
+  assert.equal(under.state.get().sizing, undefined);
+  assert.equal(under.fake.ui.calls.length, 0);
+  const resolved = setup(online("change"));
+  await resolved.run({ request: "r" });
+  assert.equal(resolved.fake.ui.calls.length, 0);
+  assert.equal(resolved.state.get().sizing, "change");
 });
 
 test("a size given up front skips the question, even when Jev is unsure or offline", async () => {

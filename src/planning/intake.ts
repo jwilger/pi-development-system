@@ -72,7 +72,7 @@ export const renderProposal = (input: {
   return lines.join("\n");
 };
 
-/** Jev confidence below this asks the human; at or above it intake proceeds with Jev's size. */
+/** Below this the sizing policy is unresolved; production reasoning runs before this policy. */
 const ASK_BELOW = 0.5;
 
 export type SizeDecision =

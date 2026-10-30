@@ -16,6 +16,22 @@ import { createFakePi } from "../harness/fake-pi.ts";
 
 const now = () => new Date("2026-10-06T17:12:00Z");
 
+test("unresolved repair assessment blocks for evidence without asking for human approval", async () => {
+  const { fake, push } = setup({
+    hasUI: true,
+    ci: "failure",
+    lastCommit: "fix(ci): repair\n\nRestore the failing behavior",
+    jev: {
+      ...offlineJev,
+      ask: async () => err({ kind: "assessment-unresolved", message: "Need failure evidence" }),
+    },
+  });
+  const result = (await push("git push")) as { block: boolean; reason: string };
+  assert.equal(result.block, true);
+  assert.match(result.reason, /failure evidence/);
+  assert.equal(fake.ui.calls.length, 0);
+});
+
 const offlineJev: Jev = {
   ask: async () => err({ kind: "no-model" }),
   availability: () => "offline",

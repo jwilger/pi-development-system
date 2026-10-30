@@ -40,7 +40,7 @@ export type CommitGuardDeps = {
   excused?: ExcusedMessages | undefined;
 };
 
-type Need = { gate: GateId; why: string };
+type Need = { gate: GateId; why: string; unresolved?: boolean };
 
 const gateId = (id: string): GateId => {
   const parsed = parseGateId(id);
@@ -254,6 +254,8 @@ async function adrNeeds(
     diffStat: pending.stat,
     diff: pending.diff,
   });
+  if (!judged.ok && judged.error.kind === "assessment-unresolved")
+    return [{ gate: ADR_MISSING, why: judged.error.message, unresolved: true }];
   if (!judged.ok || judged.value < ARCHITECTURE_THRESHOLD) return [];
   return [
     {
@@ -277,7 +279,11 @@ async function jevNeeds(
     adrNeeds(deps, ctx, pending),
   ]);
   const needs: Need[] = adr;
-  if (!judged.ok) return needs;
+  if (!judged.ok) {
+    if (judged.error.kind === "assessment-unresolved")
+      needs.push({ gate: RATIONALE, why: judged.error.message, unresolved: true });
+    return needs;
+  }
   if (bodyPresent && judged.value.rationale < RATIONALE_FLOOR) {
     needs.push({ gate: RATIONALE, why: "Jev reads the body as restating what changed, not why" });
   }
@@ -288,6 +294,21 @@ async function jevNeeds(
     });
   }
   return needs;
+}
+
+async function addSemanticNeeds(
+  deps: CommitGuardDeps,
+  ctx: ExtensionContext,
+  messages: readonly string[],
+  pending: PendingDiff | undefined,
+  needs: Need[],
+): Promise<void> {
+  for (const message of messages) {
+    for (const need of await needsOf(deps, ctx, message, pending)) {
+      if (need.unresolved || !needs.some((existing) => existing.gate === need.gate))
+        needs.push(need);
+    }
+  }
 }
 
 /** While work is in flight, committing needs the slice review satisfied on the diff as it is now. */
@@ -474,7 +495,7 @@ async function needsOf(
   const needs = messageNeeds(message);
   const bodyPresent = !needs.some((n) => n.why.startsWith("the message has no body"));
   const viaJev = await jevNeeds(deps, ctx, message, bodyPresent, pending);
-  return [...needs, ...viaJev.filter((n) => !needs.some((m) => m.gate === n.gate))];
+  return [...needs, ...viaJev.filter((n) => n.unresolved || !needs.some((m) => m.gate === n.gate))];
 }
 
 /** A message let through under a rationale departure is remembered, so its push is not asked again. */
@@ -567,11 +588,9 @@ export function registerCommitGuard(deps: CommitGuardDeps): void {
         why: "the message is built by a substitution or variable and cannot be checked; use a literal -m or a heredoc",
       });
     }
-    for (const message of known) {
-      for (const need of await needsOf(deps, ctx, message, pending)) {
-        if (!all.some((n) => n.gate === need.gate)) all.push(need);
-      }
-    }
+    await addSemanticNeeds(deps, ctx, known, pending, all);
+    const unresolved = all.find((need) => need.unresolved);
+    if (unresolved !== undefined) return { block: true, reason: unresolved.why };
     const uses = all.map((need) => ({ need, use: departureUse(deps.state, need.gate) }));
     const uncovered = uses.find(({ use }) => !use.hasOpen());
     if (uncovered !== undefined) return { block: true, reason: blockReason(uncovered.need) };

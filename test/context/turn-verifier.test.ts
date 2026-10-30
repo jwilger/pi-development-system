@@ -181,10 +181,10 @@ test("a message that asks the user a question is never corrected", async () => {
   assert.equal(t.asked.length, 0);
 });
 
-test("Jev offline or failing never blocks and never continues", async () => {
+test("offline classifier availability does not bypass a successful reasoning assessment", async () => {
   const offline = setup({ claim: 1, availability: "offline" });
-  assert.equal(await offline.turnEnd("All tests pass."), undefined);
-  assert.equal(offline.asked.length, 0);
+  assert.ok(await offline.turnEnd("All tests pass."));
+  assert.equal(offline.asked.length, 1);
   const failing = setup({ claim: 1, jevFails: true });
   assert.equal(await failing.turnEnd("All tests pass."), undefined);
 });

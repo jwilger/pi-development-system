@@ -214,11 +214,13 @@ test("a cancelled unknown-command classification blocks without opening an appro
   assert.equal(fake.ui.calls.length, 0);
 });
 
-test("unknown + Jev offline + UI → confirm dialog; approval allows", async () => {
+test("unresolved classification never grants blanket approval through a human dialog", async () => {
   const { fake, bash } = setupJev(true, offlineJev);
   fake.ui.confirmResponses.push(true);
-  assert.equal(await bash("xargs git push"), undefined);
-  assert.match(String(fake.ui.calls[0]?.args[1]), /Could not classify/);
+  const result = (await bash("xargs git push")) as { block: boolean; reason: string };
+  assert.equal(result.block, true);
+  assert.equal(fake.ui.calls.length, 0);
+  assert.match(result.reason, /explicit git command/);
 });
 
 test("unknown + Jev offline + UI declined → blocked", async () => {
