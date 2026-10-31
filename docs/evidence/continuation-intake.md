@@ -113,3 +113,25 @@ admission are still required for this expanded candidate. This report does not
 claim a commit, push, release or publication. No installed-extension or
 consuming-project modification was authorized or performed. The separate
 architecture-policy session's unfinished work was not taken over.
+
+## Shipping follow-up
+
+Commit `0eb5cf94edd33684bc41eb6eabb661a5b821397e` was pushed to main after clean
+independent commit-bound and delivery-bound reviews, including exact architecture
+bindings. All commit hooks passed, including 2,207 tests with zero failures or
+skips. The temporary dependency link was removed; no installed extension changed.
+
+CI run [41245354203](https://github.com/jwilger/pi-development-system/actions/runs/41245354203)
+passed lint and tests but blocked the release: version classification returned
+major with confidence 0.50, below 0.60 (breaking 0.50, feature 0.53, observable
+0.99). GitHub release and npm publication were skipped. This is a failed release,
+not a published 10.1.0. The previously accepted local minor judgment does not
+supersede the CI failure.
+
+John then explicitly approved the supported reasoned version override for a
+forward-only `fix(ci)` follow-up, retaining 10.1.0. The public intake contract,
+replacement consent and state guards remain unchanged; independent review found
+no breaking migration. This follow-up records that human judgment rather than
+retrying for a favorable classifier answer or rewriting the pushed commit. All
+other hooks, independent review and release verification remain required. The
+follow-up pipeline's publication outcome is not yet established by this report.
