@@ -4,7 +4,7 @@
 
 Projects using the extension must treat root `ARCHITECTURE.md` as their self-contained current architecture and goals, and ADRs as decision history. This capability reconciles existing instructions and adds supported pi workflow/delivery checks and independent semantic review. Publishing, pushing, releasing, modifying consuming projects, historical rewriting and retrospective reconstruction are not authorized.
 
-This is a brief-lite and journey inventory for the confirmed goal. Architecture designs below are not implementation or delivery evidence. Implementation and public-behavior verification are recorded in `docs/evidence/architecture-policy/README.md`; independent review and local delivery remain outstanding. This plan itself is not enforcement evidence.
+This is a brief-lite and journey inventory for the confirmed goal. Architecture designs below are not implementation or delivery evidence. Implementation, public-behavior verification, independent review and local commit evidence are recorded in `docs/evidence/architecture-policy/README.md`. This plan itself is not enforcement evidence.
 
 ## Problem, outcome and risks
 
@@ -58,8 +58,10 @@ The present ADR-presence guidance does not establish current architecture author
 
 Assets are the historical decision record, current architecture authority and trustworthy verification evidence. Inputs include model-supplied revisions/paths, repository contents and Git history. Risks include skipped commits, ref ambiguity, shell/path injection, symlink traversal, arbitrary object/path reads and unbounded history work. Use argument arrays, parsed bounded inputs, canonical repository-relative paths, immutable object identities and explicit failure results; do not execute repository-provided commands or rewrite files to repair policy failures. Ordinary shell/Git execution outside supported pi boundaries cannot be assumed blocked.
 
-## Current checkpoint
+## Local implementation and evidence closure
 
-Implemented shared authority/history instructions, prospective configuration and real Git inspection, supported pi commit/delivery refusals, exact-bound independent semantic evidence and fresh/restored/compacted/delegated request coverage. The evidence report maps scenarios to public test suites and preserves both live evaluation matrices, including failed cells. Only one new decision is pending, paired with the substantive self-contained root architecture; upstream merged decisions remain unchanged.
+Implementation commit `ca12e62d18c104887a23a23161d3d35450a3cea4` contains the shared authority/history instructions, prospective configuration and real Git inspection, supported pi commit/delivery refusals, exact-bound independent semantic evidence and fresh/restored/compacted/delegated request coverage. Its repository hooks passed, including 2,202 tests and 20 real-Jev fixtures. Fresh independent types/tests reviewers and a supplementary six-concern semantic reviewer returned no findings in the final implementation round. Only decision 0017 was introduced, paired with the substantive self-contained root architecture; upstream merged decisions remain unchanged.
 
-Remaining: independent review of the combined final diff, resolution and re-verification of real findings, permitted local delivery and an explicit completion report. Preserve the owner's live-configuration revert and both recovery stashes. Do not install, change consumers, push or release without separate authorization.
+A completion audit then found a contradictory optional-architecture instruction in the shipped start prompt and stale report status. The same-slice follow-up reconciles that prompt and extends the bounded evaluator to load and expand the actual template through pi, with public regressions and preserved live evidence. The evidence report maps each acceptance area to its checks and distinguishes local completion from remote delivery.
+
+The owner's live-configuration revert and all three recovery stashes remain preserved. Installation, consumer adoption, push and release were not performed and require separate authorization. No retrospective history reconstruction or consumer modification is needed to close this local implementation.

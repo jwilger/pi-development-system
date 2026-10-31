@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { mkdtemp, open, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { ARCHITECTURE_POLICY } from "../src/core/architecture-policy.ts";
 import { createArchitectureEval, runArchitectureCell } from "./lib/architecture-eval.ts";
@@ -30,14 +31,23 @@ export async function runArchitectureCli(args: string[]): Promise<number> {
         output: { type: "string" },
         case: { type: "string" },
         condition: { type: "string" },
+        "workflow-prompt": { type: "string" },
       },
       strict: true,
       allowPositionals: false,
     });
-    const { provider, model, output, case: caseName, condition } = values;
+    const {
+      provider,
+      model,
+      output,
+      case: caseName,
+      condition,
+      "workflow-prompt": workflowName,
+    } = values;
     if (
       !(provider?.trim() && model?.trim() && output?.trim() && caseName) ||
-      (condition !== "baseline" && condition !== "guidance")
+      (condition !== "baseline" && condition !== "guidance") ||
+      (workflowName !== undefined && workflowName !== "devsys-start")
     ) {
       throw new Error(
         "architecture-eval-arguments: require explicit --provider --model --output --case --condition baseline|guidance",
@@ -79,6 +89,19 @@ export async function runArchitectureCli(args: string[]): Promise<number> {
           ]),
         ),
       );
+      const workflowPrompt =
+        workflowName === undefined
+          ? undefined
+          : fileURLToPath(new URL("../prompts/devsys-start.md", import.meta.url));
+      if (workflowPrompt !== undefined) {
+        const content = await readFile(workflowPrompt, "utf8");
+        report.workflow = {
+          source: "prompts/devsys-start.md",
+          sourceHash: hash(content),
+          content,
+          invocation: "/devsys-start",
+        };
+      }
       report.sdk = JSON.parse(
         await readFile(
           new URL("../node_modules/@earendil-works/pi-coding-agent/package.json", import.meta.url),
@@ -86,7 +109,13 @@ export async function runArchitectureCli(args: string[]): Promise<number> {
         ),
       ).version;
       root = await mkdtemp(join(tmpdir(), "architecture-policy-eval-"));
-      const result = await runArchitectureCell({ evaluation, root, provider, modelId: model });
+      const result = await runArchitectureCell({
+        evaluation,
+        root,
+        provider,
+        modelId: model,
+        ...(workflowPrompt === undefined ? {} : { workflowPrompt }),
+      });
       Object.assign(report, { result, pass: result.pass });
     } catch (cause) {
       report.error = messageOf(cause);

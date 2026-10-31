@@ -67,6 +67,8 @@ async function runnerHost(
     modelsStorePath: join(root, "models.json"),
   });
   let requests = 0;
+  // Additive provider-input evidence for workflow expansion; existing assertions remain unchanged.
+  const contexts: string[] = [];
   runtime.registerProvider("architecture-offline", {
     api: "architecture-offline-api",
     apiKey: "synthetic-not-a-secret",
@@ -82,7 +84,8 @@ async function runnerHost(
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
       },
     ],
-    streamSimple(model, _context, options) {
+    streamSimple(model, context, options) {
+      contexts.push(JSON.stringify(context.messages));
       const request = requests++;
       const stream = createAssistantMessageEventStream();
       const content =
@@ -137,7 +140,7 @@ async function runnerHost(
       return stream;
     },
   });
-  return { root, runtime, requests: () => requests };
+  return { root, runtime, contexts, requests: () => requests };
 }
 
 const answerCall = (decision: string): ToolCall => ({
@@ -381,6 +384,27 @@ test("turn/time bounds, provider errors and unavailable explicit models fail clo
   assert.equal(unavailable.requests(), 0, "invalid limits never contact a provider");
 });
 
+test("workflow evaluation expands a real pi prompt template before the provider sees the scenario", async (t) => {
+  const host = await runnerHost(t);
+  const workflowPrompt = join(host.root, "devsys-start.md");
+  await writeFile(
+    workflowPrompt,
+    "---\ndescription: Synthetic workflow\n---\nWorkflow-input-marker: $ARGUMENTS\n",
+  );
+  const evaluation = createArchitectureEval("valid-pairing", "guidance");
+  const result = await runArchitectureCell({
+    ...host,
+    evaluation,
+    provider: "architecture-offline",
+    modelId: "selected",
+    workflowPrompt,
+  });
+  assert.equal(result.pass, true);
+  assert.match(host.contexts[0] ?? "", /Workflow-input-marker:/);
+  assert.ok((host.contexts[0] ?? "").includes(evaluation.prompt.split("\n")[0] ?? ""));
+  assert.equal((host.contexts[0] ?? "").includes("$ARGUMENTS"), false);
+});
+
 test("live CLI requires explicit selections, reserves immutable private evidence, and records unavailable models", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "architecture-eval-cli-"));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -427,6 +451,18 @@ test("live CLI requires explicit selections, reserves immutable private evidence
   const original = await readFile(output, "utf8");
   assert.equal(invoke(args).status, 1, "no overwrites");
   assert.equal(await readFile(output, "utf8"), original);
+  const workflowOutput = join(root, "workflow.json");
+  const workflowArgs = args.map((arg) => (arg === output ? workflowOutput : arg));
+  const workflowResult = invoke([...workflowArgs, "--workflow-prompt", "devsys-start"]);
+  assert.match(
+    workflowResult.stdout,
+    /"pass":false/,
+    "workflow evaluation must reserve evidence before model discovery",
+  );
+  const workflowEvidence = JSON.parse(await readFile(workflowOutput, "utf8"));
+  assert.equal(workflowEvidence.workflow.source, "prompts/devsys-start.md");
+  assert.match(workflowEvidence.workflow.sourceHash, /^[a-f0-9]{64}$/);
+  assert.match(workflowEvidence.error, /explicit model or credentials unavailable/);
   const marker = join(root, "unrelated.txt");
   await writeFile(marker, "preserved");
   assert.equal(await readFile(marker, "utf8"), "preserved");

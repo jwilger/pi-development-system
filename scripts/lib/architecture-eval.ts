@@ -268,6 +268,7 @@ export type ArchitectureCellOptions = {
   provider: string;
   modelId: string;
   runtime?: ModelRuntime;
+  workflowPrompt?: string;
   limits?: { turns: number; milliseconds: number };
 };
 
@@ -278,6 +279,7 @@ export async function runArchitectureCell({
   provider,
   modelId,
   runtime: suppliedRuntime,
+  workflowPrompt,
   limits = { turns: 12, milliseconds: 90_000 },
 }: ArchitectureCellOptions) {
   if (
@@ -319,7 +321,8 @@ export async function runArchitectureCell({
     noExtensions: true,
     noSkills: true,
     noContextFiles: true,
-    noPromptTemplates: true,
+    noPromptTemplates: workflowPrompt === undefined,
+    additionalPromptTemplatePaths: workflowPrompt === undefined ? [] : [workflowPrompt],
     noThemes: true,
     extensionFactories: [evaluation.extension],
   });
@@ -361,7 +364,14 @@ export async function runArchitectureCell({
   try {
     await session.bindExtensions({ onError: (error) => errors.push(error.error) });
     try {
-      await session.prompt(evaluation.prompt);
+      if (
+        workflowPrompt !== undefined &&
+        !loader.getPrompts().prompts.some((prompt) => prompt.name === "devsys-start")
+      )
+        throw new Error("architecture-eval-workflow-unavailable: devsys-start was not loaded");
+      await session.prompt(
+        workflowPrompt === undefined ? evaluation.prompt : `/devsys-start ${evaluation.prompt}`,
+      );
     } catch (cause) {
       errors.push(cause instanceof Error ? cause.message : String(cause));
     }

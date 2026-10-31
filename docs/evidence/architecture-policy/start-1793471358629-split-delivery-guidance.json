@@ -1,0 +1,247 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-31T18:30:21.366Z",
+  "requested": {
+    "provider": "openai",
+    "model": "gpt-6.1-sol",
+    "thinkingLevel": "off"
+  },
+  "condition": "guidance",
+  "fixture": {
+    "id": "split-delivery",
+    "facts": "Authoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.",
+    "proposal": "Deliver two separate resulting commits on main in order. The first adds only queue ADR-002 and its substantively matching cumulative architecture update. The second adds only storage ADR-003 and its substantively matching cumulative update. Each ADR retains context, decision, rejected alternatives with reasons, consequences and reconsideration conditions. Independent semantic review and verification are complete for each; no merged record changes."
+  },
+  "fixtureHash": "48d71f358012e3fa74fe4eeabc5954cfe3d92dde2a9d8ef251fea5bef310b521",
+  "prompt": "Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary.\n\nFacts:\nAuthoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.\n\nProposal:\nDeliver two separate resulting commits on main in order. The first adds only queue ADR-002 and its substantively matching cumulative architecture update. The second adds only storage ADR-003 and its substantively matching cumulative update. Each ADR retains context, decision, rejected alternatives with reasons, consequences and reconsideration conditions. Independent semantic review and verification are complete for each; no merged record changes.",
+  "promptHash": "5c8ce528100b42a1fa3338687a374e56933a7afaa605b1512a98ed2b96e1e2a1",
+  "policy": {
+    "source": "src/core/architecture-policy.ts",
+    "sourceHash": "73279ce62e9a94240f4ae57bbd82c9ecfdc2b84d23b4f1961b85ab111a4c4de8",
+    "injectedHash": "67c423f81f2a67a2e8320a382db85f17e0b77ac0ab4a935e3e516e463ac345b0"
+  },
+  "limits": {
+    "turns": 12,
+    "milliseconds": 90000,
+    "retry": false,
+    "compaction": false
+  },
+  "tools": [
+    "architecture_answer"
+  ],
+  "pass": true,
+  "result": {
+    "pass": true,
+    "checks": [
+      {
+        "name": "one-typed-answer",
+        "pass": true
+      },
+      {
+        "name": "expected-decision",
+        "pass": true
+      },
+      {
+        "name": "authorized-calls-only",
+        "pass": true
+      },
+      {
+        "name": "provider-success",
+        "pass": true
+      },
+      {
+        "name": "tool-success",
+        "pass": true
+      }
+    ],
+    "answers": [
+      {
+        "decision": "proceed",
+        "explanation": "The proposal is acceptable as written: authoritative main history and the full pending range are resolved, and delivery uses two ordered resulting commits, each adding exactly one new ADR with its substantively matching cumulative architecture update. Independent semantic review and verification are complete for each, rationale is preserved, and no merged records are changed. ADR-001's former synchronous-delivery decision is not a veto on a substantively reviewed replacement with a paired architecture update; editing that historical record is not required. Preserve unrelated work as stipulated. This assessment authorizes no modifications and does not claim implementation or delivery has occurred."
+      }
+    ],
+    "invalidCalls": [],
+    "effective": {
+      "provider": "openai",
+      "model": "gpt-6.1-sol"
+    },
+    "thinkingLevel": "low",
+    "errors": [],
+    "bounded": false,
+    "bound": null,
+    "turns": 2,
+    "messages": [
+      {
+        "role": "system",
+        "content": "",
+        "sections": {
+          "preamble": "You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.",
+          "tools": "<tools>\n(none)\n\nIn addition to the tools above, you may have access to other custom tools depending on the project.\n</tools>",
+          "rules": "<rules>\n- Be concise in your responses\n- Show file paths clearly when working with files\n</rules>",
+          "docs": "<docs>\nPi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):\n- Main documentation: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/README.md\n- Additional docs: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/docs\n- Examples: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/examples (extensions, custom tools, SDK)\n- When reading pi docs or examples, resolve docs/... under Additional docs and examples/... under Examples, not the current working directory\n- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md), environment variables (docs/environment-variables.md), MCP servers (docs/mcp.md), codemode scripts and non-LLM models such as classifiers and image models (docs/codemode.md)\n- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing\n- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)\n</docs>",
+          "cwd": "<cwd>\n/tmp/architecture-policy-eval-ATaUr4\n</cwd>"
+        },
+        "timestamp": 1793471421403,
+        "toolsAdded": [
+          {
+            "name": "architecture_answer",
+            "description": "Report whether the proposed delivery may proceed as written, needs revision, or requires an owner decision to establish permission or missing authority/history. Explain the decision. This records an answer; it does not mutate a repository or grant approval.",
+            "parameters": {
+              "type": "object",
+              "required": [
+                "decision",
+                "explanation"
+              ],
+              "properties": {
+                "decision": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "proceed"
+                    },
+                    {
+                      "type": "string",
+                      "const": "revise"
+                    },
+                    {
+                      "type": "string",
+                      "const": "ask-owner"
+                    }
+                  ]
+                },
+                "explanation": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Start new work with the work-intake-and-slicing skill.\n\n1. Call `devsys_intake` with `request` set to: Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary. Facts: Authoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved. Proposal: Deliver two separate resulting commits on main in order. The first adds only queue ADR-002 and its substantively matching cumulative architecture update. The second adds only storage ADR-003 and its substantively matching cumulative update. Each ADR retains context, decision, rejected alternatives with reasons, consequences and reconsideration conditions. Independent semantic review and verification are complete for each; no merged record changes. (if empty, ask the user what they want done first).\n2. Show the user the size and artifacts. Jev sizes the work; uncertain or unavailable judgments go to configured LLM reasoning first. If still unresolved, inspect evidence, narrow the request or provide an evidence-backed explicit size. Do not ask the user merely because a classifier is uncertain; actual user-owned choices such as replacing active work still require confirmation. If the size is already decided (say, in a goal's or plan's up-front planning), pass it as `size` and nobody is asked to size it. Intake never offers to waive review.\n3. Produce the recommended planning artifacts first (brief, decision register, journeys, event model and lens review, as applicable), then the task record. To skip an optional recommended artifact, call `devsys_record_departure` with gate `artifact.skipped:<artifact>` and the reason; do not skip silently. The event model remains recommended. Root `ARCHITECTURE.md` is mandatory regardless of work size: it is the self-contained authority for current architecture and architectural goals, without ADR backlinks, source tables or delegated current requirements. Code must conform to it; intent is not verified implementation or delivery. An artifact departure cannot waive this authority or the architecture/ADR policy.\n4. Review happens on the finished slice. Create ADRs only for significant or hard-to-reverse decisions; retain their context, rejected alternatives, consequences and reconsideration conditions as history, not competing current requirements. Do not retry rejected ideas without materially changed context. Every new ADR or premerge edit requires its substantive architecture update in the same commit. Each resulting main/trunk commit adds at most one ADR; other records may change in an addition commit only for linked status-only supersession. Merged records are otherwise immutable, including corrections, deletion and renaming. Squash must preserve the paired updates and replacement records, not combine decisions. Bootstrap one cumulative decision/update pair at a time, with verification, independent semantic review and commit before the next decision. Resolve authoritative history and full pending/resulting delivery units; fail closed on missing inputs. Existing-project adoption is prospective and owner-authorized, preserving merged history and unrelated work without retrospective reconstruction.\n5. For `capability` and `product` the phase stays `planning` while you produce the artifacts and the plan. The single point where it changes is the user approving the whole plan: then call `devsys_begin_work` so the review and red-first gates switch on (it does nothing if already implementing).\n6. For `fix` and `change` the phase is already `implementing`: write the task record, then work it test-first. Both require the fresh-context review rounds; do not ask the user to skip reviews for a fix."
+          }
+        ],
+        "timestamp": 1793471421403
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "thinking",
+            "thinking": "**Assessing synchronous delivery**",
+            "thinkingSignature": "{\"id\":\"rs_02b971fd22fa76fc016ae633bf383487d0b34ad35ae8fd35a5\",\"type\":\"reasoning\",\"content\":[],\"encrypted_content\":\"gAAAAABq5jPF3uxY9kcjgyC3uxFz3LVwmQOM8nfIvSAN7_o_UZC23sRofnkXJ3Mprb1Pu2iR_tfUUbAyMl19Yn9f_y-27LZFlkqaQ6wtcotd0CD-rHQxMPNI-x8h_jVvzl_6nILSzrj2zMmmT36UWvEbKIOH6IMlrAYeRGfAXDO-uU1wtNNVTqvijao3esHsO5BMW0sE1xSQvhdkJb06XHoSmQCfh9dM74aB8EIjIvWWfQRluwYt0Cp5hYboHH6lnrBN0ta01-NUpZ2ZVUMFo072VtVk-5JbUn3YxI9wqRygGZAo85WgpXgHJ9NzieiqFSpLTxDcbe6sahoodqCQLpWzxJVurn-U9ZH3eFNVGzL03WYlyTebPPm_UsNfAngbCS0uPz9JsZH-pqwjq5kqwX7cLVL9Ai7-tKsHYBjjSYkDqcIqt4zeM-BZW44gmNE-2Ik4qRJTy46yVLd4_A7zuah_bj10IeRtlOqhcZVfgwWLVfqVBbaIQHUtUzjt5Em0uGvBaWHnxuE-0cGdDL0l5HYqJBpmry3xcod0S8EbkwwKPYAgJaaoozjhEYvpkhtvXkuUOFwOStsFLFc34gw0e6PZBVm2umqIhDHmoFE0_Y7vrva8pLNAlTJntj6QeVkuwct5N2RkZeGFUctnspvNWJsMeibXX0NZsxPJaqadWOHjelFPM5Xl8ykupUR5kSH2q4_TC1-D0C55IeCz8KE2VGjpH5yt7d-22dTYWgis29Ogb-K3c5NLCQKO-9z7074SSYLooixM4excTXd2pM2PcLdBmNu3AU0hcrn2T2e9x782TJ772WW_0H8jWXf7n08qmL_H-K1ZMsGSDghuKDiujg7jId_rEYpZblFKMtoqsindGbHkLjrUEV03fM5cAKubJ9qvE3nZMsd357Y1UG3VVfhWgnaNYmsETcxNqJGwUvMWnIgBGZCx0H6VFQw0PlQj6UQrlGDpreZEXf4zu_l6yUevqIw-7pb68rtdIbY3TfSETcJAT0624RjPSkX9hww3CtI8Vkyvd-GQJOl5tbC3QF-Sl8zrTXWhRtXqqmCZ3CgYRjvNX408ReOqyNkC1JyKsUSkPdNsKrsugi1adaZYZ8-Qg6hhkgi9HTEa14sAeeg4wpcVtmp6qFcd_ox2w04IWPyzRrTJxlXQjhMSxgVlRxNr2tBCGL16GOiqVq4RLUfLI8AxExi9y9GZ8nMRB7T13w4LBPDSCJLxWjYfUzRe_T5jeuyQhcLDQgugLVJpd5hXD2K8JFWTq3DAMzQRSVTeU4j6odUb2xejU-usej9XjtogUr4uTW3gXW5OR1MkVFA0hR1AWXg92iDiDMr0VNOt5cN4ye2KYDV7q7pRcNhIOons87ZhLlq5-FcDo22PLBylXzycdiKtZFfcqBNr3JCbRkRYWOYLCYT1WZmaWnbCUnovON7rDKrOBeqVcCCVAf72YDlxU3YC_BX9GTkXNm_xEn5gTqyvbPj58BDHSIZfZcqt7RL8pNYEOJl8U88ER9K06HATiCZaTOLMhtSbyY2bnP1cmoxdTu-qU4vyrLQ3M9tfpjScFg0ux3h1JJOG64ouU_ZS_8k0B8XDkOaHjBTmBmVBrRXuzYfEoj3wlP_bwoN1lL_m2P9GwhclqkHwMrJuq1eKrpZlMsxlHnnUP_4L6bZ1UmIDyJ_s7Wny5KhinM9BlgQicUMkutMcNxzKzCwfUl0u-1DY0ksZZl04wo7R9sJmVqZKWK7_4zd0X-jOeaB2O2Ic3kqPxy-WXdfknYlp-TR01Tn69naMxf3tlMq-XBZbIYm5AOsC_IumzYTIhX1QoxYole8w7yQRUs5pEULUhZQN3EXYgT_EGtzZSsN8ryRA1pmiEko_7OsiOyLNvCyxVGkGPqfO_ZvW2fviAn8ia3pHqxfy5raltD7LHVgwJj70GJooK42fHo-qL7SPLJbLvAHMWq9xf2Gz9h__aDzsMFOZqVQkswGjcQBuIeA4BtQQF0DrMUKV2WedDAtvcVHeXfZd6FbR8wBJjn_HG5kFc-Ns6Xkfe0ZNf3UxcT2Mnu6KspeeN8T5ZKxRe8PeHB0f6eEBM3RUA5fK2dxCFheqfOIniTX2tyZNhwZvJDEaYlguCPHMHdxMKSmcGaqGHI2rQBtnAHfwBrG-8nlmtUnXuy8jsEnns5SycGRlIqfbv0O3IgYq5OZRZ1skoIQHCLFUNDwAk8pzY_O7_iW04FOX4nTZ0fjyOpLlfLP80NcB_7gENGCLHX8lqzuJ2SytAhmXK0yNr8KPxmWP-_1etCK8BnhZgdgNm_HN1Q8-qnqax7neCUNt5LtI\",\"summary\":[{\"type\":\"summary_text\",\"text\":\"**Assessing synchronous delivery**\"}]}"
+          },
+          {
+            "type": "toolCall",
+            "id": "call_Oc19nRrNdZdBKxRw73zgmqLK|fc_02b971fd22fa76fc016ae633c5022c87d096367a9cbb8657e7",
+            "name": "architecture_answer",
+            "arguments": {
+              "decision": "proceed",
+              "explanation": "The proposal is acceptable as written: authoritative main history and the full pending range are resolved, and delivery uses two ordered resulting commits, each adding exactly one new ADR with its substantively matching cumulative architecture update. Independent semantic review and verification are complete for each, rationale is preserved, and no merged records are changed. ADR-001's former synchronous-delivery decision is not a veto on a substantively reviewed replacement with a paired architecture update; editing that historical record is not required. Preserve unrelated work as stipulated. This assessment authorizes no modifications and does not claim implementation or delivery has occurred."
+            }
+          }
+        ],
+        "api": "openai-responses",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "usage": {
+          "input": 2090,
+          "output": 188,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 45,
+          "totalTokens": 2278,
+          "cost": {
+            "input": 0.00418,
+            "output": 0.0018800000000000002,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0.006059999999999999
+          }
+        },
+        "stopReason": "toolUse",
+        "timestamp": 1793471421445,
+        "responseId": "resp_02b971fd22fa76fc016ae633be0f6c87d0bed6f037df6647f3",
+        "rawStopReason": "completed",
+        "durationMs": 8064,
+        "thinkingLevel": "low"
+      },
+      {
+        "role": "toolResult",
+        "toolCallId": "call_Oc19nRrNdZdBKxRw73zgmqLK|fc_02b971fd22fa76fc016ae633c5022c87d096367a9cbb8657e7",
+        "toolName": "architecture_answer",
+        "content": [
+          {
+            "type": "text",
+            "text": "Recorded."
+          }
+        ],
+        "isError": false,
+        "durationMs": 0,
+        "timestamp": 1793471429513
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "**Proceed.** The two ordered resulting commits each introduce one ADR with its substantively matching cumulative architecture update. History is resolved, the full pending range is included, and independent semantic review and verification are complete.\n\nADR-001’s historical synchronous-delivery decision does not veto a reviewed replacement paired with an authoritative architecture update. Its historical record need not be edited.\n\nPreserve unrelated work. No files were modified; this assessment does not establish that delivery has occurred.",
+            "textSignature": "{\"v\":1,\"id\":\"msg_02b971fd22fa76fc016ae633c7a92087d08aa8d523d8c923e9\",\"phase\":\"final_answer\"}"
+          }
+        ],
+        "api": "openai-responses",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "usage": {
+          "input": 116,
+          "output": 96,
+          "cacheRead": 2176,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "totalTokens": 2388,
+          "cost": {
+            "input": 0.000232,
+            "output": 0.0009600000000000001,
+            "cacheRead": 0.00021760000000000003,
+            "cacheWrite": 0,
+            "total": 0.0014096000000000002
+          }
+        },
+        "stopReason": "stop",
+        "timestamp": 1793471429515,
+        "responseId": "resp_02b971fd22fa76fc016ae633c6842c87d0a474c39217a5b96f",
+        "rawStopReason": "completed",
+        "durationMs": 5215,
+        "thinkingLevel": "low"
+      }
+    ]
+  },
+  "error": null,
+  "scope": "Observable synthetic decisions; not semantic truth, independent review, or universal enforcement.",
+  "sources": {
+    "scripts/eval-architecture.ts": "dc82ddea656eabeac5f6315e6472c0defb10f55ce69e687a6bef290d353b61f7",
+    "scripts/lib/architecture-eval.ts": "b38c129aa5866808885fb6f199e48271319d58d127d5fa6bd2354ad83781701f",
+    "scripts/lib/guidance-eval.ts": "a423c6e8fa225c8ef4a4b99bd2cb95b06b8bc2e412466430a22139e9a3ce57b3",
+    "src/core/architecture-policy.ts": "a17967323bf61f2d1e3dbb133ce862949087b66d9d9a8b0bbdbb7a8bd14d66e8",
+    "src/core/redact.ts": "9f35816fb8457dde90ca68eea25b1d331ece278e92a36c85bf3ef873c23de543",
+    "src/context/system-prompt.ts": "4b62163ed68a013520b8c2a353bcb62137d314cdbcd4ccafb907e7834c911b8a"
+  },
+  "workflow": {
+    "source": "prompts/devsys-start.md",
+    "sourceHash": "7f380987409978743136888f3e3a616906b352e7deba70a338c0259a4d65ee40",
+    "content": "---\ndescription: Size new work and get the planning artifacts it needs before building\nargument-hint: \"<what you want done>\"\n---\nStart new work with the work-intake-and-slicing skill.\n\n1. Call `devsys_intake` with `request` set to: $ARGUMENTS (if empty, ask the user what they want done first).\n2. Show the user the size and artifacts. Jev sizes the work; uncertain or unavailable judgments go to configured LLM reasoning first. If still unresolved, inspect evidence, narrow the request or provide an evidence-backed explicit size. Do not ask the user merely because a classifier is uncertain; actual user-owned choices such as replacing active work still require confirmation. If the size is already decided (say, in a goal's or plan's up-front planning), pass it as `size` and nobody is asked to size it. Intake never offers to waive review.\n3. Produce the recommended planning artifacts first (brief, decision register, journeys, event model and lens review, as applicable), then the task record. To skip an optional recommended artifact, call `devsys_record_departure` with gate `artifact.skipped:<artifact>` and the reason; do not skip silently. The event model remains recommended. Root `ARCHITECTURE.md` is mandatory regardless of work size: it is the self-contained authority for current architecture and architectural goals, without ADR backlinks, source tables or delegated current requirements. Code must conform to it; intent is not verified implementation or delivery. An artifact departure cannot waive this authority or the architecture/ADR policy.\n4. Review happens on the finished slice. Create ADRs only for significant or hard-to-reverse decisions; retain their context, rejected alternatives, consequences and reconsideration conditions as history, not competing current requirements. Do not retry rejected ideas without materially changed context. Every new ADR or premerge edit requires its substantive architecture update in the same commit. Each resulting main/trunk commit adds at most one ADR; other records may change in an addition commit only for linked status-only supersession. Merged records are otherwise immutable, including corrections, deletion and renaming. Squash must preserve the paired updates and replacement records, not combine decisions. Bootstrap one cumulative decision/update pair at a time, with verification, independent semantic review and commit before the next decision. Resolve authoritative history and full pending/resulting delivery units; fail closed on missing inputs. Existing-project adoption is prospective and owner-authorized, preserving merged history and unrelated work without retrospective reconstruction.\n5. For `capability` and `product` the phase stays `planning` while you produce the artifacts and the plan. The single point where it changes is the user approving the whole plan: then call `devsys_begin_work` so the review and red-first gates switch on (it does nothing if already implementing).\n6. For `fix` and `change` the phase is already `implementing`: write the task record, then work it test-first. Both require the fresh-context review rounds; do not ask the user to skip reviews for a fix.\n",
+    "invocation": "/devsys-start"
+  },
+  "sdk": "1.4.0",
+  "elapsedMilliseconds": 13365,
+  "requestPolicyHashes": [
+    "67c423f81f2a67a2e8320a382db85f17e0b77ac0ab4a935e3e516e463ac345b0",
+    "67c423f81f2a67a2e8320a382db85f17e0b77ac0ab4a935e3e516e463ac345b0"
+  ]
+}
