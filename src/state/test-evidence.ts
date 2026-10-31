@@ -1,4 +1,5 @@
 import { type ExtensionAPI, isBashToolResult } from "@earendil-works/pi-coding-agent";
+import { redactSecrets } from "../core/redact.ts";
 import { exitCodeOf, isTestRunnerCommand, summarizeOutput } from "../core/test-runner.ts";
 import type { SessionState } from "./session-state.ts";
 
@@ -23,7 +24,12 @@ export function registerTestEvidence(deps: TestEvidenceDeps): void {
     });
     deps.state.update((s) => ({
       ...s,
-      lastTestRun: { at: now().toISOString(), exitCode, summary: summarizeOutput(text) },
+      lastTestRun: {
+        at: now().toISOString(),
+        exitCode,
+        summary: summarizeOutput(text),
+        evidence: `Command: ${redactSecrets(command).slice(0, 1000)}\nExit: ${exitCode}\n${redactSecrets(text).slice(0, 4500)}`,
+      },
     }));
   });
 }

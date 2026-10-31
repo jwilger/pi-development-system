@@ -6,7 +6,7 @@ import { resolveSlot } from "../core/models.ts";
 import { redactSecrets } from "../core/redact.ts";
 import { err, ok, type Result } from "../core/result.ts";
 import { loadConfig } from "../state/config.ts";
-import { type Answers, type ReasoningAssessor, resolvedAnswers } from "./cascade.ts";
+import { type Answers, answerIssue, type ReasoningAssessor } from "./cascade.ts";
 import type { JevError } from "./client.ts";
 
 const Unit = Type.Number({ minimum: 0, maximum: 1 });
@@ -37,17 +37,37 @@ export function parseAssessment(
   try {
     parsed = JSON.parse(text);
   } catch {
-    return unresolved("Reasoning returned invalid JSON; inspect evidence and retry.");
+    return unresolved("reasoning.json: invalid JSON; repair the assessor response and retry.");
   }
   if (
-    !Value.Check(Assessment, parsed) ||
-    parsed.reason.trim() === "" ||
-    !resolvedAnswers(parsed.answers, questions)
+    Value.Check(
+      Type.Object({
+        status: Type.Literal("unresolved"),
+        reason: Type.String({ minLength: 1, maxLength: 4000 }),
+      }),
+      parsed,
+    )
   ) {
+    const reason = redactSecrets(parsed.reason)
+      .split("")
+      .map((char) => {
+        const code = char.charCodeAt(0);
+        return code < 32 || (code >= 127 && code <= 159) ? " " : char;
+      })
+      .join("")
+      .slice(0, 500);
     return unresolved(
-      "Reasoning remains unresolved or returned invalid answers. Gather evidence or simplify the operation and retry; this is not a human approval request.",
+      `reasoning.evidence: ${reason}; supply the missing evidence or narrow the operation, not human permission.`,
     );
   }
+  if (!Value.Check(Assessment, parsed) || parsed.reason.trim() === "") {
+    return unresolved(
+      "reasoning.schema: malformed assessment envelope or answer schema; repair the assessor response and retry.",
+    );
+  }
+  const issue = answerIssue(parsed.answers, questions);
+  if (issue !== undefined)
+    return unresolved(`reasoning.answers: ${issue}; this is not a human approval request.`);
   return ok(parsed.answers);
 }
 
@@ -133,13 +153,13 @@ export function createReasoningAssessor(
       if (options?.signal?.aborted) return err({ kind: "aborted" });
       if (response === undefined || signal.aborted)
         return unresolved(
-          "Reasoning assessment timed out; retry with narrower evidence or repair the configured model.",
+          "reasoning.timeout: assessment timed out; retry with narrower evidence or repair the configured model.",
         );
       if (response.usage !== undefined)
         onUsage?.({ model: `${model.provider}/${model.id}`, usage: response.usage });
       if (response.stopReason !== "stop")
         return unresolved(
-          "Reasoning model did not finish its assessment; retry with narrower evidence.",
+          "reasoning.completion: model did not finish its assessment; retry with narrower evidence.",
         );
       return parseAssessment(
         response.content
@@ -151,7 +171,9 @@ export function createReasoningAssessor(
     } catch {
       return options?.signal?.aborted
         ? err({ kind: "aborted" })
-        : unresolved("Reasoning request failed; inspect configured model connectivity and retry.");
+        : unresolved(
+            "reasoning.provider: request failed; inspect configured model connectivity and retry.",
+          );
     } finally {
       if (timer !== undefined) clearTimeout(timer);
       removeAbort?.();

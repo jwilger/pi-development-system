@@ -28,6 +28,10 @@ function commandWords(words: readonly string[]): string[] {
 function isRunner(words: readonly string[]): boolean {
   const [head, ...rest] = words.map((w, i) => (i === 0 ? basename(w) : w));
   if (head === undefined) return false;
+  if (head === "nix" && rest[0] === "develop") {
+    const command = rest.findIndex((word) => word === "--command" || word === "-c");
+    return command > 0 && isRunner(commandWords(rest.slice(command + 1)));
+  }
   const args = rest.filter((w) => !w.startsWith("+"));
   const first = args[0];
   // Compile-only and listing runs prove nothing about RED/GREEN, so they must not overwrite a real result.

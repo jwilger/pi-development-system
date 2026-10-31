@@ -17,6 +17,8 @@ export type TestChangeInput = {
   before?: string;
   after?: string | undefined;
   recentFailure?: string | undefined;
+  /** Applicable decisions are evidence, not authorization to weaken unrelated coverage. */
+  departures?: string | undefined;
 };
 
 export const WEAKENS_QUESTION: ClassifierBoolQuestion = {
@@ -93,6 +95,7 @@ export async function judgeTestChange(
     after: input.after === undefined ? "" : clip(windowed.after),
     deleted: input.after === undefined,
     recentFailure: clip(input.recentFailure),
+    departures: clip(input.departures),
   };
   const asked = await jev.ask(state, { weakens: WEAKENS_QUESTION, motive: MOTIVE_QUESTION });
   if (!asked.ok) return asked;

@@ -115,17 +115,33 @@ const judge = async (
   const signals = deleted ? NO_SIGNALS : weakeningSignals(change.before, after);
   if (!deleted && isHarmlessAddition(change.before, after, signals)) return { kind: "allow" };
   const deterministic = describeSignals(deleted, signals);
+  const state = deps.state.get();
+  const departures = state.openDepartures.filter(
+    (d) => d.gate === GATE_ID && (d.scope.kind !== "slice" || d.scope.slice === state.activeSlice),
+  );
   const judged = await judgeTestChange(deps.jev(ctx), {
     path: change.path,
     before: change.before,
     after: after === "" ? undefined : redactSecrets(after),
     recentFailure:
-      deps.state.get().lastTestRun?.exitCode !== 0
-        ? deps.state.get().lastTestRun?.summary
+      state.lastTestRun?.exitCode !== 0
+        ? (state.lastTestRun?.evidence ?? state.lastTestRun?.summary)
         : undefined,
+    departures: JSON.stringify(departures),
   });
-  if (!judged.ok && judged.error.kind === "assessment-unresolved" && deterministic === undefined) {
-    return { kind: "unresolved", why: judged.error.message };
+  if (!judged.ok && judged.error.kind === "assessment-unresolved") {
+    return {
+      kind: "unresolved",
+      why: `${GATE_ID} assessment (${change.path}): ${judged.error.message}`,
+    };
+  }
+  if (judged.ok && judged.value.motive === "requirement-change") {
+    // Retiring an obsolete contract still needs the recorded decision. Spend once-scoped
+    // evidence even when Jev correctly says the intended contract is not weakened.
+    return {
+      kind: "require-departure",
+      why: "this edit replaces a deliberately changed requirement",
+    };
   }
   const fromJev = judged.ok ? jevVerdict(judged.value, deterministic !== undefined) : undefined;
   if (fromJev !== undefined) return fromJev;

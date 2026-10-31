@@ -63,7 +63,15 @@ function parseTestRun(input: unknown): TestRun | ParseError {
   if (typeof at !== "string" || typeof exitCode !== "number" || typeof summary !== "string") {
     return parseError("lastTestRun needs string at, number exitCode and string summary");
   }
-  return { at, exitCode, summary };
+  if (input.evidence !== undefined && typeof input.evidence !== "string") {
+    return parseError("lastTestRun.evidence must be a string");
+  }
+  return {
+    at,
+    exitCode,
+    summary,
+    ...(input.evidence !== undefined ? { evidence: input.evidence } : {}),
+  };
 }
 
 function parseReviews(input: unknown): ReviewState[] | ParseError {

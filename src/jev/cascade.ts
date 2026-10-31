@@ -12,11 +12,38 @@ export type ReasoningAssessor = (
 const unit = (value: number): boolean => Number.isFinite(value) && value >= 0 && value <= 1;
 const unknown = (label: string): boolean => /^(unknown|unclear|unsure|unresolved)$/u.test(label);
 
-/** Conservative common floor; consumers may still apply stricter substantive policy. */
-export function resolvedAnswers(
+/** Safe diagnostic categories only: never include provider output or raw answer values. */
+export function answerIssue(
   answers: Answers,
   questions: Record<string, ClassifierQuestion>,
-): boolean {
+): string | undefined {
+  for (const [key, question] of Object.entries(questions)) {
+    const name = key.replace(/[^a-zA-Z0-9_-]/g, "?").slice(0, 80);
+    const answer = answers[key];
+    if (answer === undefined) return `${name}: missing answer`;
+    if (answer.type !== question.type) return `${name}: wrong answer type`;
+    if (resolvedAnswers({ [key]: answer }, { [key]: question })) continue;
+    if (answer.type === "bool" && unit(answer.probability))
+      return `${name}: uncertain boolean; supply contract evidence or narrow the change`;
+    if (answer.type === "score" && unit(answer.score) && unit(answer.confidence))
+      return `${name}: low confidence; supply evidence or narrow the change`;
+    if (
+      answer.type === "choice" &&
+      question.type === "choice" &&
+      Object.hasOwn(question.criteria, answer.choice)
+    ) {
+      if (unknown(answer.choice))
+        return `${name}: unresolved choice; supply missing contract evidence`;
+      if (unit(answer.confidence) && answer.confidence < 0.8)
+        return `${name}: low confidence; supply evidence or narrow the change`;
+    }
+    return `${name}: invalid answer values or inconsistent choice distribution; repair the assessor response`;
+  }
+  return undefined;
+}
+
+/** Conservative common floor; consumers may still apply stricter substantive policy. */
+function resolvedAnswers(answers: Answers, questions: Record<string, ClassifierQuestion>): boolean {
   return Object.entries(questions).every(([key, question]) => {
     const answer = answers[key];
     if (answer === undefined || answer.type !== question.type) return false;

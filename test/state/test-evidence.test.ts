@@ -31,7 +31,24 @@ test("a failing test run is recorded with exit code and summary", async () => {
     at: "2026-10-06T17:12:00.000Z",
     exitCode: 1,
     summary: "1 passed | 2 failed",
+    evidence: "Command: npm test\nExit: 1\n1 passed\n2 failed\n\nCommand exited with code 1",
   });
+});
+
+test("Nix-wrapped RED retains the actual failure beyond the short status summary", async () => {
+  const { state, result } = setup();
+  const command =
+    "nix develop --command cargo test -p ferrum-tui --test cli redirected_invocation_refuses_interactive_output -- --exact";
+  const output =
+    "a redirected shell must refuse to start\nstack detail\nmore detail\ntest failed\nCommand exited with code 101";
+  await result(command, output, true);
+  assert.equal(state.get().lastTestRun?.exitCode, 101);
+  assert.match(state.get().lastTestRun?.evidence ?? "", /a redirected shell must refuse to start/);
+  assert.ok(state.get().lastTestRun?.evidence?.includes(command));
+  assert.doesNotMatch(
+    state.get().lastTestRun?.summary ?? "",
+    /a redirected shell must refuse to start/,
+  );
 });
 
 test("a passing run replaces a failing one", async () => {

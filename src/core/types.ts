@@ -66,6 +66,8 @@ export type TestRun = {
   readonly at: string;
   readonly exitCode: number;
   readonly summary: string;
+  /** Bounded, redacted command and output for contract assessments (older sessions may lack it). */
+  readonly evidence?: string;
 };
 
 export type DevsysState = {
