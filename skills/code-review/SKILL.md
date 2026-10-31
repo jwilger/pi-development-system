@@ -1,12 +1,13 @@
 ---
 name: code-review
-description: How to review a slice before it is committed in this development system - fresh-context reviewer per round, Jev-chosen lenses, the review packet format, what resets the clean streak, and driving rounds with devsys_review_start and devsys_review_record. Use before committing a slice, when asked to review, or when interpreting reviewer findings.
+description: How to review a slice before it is committed in this development system - a fresh-context reviewer per selected lens, Jev-chosen lenses, complete-round aggregation, the review packet format, what resets the clean streak, and driving rounds with devsys_review_start and devsys_review_record. Use before committing a slice, when asked to review, or when interpreting reviewer findings.
 ---
 
 # Code review
 
-Every slice is reviewed by a **fresh-context reviewer** before it is committed.
-The reviewer has not seen your reasoning, so it judges the diff, not your intent.
+Every slice is reviewed by a **fresh-context reviewer per selected lens** before
+it is committed. Each reviewer receives exactly one lens and has not seen your
+reasoning or the other reviewers' conversations, so it judges the diff, not your intent.
 Review is a soft gate (`review.unsatisfied`): skipping it needs a recorded departure.
 
 ## Run a round
@@ -14,16 +15,28 @@ Review is a soft gate (`review.unsatisfied`): skipping it needs a recorded depar
 1. `devsys_review_start` (slice defaults to the active slice; `diffRange` defaults
    to `HEAD`: everything uncommitted, untracked files included; the commit gate
    checks that range, so use it for a review meant to clear a commit). It computes the
-   diff digest, lets Jev choose lenses, and returns an exact `agent_spawn` payload.
-2. Run that `agent_spawn` unchanged. The reviewer is a top-level agent, not a
-   child of this conversation, so it does not inherit your context.
-3. The reviewer submits its result with `devsys_submit_review` (typed arguments; a
-   self-contradicting or wrong-round result is refused to the reviewer with an error id).
-   Call `devsys_review_record` with the `slice` and `diffDigest` the start reply gave, and
-   the same `diffRange` if you gave one; it reads the submitted results of the round. If a
-   reviewer returned a markdown packet instead, pass it verbatim in `packets: [...]` (all
-   lens packets of one round in one call). A result is recorded once, in the round it
-   names; if the diff changed since the start, the round is refused: start again.
+   diff digest, lets Jev choose lenses, and returns an array of exact `agent_spawn`
+   payloads, one per selected lens (an array even for a single lens).
+2. Run **every payload unchanged**, each in its own fresh top-level reviewer session.
+   These are siblings, not children of this conversation: do not combine lenses or
+   pass your conversation to them. Payloads use `wait: false`; launch **all siblings
+   before waiting** with `agent_wait` on each returned session path. Every reviewer
+   gets the same scope and diff snapshot, but only its own assigned lens.
+3. Each reviewer submits its single-lens result with `devsys_submit_review` (typed
+   arguments; a self-contradicting, wrong-round or wrong-lens result is refused).
+   Wait for every selected lens to return a valid result, then call
+   `devsys_review_record` **once** with the original `slice`, `diffDigest`,
+   `diffRange` if given, and `reviewInputIdentity` if supplied. It reads all submitted
+   results. If any reviewer returned a markdown packet instead, pass it verbatim in
+   `packets: [...]` alongside the typed results already submitted: all fallback lens
+   packets of one round go in the same call, each naming exactly its assigned lens.
+   A missing, failed or incomplete lens is **not clean**: preserve available results
+   and wait for or retry that reviewer; never fabricate a packet or substitute your
+   own review. Missing, duplicate, unexpected or multi-lens results cannot advance
+   a dispatched round. A result is recorded once, in the round it names; if the
+   diff or configured guidance changed since the start, start a fresh round.
+   A repeated start for the same prepared round is not permission to spawn duplicates:
+   wait for or resume existing sessions and use the original handoff.
 4. Read the reply: `review: N/R clean` and `next:`.
    - `fix-findings`: fix every blocking and should-fix finding, then start a new round
      (starting again on an unchanged diff is refused).
@@ -36,7 +49,7 @@ Review is a soft gate (`review.unsatisfied`): skipping it needs a recorded depar
 The fields of `devsys_submit_review` mirror this packet; the markdown form is the fallback (ADR 0006).
 
 ```markdown
-## Review — <slice> — round <n> — lenses: <a, b>
+## Review — <slice> — round <n> — lenses: <assigned-lens>
 ### Sources inspected
 - <path:line ranges>
 ### Findings
@@ -59,7 +72,9 @@ The verdict must agree with the findings.
 
 Jev may raise a finding's severity when it is at least 0.8 confident; it never
 lowers a finding to a severity that does not count (it only suggests, in the
-reply, and you re-check it yourself). A round is clean when it has no blocking or should-fix findings.
+reply, and you re-check it yourself). A round is clean only when every selected
+lens has returned a valid result and the combined findings contain no blocking or
+should-fix findings.
 The default is one substantive independent clean review of the current diff
 (`review.required_clean_rounds = 1`). Resolve real findings, then have the fixed
 diff reviewed; do not obtain extra clean opinions just to build a streak.

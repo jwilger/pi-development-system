@@ -171,6 +171,7 @@ export function reviewerTask(input: {
   round: number;
   lenses: readonly string[];
   diffRange: string;
+  diffDigest?: string;
   guidance?: GuidanceSnapshot;
   reviewInputIdentity?: string;
 }): string {
@@ -181,6 +182,11 @@ export function reviewerTask(input: {
       : `, reviewInputIdentity ${JSON.stringify(input.reviewInputIdentity)}`;
   return [
     `Review slice ${input.slice}, round ${input.round}, through these lenses: ${lenses}.`,
+    ...(input.diffDigest === undefined
+      ? []
+      : [
+          `Review only your assigned lens (${lenses}); do not review other lenses. Expected diff snapshot: ${input.diffDigest}. If the diff changes, report the stale input rather than submitting a clean result.`,
+        ]),
     `See the change with \`git diff ${input.diffRange}\` (and \`git diff --stat ${input.diffRange}\`), plus any untracked files listed by \`git ls-files --others --exclude-standard\` (git diff does not show them; read them directly). Read the callers, callees and tests it depends on, no more.`,
     "Do not modify files; report demonstrable defects with a realistic trigger and the smallest local repair.",
     `Report your result by calling devsys_submit_review with slice "${input.slice}", round ${input.round}, lenses ${JSON.stringify(input.lenses)}${identityArgument}, your sources, your findings (lens, severity, path, line, summary) and the verdict. If it refuses, for example with verdict-contradicts-findings or wrong-round, correct the call and submit again; when it accepts, end with one short line.`,

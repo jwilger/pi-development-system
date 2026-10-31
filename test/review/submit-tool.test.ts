@@ -110,3 +110,63 @@ test("a resubmission with overlapping lenses replaces the earlier one; disjoint 
   await t.submit({ lenses: ["ux"] });
   assert.equal(t.submissions.forRound("s1" as SliceRef, 1).length, 2);
 });
+
+test("a dispatched reviewer can submit only one of the selected lenses", async () => {
+  const t = setup();
+  t.state.update((s) => ({
+    ...s,
+    reviews: [
+      {
+        slice: "s1" as SliceRef,
+        rounds: [],
+        required: 1,
+        dispatch: {
+          round: 1,
+          range: "HEAD",
+          diffDigest: "digest",
+          inputIdentity: "input",
+          lenses: ["types", "tests"],
+        },
+      },
+    ],
+  }));
+  await t.submit({ reviewInputIdentity: "input" });
+  const kept = t.submissions.forRound("s1", 1);
+  for (const lenses of [["types", "tests"], ["ux"], ["types", "types"]]) {
+    const result = await t.submit({ lenses, reviewInputIdentity: "input" });
+    assert.equal(result.isError, true);
+    assert.match(text(result), /^wrong-review-lens:/);
+    assert.deepEqual(t.submissions.forRound("s1", 1), kept);
+  }
+  assert.notEqual(
+    (await t.submit({ lenses: ["tests"], reviewInputIdentity: "input" })).isError,
+    true,
+  );
+  assert.equal(t.submissions.forRound("s1", 1).length, 2);
+});
+
+test("a superseded unconfigured dispatch cannot submit a result into its replacement", async () => {
+  const t = setup();
+  t.state.update((s) => ({
+    ...s,
+    reviews: [
+      {
+        slice: "s1" as SliceRef,
+        rounds: [],
+        required: 1,
+        dispatch: {
+          round: 1,
+          range: "HEAD",
+          diffDigest: "digest",
+          inputIdentity: "current",
+          lenses: ["types"],
+        },
+      },
+    ],
+  }));
+  const stale = await t.submit({ reviewInputIdentity: "superseded" });
+  assert.equal(stale.isError, true);
+  assert.equal(t.submissions.forRound("s1", 1).length, 0);
+  const current = await t.submit({ reviewInputIdentity: "current" });
+  assert.notEqual(current.isError, true, text(current));
+});

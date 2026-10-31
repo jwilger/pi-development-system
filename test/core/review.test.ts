@@ -257,3 +257,35 @@ test("addRound consumes pending without losing earlier input metadata or mutatin
   assert.deepEqual(before.rounds[0]?.files, { "a.ts": "x" });
   assert.deepEqual(before.pending, { round: 2, range: "HEAD", input: currentInput });
 });
+
+test("dispatch manifest survives persistence and is consumed only by an accepted round", () => {
+  const dispatch = {
+    round: 1,
+    range: "HEAD",
+    diffDigest: "a",
+    inputIdentity: "input",
+    lenses: ["types", "tests"],
+  };
+  const before: ReviewState = { ...state(2), dispatch };
+  assert.deepEqual(parseReviewState(JSON.parse(JSON.stringify(before))), before);
+  assert.equal(
+    addRound(before, { lenses: ["types", "tests"], findings: [], reviewedAt: "t", diffDigest: "a" })
+      .dispatch,
+    undefined,
+  );
+  assert.deepEqual(before.dispatch, dispatch);
+});
+
+for (const dispatch of [
+  null,
+  {},
+  { round: 2, range: "HEAD", diffDigest: "a", inputIdentity: "input", lenses: ["types"] },
+  { round: 1, range: "HEAD", diffDigest: "a", inputIdentity: "input", lenses: [] },
+  { round: 1, range: "HEAD", diffDigest: "a", inputIdentity: "input", lenses: ["types", "types"] },
+  { round: 1, range: "HEAD", diffDigest: "a", inputIdentity: "input", lenses: [5] },
+  { round: 1, range: "", diffDigest: "a", inputIdentity: "input", lenses: ["types"] },
+]) {
+  test(`invalid dispatch is rejected at persistence boundary: ${JSON.stringify(dispatch)}`, () => {
+    assert.ok("kind" in parseReviewState({ ...state(1), dispatch }));
+  });
+}

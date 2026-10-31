@@ -37,6 +37,14 @@ export type ReviewState = {
   readonly rounds: ReadonlyArray<ReviewRound>;
   /** Consecutive clean rounds needed (config `review.required_clean_rounds`, at least `min_rounds`). */
   readonly required: number;
+  /** Expected results for a newly dispatched round; absent in legacy state. */
+  readonly dispatch?: {
+    readonly round: number;
+    readonly range: string;
+    readonly diffDigest: string;
+    readonly inputIdentity: string;
+    readonly lenses: readonly string[];
+  };
   readonly pending?: {
     readonly round: number;
     readonly range: string;
@@ -83,7 +91,7 @@ export const startReview = (slice: SliceRef, required: number): ReviewState => (
 });
 
 export const addRound = (state: ReviewState, round: Omit<ReviewRound, "n">): ReviewState => {
-  const { pending: _pending, ...accepted } = state;
+  const { pending: _pending, dispatch: _dispatch, ...accepted } = state;
   return {
     ...accepted,
     // Only the last round's per-file digests are ever compared, so earlier ones are not carried along.
@@ -213,6 +221,30 @@ function parseRound(input: unknown): ReviewRound | ParseError {
   };
 }
 
+function parseDispatch(input: unknown): NonNullable<ReviewState["dispatch"]> | ParseError {
+  if (!isRecord(input)) return parseError("review dispatch must be an object");
+  const { round, range, diffDigest, inputIdentity, lenses } = input;
+  if (typeof round !== "number" || !Number.isInteger(round) || round < 1)
+    return parseError("review dispatch round must be a positive integer");
+  if (
+    typeof range !== "string" ||
+    range === "" ||
+    typeof diffDigest !== "string" ||
+    diffDigest === ""
+  )
+    return parseError("review dispatch needs nonempty range and diffDigest");
+  if (
+    !Array.isArray(lenses) ||
+    lenses.length === 0 ||
+    !lenses.every((lens) => typeof lens === "string" && lens !== "") ||
+    new Set(lenses).size !== lenses.length
+  )
+    return parseError("review dispatch lenses must be distinct nonempty strings");
+  if (typeof inputIdentity !== "string" || inputIdentity === "")
+    return parseError("review dispatch inputIdentity must be a nonempty string");
+  return { round, range, diffDigest, inputIdentity, lenses };
+}
+
 /** Boundary parse for a persisted review (one slice's rounds). */
 export function parseReviewState(input: unknown): ReviewState | ParseError {
   if (!isRecord(input)) return parseError("review must be an object");
@@ -228,6 +260,10 @@ export function parseReviewState(input: unknown): ReviewState | ParseError {
     if ("kind" in round) return round;
     parsed.push(round);
   }
+  const dispatch = input.dispatch === undefined ? undefined : parseDispatch(input.dispatch);
+  if (dispatch !== undefined && "kind" in dispatch) return dispatch;
+  if (dispatch !== undefined && dispatch.round !== parsed.length + 1)
+    return parseError("review dispatch must be for the next round");
   const pending = input.pending === undefined ? undefined : parsePending(input.pending);
   if (pending !== undefined && "kind" in pending) return pending;
   return {
@@ -235,5 +271,6 @@ export function parseReviewState(input: unknown): ReviewState | ParseError {
     required,
     rounds: parsed,
     ...(pending === undefined ? {} : { pending }),
+    ...(dispatch === undefined ? {} : { dispatch }),
   };
 }

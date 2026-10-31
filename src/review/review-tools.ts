@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { type Static, Type } from "typebox";
 import type { Exec } from "../core/exec.ts";
@@ -79,13 +80,13 @@ const StartParameters = Type.Object({
   ),
 });
 
-/** One path segment is at most 64 chars (src/subagents/orch/paths.ts); keep room for round and attempt. */
+/** One path segment is at most 64 chars (src/subagents/orch/paths.ts); keep room for round, attempt and lens. */
 const pathSafe = (slice: string): string =>
   slice
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 32);
+    .slice(0, 16);
 
 type LensJudgement = Awaited<ReturnType<typeof judgeLenses>>;
 
@@ -107,26 +108,28 @@ function chooseLenses(judged: LensJudgement): { lenses: Lens[]; basis: string } 
   return { lenses: selected, basis: "Jev chose the lenses." };
 }
 
-/** The agent_spawn arguments for one reviewer round. */
+/** The agent_spawn arguments for one isolated lens reviewer. */
 function spawnPayload(input: {
   slice: SliceRef;
   round: number;
-  lenses: Lens[];
+  lens: Lens;
+  digest: string;
   range: string;
   model: ReturnType<typeof resolveSlot>;
   thinkingLevel: ThinkingLevel;
-  now: Date;
+  attempt: string;
   guidance?: GuidanceSnapshot;
   reviewInputIdentity?: string;
 }): Record<string, unknown> {
   return {
     // A fresh path per attempt: a failed spawn must not leave a thread that blocks the retry.
-    path: `/review-${pathSafe(input.slice)}-r${input.round}-${input.now.getTime().toString(36)}`,
+    path: `/review-${pathSafe(input.slice)}-r${input.round}-${input.attempt}-${input.lens}`,
     type: "reviewer",
     task: reviewerTask({
       slice: input.slice,
       round: input.round,
-      lenses: input.lenses,
+      lenses: [input.lens],
+      diffDigest: input.digest,
       diffRange: input.range,
       ...(input.guidance === undefined ? {} : { guidance: input.guidance }),
       ...(input.reviewInputIdentity === undefined
@@ -135,7 +138,7 @@ function spawnPayload(input: {
     }),
     ...(input.model.ok ? { model: input.model.value.model } : {}),
     thinkingLevel: input.thinkingLevel,
-    wait: true,
+    wait: false,
   };
 }
 
@@ -185,15 +188,22 @@ function pendingStartReply(deps: ReviewToolDeps, p: Prepared): Reply | undefined
     return undefined;
   const round = pending.review.rounds.length + 1;
   const inputIdentity = review?.pending?.input.identity;
+  const recordingIdentity = review?.dispatch?.inputIdentity ?? inputIdentity;
   const identityArg =
-    inputIdentity === undefined ? "" : ` and reviewInputIdentity "${inputIdentity}"`;
-  if (deps.submissions.forRound(p.slice, round, inputIdentity).length > 0)
+    recordingIdentity === undefined ? "" : ` and reviewInputIdentity "${recordingIdentity}"`;
+  const submitted = deps.submissions.forRound(p.slice, round, inputIdentity);
+  const missing =
+    pending.review.dispatch?.lenses.filter(
+      (lens) =>
+        !submitted.some((packet) => packet.lenses.length === 1 && packet.lenses[0] === lens),
+    ) ?? [];
+  if (submitted.length > 0 && missing.length === 0)
     return reply(
       `Round ${round} of ${p.slice} already has a submitted result. Next: devsys_review_record with slice "${p.slice}", diffDigest "${p.snap.digest}"${p.range === "HEAD" ? "" : ` and diffRange "${p.range}"`}${identityArg}. Do not start another review; the submission is preserved.`,
       true,
     );
   return reply(
-    `Round ${round} is already prepared; no new review was started. Next: use the original agent_spawn handoff below, not devsys_review_start. If that child already exists, wait for it or resume it with agent_steer rather than creating a duplicate.\n${pending.handoff}`,
+    `${submitted.length === 0 ? "" : `Partial results preserved; missing lenses: ${missing.join(", ")}. Do not rerun completed lenses. `}Round ${round} is already prepared; no new review was started. Next: use the original agent_spawn handoff below, not devsys_review_start. If a lens child already exists, wait for it or resume it with agent_steer rather than creating a duplicate.\n${pending.handoff}`,
     true,
   );
 }
@@ -270,7 +280,13 @@ function matchesPendingInput(
   identity: string | undefined,
 ): boolean {
   const pending = current?.pending;
-  if (pending === undefined) return p.guidance.sources.length === 0 && identity === undefined;
+  if (pending === undefined) {
+    const dispatch = current?.dispatch;
+    return (
+      p.guidance.sources.length === 0 &&
+      (dispatch === undefined ? identity === undefined : identity === dispatch.inputIdentity)
+    );
+  }
   return (
     pending.round === (current?.rounds.length ?? 0) + 1 &&
     pending.range === p.range &&
@@ -329,6 +345,13 @@ async function startRound(
     slice: existing.slice,
     required: Math.max(existing.required, required),
     rounds: existing.rounds,
+    dispatch: {
+      round,
+      range: p.range,
+      diffDigest: p.snap.digest,
+      inputIdentity: p.input.identity,
+      lenses,
+    },
     ...(configured ? { pending: { round, range: p.range, input: p.input } } : {}),
   };
   const refusal = startRefusal(review, p);
@@ -337,23 +360,28 @@ async function startRound(
   deps.submissions.clear(p.slice);
   deps.state.update((s) => upsertReview(s, review));
   deps.state.update((s) => afterReviewRound(s, "review", p.slice));
-  const spawn = spawnPayload({
-    slice: p.slice,
-    round,
-    lenses,
-    range: p.range,
-    model: resolveSlot(p.config.models, "reviewer", availableModels(ctx.modelRegistry)),
-    thinkingLevel: p.config.review.thinkingLevel,
-    now: deps.now?.() ?? new Date(),
-    ...(configured ? { guidance: p.guidance, reviewInputIdentity: p.input.identity } : {}),
-  });
-  const identityArg = configured ? ` and reviewInputIdentity "${p.input.identity}"` : "";
+  const attempt = randomUUID().replaceAll("-", "").slice(0, 12);
+  const spawns = lenses.map((lens) =>
+    spawnPayload({
+      slice: p.slice,
+      round,
+      lens,
+      digest: p.snap.digest,
+      range: p.range,
+      model: resolveSlot(p.config.models, "reviewer", availableModels(ctx.modelRegistry)),
+      thinkingLevel: p.config.review.thinkingLevel,
+      attempt,
+      reviewInputIdentity: p.input.identity,
+      ...(configured ? { guidance: p.guidance } : {}),
+    }),
+  );
+  const identityArg = ` and reviewInputIdentity "${p.input.identity}"`;
   const rangeArg = p.range === "HEAD" ? "" : ` and diffRange "${p.range}"`;
   const handoff = [
     `${reviewLabel(review)}; round ${round}; diff ${p.snap.digest}. ${basis}`,
     `lenses: ${lenses.join(", ")}`,
-    `Spawn the reviewer with agent_spawn using exactly this payload, then call devsys_review_record with slice "${p.slice}", diffDigest "${p.snap.digest}"${rangeArg}${identityArg}. The reviewer submits its result with devsys_submit_review, so pass no packets (only a markdown packet the reviewer returned instead goes in packets):`,
-    JSON.stringify(spawn),
+    `Spawn one fresh reviewer per payload in this array with agent_spawn. Launch ALL siblings before waiting with agent_wait; collect every selected lens result. A failed or missing reviewer cannot be treated as clean. Then call devsys_review_record with slice "${p.slice}", diffDigest "${p.snap.digest}"${rangeArg}${identityArg}. The reviewer submits its result with devsys_submit_review, so pass no packets (only a markdown packet the reviewer returned instead goes in packets):`,
+    JSON.stringify(spawns),
   ].join("\n");
   const starts = pendingStarts.get(deps.state) ?? new Map<SliceRef, PendingStart>();
   starts.set(p.slice, {
@@ -375,7 +403,7 @@ function buildReviewStartTool(deps: ReviewToolDeps): ToolDefinition<typeof Start
     executionMode: "sequential",
     label: "Start review round",
     description:
-      "Begin a review round for a slice: computes the diff digest, chooses review lenses, and returns the agent_spawn payload for a fresh-context reviewer. Run that spawn, then call devsys_review_record (the reviewer submits its result with devsys_submit_review).",
+      "Begin a review round for a slice: computes the diff digest, chooses review lenses, and returns an array of agent_spawn payloads, one fresh-context reviewer per selected lens. Spawn all siblings before waiting for every result, then call devsys_review_record (each reviewer submits with devsys_submit_review).",
     promptSnippet: "Start a fresh-context review round for a slice",
     parameters: StartParameters,
     exposure: "model-only",
@@ -510,6 +538,33 @@ async function recordRound(
   const refusal = wrongPacket(packets, p.slice, before.rounds.length + 1);
   if (refusal !== undefined) return refusal;
 
+  const dispatch = before.dispatch;
+  if (dispatch !== undefined) {
+    if (
+      dispatch.round !== before.rounds.length + 1 ||
+      dispatch.range !== p.range ||
+      dispatch.diffDigest !== p.snap.digest
+    )
+      return reply("stale-review-dispatch: start the current diff and range again.", true);
+    const invalid = packets.find(
+      (packet) => packet.lenses.length !== 1 || !dispatch.lenses.includes(packet.lenses[0] ?? ""),
+    );
+    if (invalid !== undefined)
+      return reply(
+        "wrong-review-lens: each dispatched reviewer must return exactly one selected lens.",
+        true,
+      );
+    const seen = packets.flatMap((packet) => packet.lenses);
+    if (new Set(seen).size !== seen.length)
+      return reply("duplicate-review-lens: supply exactly one result per selected lens.", true);
+    const missing = dispatch.lenses.filter((lens) => !seen.includes(lens));
+    if (missing.length > 0)
+      return reply(
+        `incomplete-review: missing results for ${missing.join(", ")}. Wait for or retry those reviewers; no round was recorded.`,
+        true,
+      );
+  }
+
   const merged = combinePackets(packets);
   const { findings, notes } = await adjusted(deps, ctx, merged.findings, p.snap.sample);
   if (isAborted(signal)) return reply("Review recording cancelled; nothing changed.", true);
@@ -540,7 +595,7 @@ function buildReviewRecordTool(deps: ReviewToolDeps): ToolDefinition<typeof Reco
     executionMode: "sequential",
     label: "Record review round",
     description:
-      "Record one review round from the reviewer's submitted result (or markdown packets): reads findings, lets Jev adjust severity when confident, and returns the clean-round count and the next action.",
+      "Record one review round from the reviewer's submitted result (or markdown packets): requires every dispatched single-lens result, reads findings, lets Jev adjust severity when confident, and returns the clean-round count and the next action.",
     promptSnippet: "Record a reviewer packet as a review round",
     parameters: RecordParameters,
     exposure: "direct",

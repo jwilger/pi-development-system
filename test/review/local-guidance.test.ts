@@ -56,8 +56,8 @@ function setup(t: TestContext, jev = offline) {
       "r",
       {
         diffDigest: snap.ok ? snap.value.digest : "",
-        reviewInputIdentity: identity(),
-        packets: [clean],
+        reviewInputIdentity: identity() ?? state.get().reviews?.[0]?.dispatch?.inputIdentity,
+        packets: [clean, clean.replace("lenses: types", "lenses: tests")],
         ...params,
       } as never,
       undefined,
@@ -65,7 +65,7 @@ function setup(t: TestContext, jev = offline) {
       fake.ctx as never,
     );
   };
-  const submit = (params: Record<string, unknown> = {}) =>
+  const submitOne = (params: Record<string, unknown> = {}) =>
     createSubmitReviewTool({ state, submissions }).execute(
       "u",
       {
@@ -75,13 +75,26 @@ function setup(t: TestContext, jev = offline) {
         sources: ["a.ts:1"],
         findings: [],
         verdict: "no-blocking",
-        reviewInputIdentity: identity(),
+        reviewInputIdentity: identity() ?? state.get().reviews?.[0]?.dispatch?.inputIdentity,
         ...params,
       } as never,
       undefined,
       undefined,
       fake.ctx as never,
     );
+  const submit = async (params: Record<string, unknown> = {}) => {
+    const result = await submitOne(params);
+    if (result.isError !== true) {
+      const other = await submitOne({
+        ...params,
+        lenses: ["tests"],
+        findings: [],
+        verdict: "no-blocking",
+      });
+      if (other.isError === true) return other;
+    }
+    return result;
+  };
   registerCommitGuard({ ...deps, pi: fake.api, approvals: createApprovalStore(fake.api) });
   const commit = () =>
     fake.emit({
@@ -111,7 +124,7 @@ test("snapshot-bearing handoff and typed result preserve the exact configured in
   assert.notEqual(started.isError, true, text(started));
   const identity = host.identity();
   assert.ok(identity);
-  const spawn = JSON.parse(text(started).split("\n").at(-1) ?? "{}");
+  const [spawn] = JSON.parse(text(started).split("\n").at(-1) ?? "[]");
   assert.match(spawn.task, /Tenant counts exclude archived records/);
   assert.match(spawn.task, /concern\.md/);
   assert.ok(spawn.task.includes(identity));
@@ -212,7 +225,7 @@ test("guidance changes during severity adjustment preserve the unrecorded submis
   assert.equal(result.isError, true, text(result));
   assert.match(text(result), /stale-review-input/);
   assert.equal(host.state.get().reviews?.[0]?.rounds.length, 0);
-  assert.equal(host.submissions.forRound("s1", 1, identity).length, 1);
+  assert.equal(host.submissions.forRound("s1", 1, identity).length, 2);
 });
 
 test("changed guidance cannot commit using a previously clean unchanged diff", async (t) => {

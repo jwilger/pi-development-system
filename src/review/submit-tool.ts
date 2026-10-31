@@ -64,13 +64,23 @@ function submit(deps: SubmitDeps, params: Static<typeof SubmitParameters>) {
     );
   }
   const pending = review?.pending;
+  const inputIdentity = pending?.input.identity ?? review?.dispatch?.inputIdentity;
   if (
     pending === undefined
-      ? params.reviewInputIdentity !== undefined
+      ? params.reviewInputIdentity !== inputIdentity
       : pending.round !== params.round || pending.input.identity !== params.reviewInputIdentity
   )
     return reply(
       "stale-review-input: use the exact current review input identity from your task.",
+      true,
+    );
+  const dispatch = review?.dispatch;
+  if (
+    dispatch !== undefined &&
+    (params.lenses.length !== 1 || !dispatch.lenses.includes(params.lenses[0] ?? ""))
+  )
+    return reply(
+      "wrong-review-lens: submit exactly one selected lens from your reviewer task.",
       true,
     );
   const packet = packetFromSubmission(params);

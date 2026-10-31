@@ -92,7 +92,11 @@ const setup = (
     record: async (p: Record<string, unknown>) => {
       const snap = await snapshotDiff(deps.exec, cwd, "HEAD");
       const digest = snap.ok ? snap.value.digest : "";
-      return recordRaw({ diffDigest: digest, ...p });
+      return recordRaw({
+        diffDigest: digest,
+        reviewInputIdentity: state.get().reviews?.[0]?.dispatch?.inputIdentity,
+        ...p,
+      });
     },
     snapshot: () => snapshotDiff(deps.exec, cwd, "HEAD"),
   };
@@ -102,6 +106,15 @@ const text = (r: { content: readonly { type: string }[] }): string =>
 
 const packet = (findings: string, verdict: string, round = 1, lenses = "types, tests") =>
   `## Review — s1 — round ${round} — lenses: ${lenses}\n### Sources inspected\n- a.ts:1-5\n### Findings\n${findings}\n### Verdict\n${verdict}\n`;
+
+const lensPackets = (findings: string, _verdict: string, round = 1) =>
+  ["types", "tests"].map((lens) => {
+    const lines = findings.split("\n").filter((line) => line.includes(`] ${lens} `));
+    const verdict = lines.some((line) => /\[(blocking|should-fix)\]/.test(line))
+      ? "blocking"
+      : "no-blocking";
+    return packet(lines.length === 0 ? "- none" : lines.join("\n"), verdict, round, lens);
+  });
 
 test("repeating a pending review start preserves its handoff instead of preparing another", async () => {
   let judgements = 0;
@@ -128,7 +141,7 @@ test("repeating a pending review start preserves its handoff instead of preparin
 });
 
 test("a repeated start preserves submitted results and directs the coordinator to record", async () => {
-  const t = setup(offline);
+  const t = setup(jevWith({ types: 1 }));
   const started = await t.start();
   const submission = {
     slice: "s1" as SliceRef,
@@ -202,7 +215,9 @@ test("a delayed review record cannot overwrite a competing recorded round", asyn
   };
   const t = setup(slow);
   await t.start();
-  const params = { packets: [packet("- [nit] types `a.ts:2` — rename — clearer", "no-blocking")] };
+  const params = {
+    packets: lensPackets("- [nit] types `a.ts:2` — rename — clearer", "no-blocking"),
+  };
   const pending = t.record(params);
   await entered.promise;
   const winner = await t.record(params);
@@ -284,7 +299,10 @@ test("record refuses a workflow changed during git reads without clearing its su
   };
   t.submissions.put(submission);
   gates.add("diff");
-  const pending = t.recordRaw({ diffDigest: snap.value.digest });
+  const pending = t.recordRaw({
+    diffDigest: snap.value.digest,
+    reviewInputIdentity: t.state.get().reviews?.[0]?.dispatch?.inputIdentity,
+  });
   await entered.promise;
   const newer = { ...t.state.get(), activeSlice: "s2" as SliceRef, phase: "implementing" as const };
   t.state.update(() => newer);
@@ -323,7 +341,7 @@ test("default public review flow needs one clean current round, not an arbitrary
   inPhase(t, "implementing");
   await t.start();
   assert.equal(t.state.get().reviews?.[0]?.required, 1);
-  const recorded = await t.record({ packets: [packet("none", "no-blocking")] });
+  const recorded = await t.record({ packets: lensPackets("none", "no-blocking") });
   assert.match(text(recorded), /review: 1\/1 clean/);
   assert.match(text(recorded), /next: done/);
   assert.equal(t.state.get().phase, "delivering");
@@ -334,7 +352,7 @@ test("explicit stronger review policy survives config changes for an in-flight r
   const t = setup(offline);
   await t.start();
   rmSync(join(t.cwd, ".development-system.toml"));
-  const recorded = await t.record({ packets: [packet("none", "no-blocking")] });
+  const recorded = await t.record({ packets: lensPackets("none", "no-blocking") });
   assert.match(text(recorded), /next: review/);
   assert.equal(t.state.get().reviews?.[0]?.required, 3);
   await t.start();
@@ -348,7 +366,7 @@ test("start picks Jev lenses and an agent_spawn payload under explicit 3-round p
   const out = text(r);
   assert.match(out, /lenses: security, types/);
   assert.match(out, /"type":"reviewer"/);
-  assert.match(out, /"path":"\/review-s1-r1-[a-z0-9]+"/);
+  assert.match(out, /"path":"\/review-s1-r1-[a-z0-9]+-[a-z-]+"/);
   assert.match(out, /git diff HEAD/);
   const review = t.state.get().reviews?.[0];
   assert.equal(review?.required, 3);
@@ -383,7 +401,7 @@ test("record counts clean rounds, reports nits back and gives the next action", 
   const t = setup(offline);
   await t.start();
   const r = await t.record({
-    packets: [packet("- [nit] types `a.ts:2` — rename — clearer", "no-blocking")],
+    packets: lensPackets("- [nit] types `a.ts:2` — rename — clearer", "no-blocking"),
   });
   assert.notEqual(r.isError, true);
   assert.match(text(r), /review: 1\/3 clean/);
@@ -396,9 +414,9 @@ test("record counts clean rounds, reports nits back and gives the next action", 
 test("a should-fix finding resets the streak and asks for fixes", async () => {
   const t = setup(offline);
   await t.start();
-  await t.record({ packets: [packet("none", "no-blocking")] });
+  await t.record({ packets: lensPackets("none", "no-blocking") });
   const r = await t.record({
-    packets: [packet("- [should-fix] tests `a.ts:2` — no test — real defect", "blocking", 2)],
+    packets: lensPackets("- [should-fix] tests `a.ts:2` — no test — real defect", "blocking", 2),
   });
   assert.match(text(r), /review: 0\/3 clean/);
   assert.match(text(r), /next: fix-findings/);
@@ -412,15 +430,18 @@ test("a should-fix finding resets the streak and asks for fixes", async () => {
 test("three clean rounds on the current diff are done", async () => {
   const t = setup(offline);
   await t.start();
-  for (let i = 1; i <= 2; i++) await t.record({ packets: [packet("none", "no-blocking", i)] });
-  assert.match(text(await t.record({ packets: [packet("none", "no-blocking", 3)] })), /next: done/);
+  for (let i = 1; i <= 2; i++) await t.record({ packets: lensPackets("none", "no-blocking", i) });
+  assert.match(
+    text(await t.record({ packets: lensPackets("none", "no-blocking", 3) })),
+    /next: done/,
+  );
 });
 
 test("Jev never lowers a blocking finding to one that does not count; it only suggests", async () => {
   const t = setup(jevWith({}, "false-positive"));
   await t.start();
   const r = await t.record({
-    packets: [packet("- [blocking] types `a.ts:2` — claim — because", "blocking")],
+    packets: lensPackets("- [blocking] types `a.ts:2` — claim — because", "blocking"),
   });
   assert.match(text(r), /Jev suggests false-positive instead of blocking/);
   assert.match(text(r), /review: 0\/3 clean/);
@@ -431,7 +452,7 @@ test("Jev may raise a nit that is really a defect", async () => {
   const t = setup(jevWith({}, "should-fix"));
   await t.start();
   const r = await t.record({
-    packets: [packet("- [nit] types `a.ts:2` — claim — because", "no-blocking")],
+    packets: lensPackets("- [nit] types `a.ts:2` — claim — because", "no-blocking"),
   });
   assert.match(text(r), /nit → should-fix/);
   assert.match(text(r), /review: 0\/3 clean/);
@@ -440,8 +461,8 @@ test("Jev may raise a nit that is really a defect", async () => {
 test("a packet is recorded once, in the round and slice it was written for", async () => {
   const t = setup(offline);
   await t.start();
-  await t.record({ packets: [packet("none", "no-blocking")] });
-  const again = await t.record({ packets: [packet("none", "no-blocking")] });
+  await t.record({ packets: lensPackets("none", "no-blocking") });
+  const again = await t.record({ packets: lensPackets("none", "no-blocking") });
   assert.equal(again.isError, true);
   assert.match(text(again), /round 1.*this is round 2/);
   assert.equal(t.state.get().reviews?.[0]?.rounds.length, 1);
@@ -454,7 +475,7 @@ test("a packet is recorded once, in the round and slice it was written for", asy
 test("a diff that changed since start is refused: the reviewer did not see this code", async () => {
   const t = setup(offline);
   await t.start();
-  const r = await t.record({ packets: [packet("none", "no-blocking")], diffDigest: "stale" });
+  const r = await t.record({ packets: lensPackets("none", "no-blocking"), diffDigest: "stale" });
   assert.equal(r.isError, true);
   assert.match(text(r), /diff changed since the review started/);
   assert.equal(t.state.get().reviews?.[0]?.rounds.length, 0);
@@ -509,10 +530,10 @@ test("a review of a range other than HEAD says it does not clear the commit gate
   await t.start({ slice: "s1", diffRange: "main" });
   const r = await t.record({
     diffRange: "main",
-    packets: [packet("none", "no-blocking")],
+    packets: lensPackets("none", "no-blocking"),
   });
   assert.match(text(r), /does not clear it/);
-  const plain = await t.record({ packets: [packet("none", "no-blocking", 2)] });
+  const plain = await t.record({ packets: lensPackets("none", "no-blocking", 2) });
   assert.doesNotMatch(text(plain), /does not clear it/);
 });
 
@@ -524,7 +545,6 @@ test("the start reply tells the coordinator to pass the slice to record", async 
 
 const inPhase = (t: ReturnType<typeof setup>, phase: "implementing" | "planning" | "idle") =>
   t.state.update((s) => ({ ...s, phase }));
-const clean = (round: number) => packet("- none", "no-blocking", round);
 
 test("starting a review takes an implementing slice into reviewing", async () => {
   const t = setup(offline);
@@ -538,7 +558,7 @@ test("a satisfied review moves the slice to delivering; a later finding takes it
   inPhase(t, "implementing");
   for (const round of [1, 2, 3]) {
     await t.start();
-    await t.record({ packets: [clean(round)] });
+    await t.record({ packets: lensPackets("- none", "no-blocking", round) });
     assert.equal(t.state.get().phase, round === 3 ? "delivering" : "reviewing");
   }
   // Starting again on the same diff is "already satisfied": still delivering.
@@ -551,7 +571,7 @@ test("a round with a blocking finding leaves the slice in reviewing", async () =
   inPhase(t, "implementing");
   await t.start();
   await t.record({
-    packets: [packet("- [blocking] types `a.ts:1` — bad — it breaks", "blocking", 1)],
+    packets: lensPackets("- [blocking] types `a.ts:1` — bad — it breaks", "blocking", 1),
   });
   assert.equal(t.state.get().phase, "reviewing");
 });
@@ -579,7 +599,7 @@ const submitted = (
 });
 
 test("record reads the submitted result when no packets are passed, then forgets it", async () => {
-  const t = setup(offline);
+  const t = setup(jevWith({ types: 1 }));
   await t.start();
   t.submissions.put(submitted());
   const r = await t.record({});
@@ -591,7 +611,7 @@ test("record reads the submitted result when no packets are passed, then forgets
 });
 
 test("submitted findings count like markdown ones", async () => {
-  const t = setup(offline);
+  const t = setup(jevWith({ types: 1 }));
   await t.start();
   t.submissions.put(
     submitted(
@@ -656,7 +676,7 @@ test("start tells the coordinator the reviewer submits its result; record needs 
 });
 
 test("a non-packet in `packets` beside a submitted result is refused with a hint to drop it", async () => {
-  const t = setup(offline);
+  const t = setup(jevWith({ types: 1 }));
   await t.start();
   t.submissions.put(submitted());
   const r = await t.record({ packets: ["Done, no findings."] });
@@ -668,7 +688,7 @@ test("a non-packet in `packets` beside a submitted result is refused with a hint
 });
 
 test("a markdown packet for the lenses already submitted is dropped, not recorded twice", async () => {
-  const t = setup(offline);
+  const t = setup(jevWith({ types: 1 }));
   await t.start();
   t.submissions.put(
     submitted(1, [{ id: "types-1", severity: "nit", summary: "naming", lens: "types" }]),
@@ -688,7 +708,7 @@ test("a broken user config does not stop a round being recorded, which reads onl
   const userFile = join(process.env.PI_CODING_AGENT_DIR ?? "", USER_CONFIG_FILE);
   writeFileSync(userFile, '[models]\nreviewer = "acme/small-1"\n');
   try {
-    const r = await t.record({ packets: [packet("none", "no-blocking")] });
+    const r = await t.record({ packets: lensPackets("none", "no-blocking") });
     assert.notEqual(r.isError, true);
     assert.match(text(r), /Round 1 recorded/);
   } finally {
@@ -707,4 +727,112 @@ test("a broken user config stops a review starting, since start picks the review
   } finally {
     rmSync(userFile);
   }
+});
+
+test("review start dispatches a distinct fresh single-lens session for each selected lens", async () => {
+  const t = setup(jevWith({ types: 1, tests: 1 }));
+  const started = await t.start({ diffRange: "main..HEAD" });
+  const spawns = JSON.parse(text(started).split("\n").at(-1) ?? "null");
+  assert.equal(Array.isArray(spawns), true);
+  assert.equal(spawns.length, 2);
+  assert.equal(new Set(spawns.map((s: { path: string }) => s.path)).size, 2);
+  for (const [i, lens] of ["types", "tests"].entries()) {
+    const spawn = spawns[i];
+    assert.equal(spawn.type, "reviewer");
+    assert.equal(spawn.wait, false);
+    assert.match(spawn.task, new RegExp(`lenses: ${lens}\\n`));
+    assert.match(spawn.task, /git diff main\.\.HEAD/);
+    assert.match(spawn.task, /Review only your assigned lens/);
+    const snap = await t.snapshot();
+    assert.ok(snap.ok);
+    assert.ok(spawn.task.includes(snap.value.digest));
+  }
+});
+
+test("a missing or failed lens cannot record a partial clean round; retry joins all findings", async () => {
+  const t = setup(offline);
+  await t.start();
+  t.submissions.put({ ...submitted(), lenses: ["types"] });
+  const before = t.state.get();
+  const partial = await t.record({});
+  assert.equal(partial.isError, true);
+  assert.match(text(partial), /missing.*tests/i);
+  assert.equal(t.state.get(), before);
+  assert.equal(t.submissions.forRound("s1", 1).length, 1);
+  const failed = await t.record({ packets: ["tests reviewer failed"] });
+  assert.equal(failed.isError, true);
+  assert.equal(t.state.get(), before);
+  const complete = await t.record({
+    packets: [
+      packet(
+        "- [should-fix] tests `a.ts:1` — missing assertion — regression",
+        "blocking",
+        1,
+        "tests",
+      ),
+    ],
+  });
+  assert.notEqual(complete.isError, true, text(complete));
+  assert.match(text(complete), /next: fix-findings/);
+  assert.deepEqual(
+    new Set(t.state.get().reviews?.[0]?.rounds[0]?.lenses),
+    new Set(["types", "tests"]),
+  );
+  assert.equal(t.state.get().reviews?.[0]?.rounds[0]?.findings[0]?.severity, "should-fix");
+});
+
+for (const [name, results] of [
+  ["combined", [packet("- none", "no-blocking")]],
+  ["unexpected", [packet("- none", "no-blocking", 1, "security")]],
+  [
+    "duplicate",
+    [
+      packet("- none", "no-blocking", 1, "types"),
+      packet("- none", "no-blocking", 1, "types"),
+      packet("- none", "no-blocking", 1, "tests"),
+    ],
+  ],
+] as const) {
+  test(`a dispatched round refuses ${name} lens packets without losing its manifest`, async () => {
+    const t = setup(offline);
+    await t.start();
+    const before = t.state.get();
+    const result = await t.record({ packets: [...results] });
+    assert.equal(result.isError, true);
+    assert.equal(t.state.get(), before);
+    assert.deepEqual(t.state.get().reviews?.[0]?.dispatch?.lenses, ["types", "tests"]);
+  });
+}
+
+test("one selected lens dispatches one session and records a single complete packet", async () => {
+  const t = setup(jevWith({ security: 1 }));
+  const started = await t.start();
+  const spawns = JSON.parse(text(started).split("\n").at(-1) ?? "null");
+  assert.equal(spawns.length, 1);
+  assert.match(spawns[0].task, /lenses: security\n/);
+  const result = await t.record({ packets: [packet("- none", "no-blocking", 1, "security")] });
+  assert.notEqual(result.isError, true, text(result));
+  assert.equal(t.state.get().reviews?.[0]?.dispatch, undefined);
+});
+
+test("new preparations use fresh paths even when the clock does not advance", async () => {
+  const t = setup(offline);
+  const first = await t.start();
+  const second = await t.start({ diffRange: "main..HEAD" });
+  const paths = (r: Awaited<ReturnType<typeof t.start>>) =>
+    JSON.parse(text(r).split("\n").at(-1) ?? "[]").map((s: { path: string }) => s.path);
+  assert.equal(new Set([...paths(first), ...paths(second)]).size, 4);
+});
+
+test("a partial submission keeps the original handoffs available for missing lenses", async () => {
+  const t = setup(offline);
+  const started = await t.start();
+  t.submissions.put(submitted());
+  const before = t.state.get();
+  const repeated = await t.start();
+  assert.equal(repeated.isError, true);
+  assert.match(text(repeated), /missing.*tests/i);
+  assert.equal(text(repeated).split("\n").at(-1), text(started).split("\n").at(-1));
+  assert.equal(t.state.get(), before);
+  assert.equal(t.submissions.forRound("s1", 1).length, 1);
 });
