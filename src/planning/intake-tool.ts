@@ -112,7 +112,7 @@ function buildIntakeTool(deps: {
     label: "Start work",
     description:
       "Size a request (fix, change, capability, product) and list the planning artifacts that size needs. " +
-      "Jev sizes the work; uncertain judgments reach the configured reasoning model. If still unresolved, inspect evidence and retry rather than asking for permission. Pass `size` when already decided. Then phase, sizing and the active slice are set. Call at the start of any non-trivial work.",
+      "Jev sizes the work; uncertain judgments reach the configured reasoning model. If still unresolved, inspect evidence and retry rather than asking for permission. Pass `size` when already decided. Then phase, sizing and the active slice are set. Inspect the active goal, slice and recent evidence first. Call only for genuinely new work or a planned next slice, never acceptance-criteria repairs, review/completion findings, failed verification, evidence closure or lifecycle continuation. Existing approval covers routine continuation; unrelated work still needs its own scope and authorization.",
     promptSnippet: "Size new work and propose the planning artifacts it needs",
     parameters: Parameters,
     exposure: "model-only",

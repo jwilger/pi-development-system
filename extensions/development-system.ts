@@ -131,6 +131,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
             event.prompt,
             current,
             hookJev(pi, jevHolder.forContext(ctx), ctx, "intent"),
+            ctx.sessionManager,
           )
         : undefined;
     const nudge = renderNudge(current, Date.now(), pushMinutes, intentLine, lastCadence);

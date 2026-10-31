@@ -53,7 +53,7 @@ const shipped = (mode: string, command: string): boolean =>
   mode === "local-only" ? extractCommits(command).length > 0 : pushTargets(command).length > 0;
 
 const closedMessage = (slice: string, how: string): string =>
-  `Local slice ${slice} ${how}. PR delivery and whole-issue completion are not evaluated by this closure. Phase: idle; the next request starts new work with devsys_intake.`;
+  `Local slice ${slice} ${how}. PR delivery and whole-issue completion are not evaluated by this closure. Phase: idle; inspect the active goal and recent evidence before deciding scope. Continue acceptance repairs without re-intake; genuinely new work or the next planned slice uses devsys_intake.`;
 
 /**
  * Closes local work context after its review is satisfied or explicitly waived and a clean push
@@ -166,7 +166,10 @@ export function createFinishSliceTool(
     ) {
       const { activeSlice } = deps.state.get();
       if (activeSlice === undefined) {
-        return reply("There is no active slice to finish. Start work with devsys_intake.", true);
+        return reply(
+          "There is no active slice to finish. Inspect the active goal and recent evidence; use devsys_intake only for genuinely new work or the next planned slice.",
+          true,
+        );
       }
       if (params.abandon === true) {
         const reason = params.reason?.trim() ?? "";

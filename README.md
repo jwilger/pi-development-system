@@ -35,8 +35,10 @@ duplicate.
 ## You do not need the slash commands
 
 Everything the system offers is reachable without remembering a command. Describe the work in
-plain words: when a prompt asks for new work, a fix or a review, the system adds a guideline
-naming the tool to use (`devsys_intake`, `devsys_review_start`). A `devsys` tool always shows
+plain words: in an idle session, an advisory intent check uses the prompt and bounded, redacted
+public session evidence to suggest a tool (`devsys_intake`, `devsys_review_start`). A possible
+new-work classification asks the agent to inspect the active goal, slice and evidence first;
+it does not establish scope or authorize replacement. A `devsys` tool always shows
 what the current phase expects. When you say a slice is finished with no review round recorded,
 it tells you to start one. The slash commands (`/devsys-start`, `/devsys-plan`, `/devsys-review`,
 `/devsys-lens-review`, `/devsys-adr`, `/devsys-event-model`) are shortcuts to the same tools.
@@ -68,7 +70,16 @@ and red-first stays on throughout. A push of a clean tree closes the local slice
 (a commit in `local-only` mode; CI is not awaited), and `devsys_finish_slice` closes it explicitly or,
 with a reason, abandons it. This does **not** establish PR delivery or whole-issue completion.
 Consolidate preparatory steps into usable increments; the approved plan is not a requirement for
-one handoff or release per step. After a local slice closes, the next increment starts with `devsys_intake`.
+one handoff or release per step. After a local slice closes, a genuinely next planned increment
+starts with `devsys_intake`; idle phase alone does not establish that the active goal is done.
+Review/completion-auditor repairs, failed verification and unfinished evidence or reports required
+by approved acceptance criteria remain continuation, without another intake or approval.
+Checkpoints, resumed sessions, compaction and delayed notifications alone do not start work.
+The agent must recover available goal/slice evidence before judging scope and ask only for real
+user-owned scope, replacement, authorization or blocker decisions. This is model-facing guidance:
+explicit intake still mechanically preserves replacement consent and workflow-race checks; it
+does not independently prove that an arbitrary repair belongs to a goal. No private goal-file
+schema or goal-extension internals are used.
 
 `devsys_intake` does not ask the user to resolve classifier uncertainty. Jev's uncertain or unavailable
 sizing goes through configured LLM reasoning first. If still unresolved, the agent gathers evidence

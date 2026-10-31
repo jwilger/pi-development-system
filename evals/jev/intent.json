@@ -1,5 +1,5 @@
 {
-  "questionHash": "a85313b2522097f1",
+  "questionHash": "6e863f27a1877c3f",
   "cases": [
     {
       "state": {
@@ -112,6 +112,66 @@
         "phase": "planning"
       },
       "expected": "continuation"
+    },
+    {
+      "state": {
+        "prompt": "Repair the contradictory prompt and finish the evidence reports identified by the completion auditor",
+        "phase": "idle",
+        "recentEvidence": "Focused approved goal: continuation/intake fix. Acceptance requires reconciled shipped prompts and verification reports. Auditor says those requirements remain unfinished."
+      },
+      "expected": "continuation"
+    },
+    {
+      "state": {
+        "prompt": "Fix the review finding about empty JSON output",
+        "phase": "reviewing",
+        "activeSlice": "export-json",
+        "recentEvidence": "Approved acceptance requires empty export to produce valid JSON. Review found it does not."
+      },
+      "expected": "continuation"
+    },
+    {
+      "state": {
+        "prompt": "The required JSON test failed; fix it and rerun verification",
+        "phase": "implementing",
+        "activeSlice": "export-json",
+        "recentEvidence": "Active approved goal: JSON export including empty results. Verification found empty results fail."
+      },
+      "expected": "continuation"
+    },
+    {
+      "state": {
+        "prompt": "Session resumed after compaction. Finish the remaining acceptance evidence report.",
+        "phase": "idle",
+        "recentEvidence": "Compaction summary: approved export goal remains open; report closure is required."
+      },
+      "expected": "continuation"
+    },
+    {
+      "state": {
+        "prompt": "Delayed reviewer completion notification: required empty-output behavior is still broken",
+        "phase": "idle",
+        "recentEvidence": "Active approved export goal. Notification supplies a finding within its acceptance criteria, not a new user request."
+      },
+      "expected": "continuation"
+    },
+    {
+      "state": {
+        "prompt": "Build a new billing subscription feature",
+        "phase": "implementing",
+        "activeSlice": "export-json",
+        "recentEvidence": "Approved goal is JSON export only; billing is unrelated."
+      },
+      "expected": "new-work"
+    },
+    {
+      "state": {
+        "prompt": "Fix the unrelated login outage instead",
+        "phase": "reviewing",
+        "activeSlice": "export-json",
+        "recentEvidence": "Approved goal concerns export output only, not login."
+      },
+      "expected": "fix"
     }
   ]
 }

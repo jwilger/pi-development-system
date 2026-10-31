@@ -1,13 +1,21 @@
 ---
 name: work-intake-and-slicing
-description: Size new work, choose the planning artifacts it deserves, and cut it into task records a weaker implementer can finish. Use when starting any piece of work, when asked to plan, when a task feels too big, or before handing work to an implementer subagent.
+description: Size new work, choose the planning artifacts it deserves, and cut it into task records a weaker implementer can finish. Use when starting genuinely new work or a planned next slice, deciding scope, or preparing a handoff; acceptance repairs are continuation, not another intake.
 ---
 
 # Work intake and slicing
 
 Planning is proportional: the size of the work decides the paperwork. A one-line fix does not get a product brief, and a new capability does not get coded from a sentence.
 
-## Size first
+## Check scope before sizing
+
+Inspect the focused active goal and acceptance criteria (use its public tool when available), the active slice, and recent review, verification and completion evidence. Idle phase is not proof that no goal remains. Recover missing context before deciding; do not depend on another extension's private files or schema. Once the available evidence establishes that remaining work satisfies the approved scope, continue that work directly; do not repeat scope inspection or planning instead of repairing it.
+
+Repairs required by approved acceptance criteria stay in the existing slice without `devsys_intake` or renewed approval: review findings, completion-auditor findings, failed verification, and unfinished evidence or reports. Checkpoints, resumed sessions, compaction and delayed agent notifications alone do not start or replace work. A notification supplies evidence, not authorization or a new request.
+
+Intake is for genuinely new work or a planned next slice after the prior slice closes. Unrelated requests are not automatically authorized by an active goal. Ask only for a real unresolved scope decision, replacement of active work, new authorization or another user-owned choice. Classifier uncertainty and remaining acceptance work are not permission questions. Preserve approval boundaries and concrete blocker rules; never bypass a gate. Scope guidance is not mechanical authorization.
+
+## Size genuinely new work
 
 Ask these in order and stop at the first yes:
 

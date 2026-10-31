@@ -6,6 +6,7 @@ import type {
 import { ARCHITECTURE_POLICY } from "../core/architecture-policy.ts";
 import type { Departure, DevsysState } from "../core/types.ts";
 import { loadWorkflowGuidance } from "../state/local-guidance.ts";
+import { CONTINUATION_GUIDANCE } from "./phase-guide.ts";
 
 /**
  * Two sections, kept apart on purpose. pi diffs system-prompt sections per run and appends
@@ -25,7 +26,7 @@ const scopeLabel = (d: Departure): string =>
 
 /** Pure: the static principles section — byte-identical whatever the state. */
 export function buildPrinciplesSection(nonNegotiables: string): string {
-  return `${nonNegotiables.trim()}\n\n${ARCHITECTURE_POLICY.trim()}`;
+  return `${nonNegotiables.trim()}\n\n${ARCHITECTURE_POLICY.trim()}\n\n${CONTINUATION_GUIDANCE}`;
 }
 
 /**

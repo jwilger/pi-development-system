@@ -1,11 +1,19 @@
 import { assertNever } from "../core/exhaustive.ts";
 import type { Phase } from "../core/types.ts";
 
-/** What to do in each phase, in one paragraph. Pure; the `devsys` tool and its description both use it. */
+export const CONTINUATION_GUIDANCE = `## Continue approved work before considering intake
+
+Inspect the focused active goal and acceptance criteria (use its public tool when available), the active slice, and recent review, verification and completion evidence before deciding whether a request is genuinely new work. Workflow phase idle is not proof that no goal remains.
+
+Repairs required by existing acceptance criteria stay in the existing slice: review findings, completion-auditor findings, failed verification, and unfinished evidence or reports. Do not call devsys_intake or seek renewed approval for these repairs. Checkpoints, resumed sessions, compaction and delayed agent notifications alone do not start or replace work. A notification supplies evidence, not authorization or a new user request. Recover missing context before judging scope. Once the available evidence establishes that remaining work satisfies the approved scope, continue that work directly; do not repeat scope inspection or planning instead of repairing it.
+
+Call devsys_intake for genuinely new work or a planned next slice after the prior slice is closed, not routine continuation. Preserve scope-change detection: unrelated requests are not automatically authorized by an active goal. Ask only for a real unresolved scope decision, replacement of active work, new authorization or another user-owned choice. Classifier uncertainty and remaining acceptance work are not permission questions. Existing approval boundaries and concrete blocker rules still apply; never bypass a gate. This is scope guidance, not mechanical authorization.`;
+
+/** Phase guidance shared by the `devsys` tool and its description. Pure. */
 export function phaseGuide(phase: Phase): string {
   switch (phase) {
     case "idle":
-      return "Nothing is in flight. For new work or a fix, call devsys_intake with the user's request before editing: it sizes the work and names the planning artifacts it needs.";
+      return `No local slice is in flight.\n\n${CONTINUATION_GUIDANCE}`;
     case "intake":
     case "planning":
       return "Planning. Choose one usable increment and a failing behavioral test; planning is a handoff aid, not a complete specification. Check handoff records once: fix structural errors, but subjective readiness is advisory. Ask only for a concrete missing decision that prevents safe implementation. After two process-only attempts without implementation or acceptance evidence, simplify to the next test or escalate one precise blocker. When the user approves the plan call devsys_begin_work; existing approval covers routine continuation.";

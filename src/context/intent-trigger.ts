@@ -1,3 +1,5 @@
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { redactSecrets } from "../core/redact.ts";
 import type { DevsysState } from "../core/types.ts";
 import type { Jev } from "../jev/client.ts";
 import { type Intent, judgeIntent, requestText } from "../jev/questions/intent.ts";
@@ -17,12 +19,32 @@ export function intentGuideline(
 ): string | undefined {
   if (confidence < INTENT_AT || phase !== "idle") return undefined;
   if (intent === "new-work" || intent === "fix") {
-    return "This prompt asks for new work: call devsys_intake with the request before editing anything, so it is sized and the planning artifacts it needs are named.";
+    return "Possible new work: inspect the active goal (using its tool when available), active slice and recent evidence first. Acceptance-criteria repairs continue existing work. Call devsys_intake only for genuinely new work, not merely because phase is idle or a classifier suggested it.";
   }
   if (intent === "review") {
     return "This prompt asks for a review: call devsys_review_start for a fresh-context review instead of reviewing in this conversation.";
   }
   return undefined;
+}
+
+/** Bounded public, model-visible context; never read another extension's private entries or files. */
+function recentIntentEvidence(sessionManager?: ExtensionContext["sessionManager"]): string {
+  const messages = sessionManager?.buildSessionProjection?.().messages ?? [];
+  const text = messages
+    .slice(-24)
+    .map((message) => {
+      if ("summary" in message) return message.summary;
+      if (!("content" in message)) return "";
+      const content = message.content;
+      return typeof content === "string"
+        ? content
+        : content
+            .filter((part) => part.type === "text")
+            .map((part) => part.text)
+            .join("\n");
+    })
+    .join("\n");
+  return redactSecrets(text).slice(-12000);
 }
 
 /**
@@ -34,11 +56,17 @@ export async function intentLineFor(
   prompt: string,
   state: DevsysState,
   jev: Jev,
+  sessionManager?: ExtensionContext["sessionManager"],
 ): Promise<string | undefined> {
   if (state.phase !== "idle" || requestText(prompt) === "") {
     return undefined;
   }
-  const judged = await judgeIntent(jev, { prompt, phase: state.phase });
+  const judged = await judgeIntent(jev, {
+    prompt,
+    phase: state.phase,
+    activeSlice: state.activeSlice ?? "",
+    recentEvidence: recentIntentEvidence(sessionManager),
+  });
   if (!judged.ok) return undefined;
   return intentGuideline(judged.value.intent, judged.value.confidence, state.phase);
 }

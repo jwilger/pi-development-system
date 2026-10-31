@@ -3,6 +3,10 @@ version = 1
 [delivery]
 mode = "trunk"
 
+[architecture]
+trunk_ref = "refs/remotes/origin/main"
+adopted_at = "bd492d6e31584ae6eb037778a5072b344fa1e124"
+
 [models]
 frontier    = ["openai-codex/gpt-*-astra", "openai/gpt-*-astra", "anthropic/claude-fable-*", "anthropic/claude-opus-*", "openai-codex/gpt-*-sol", "openai/gpt-*-sol"]
 strong      = ["openai-codex/gpt-*-sol", "openai/gpt-*-sol", "anthropic/claude-sonnet-*", "anthropic/claude-opus-*", "openai-codex/gpt-*-terra", "openai/gpt-*-terra"]

@@ -1,7 +1,7 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ClassifierAnswer, Usage } from "@earendil-works/pi-ai";
+import type { ClassifierAnswer, ClassifierContext, Usage } from "@earendil-works/pi-ai";
 import type {
   ExtensionAPI,
   ExtensionContext,
@@ -56,7 +56,9 @@ export function createFakePi(init: FakePiOptions = {}) {
   const entries: FakeEntry[] = [];
   const sentMessages: unknown[] = [];
   /** How many times Jev's `classify` was called, for tests that claim a path costs no call. */
-  const classifyCalls = { count: 0 };
+  // Capture provider requests so hook regressions verify contextual input and secret redaction.
+  // This adds observability only: existing call counts, answers and failure behavior are unchanged.
+  const classifyCalls = { count: 0, contexts: [] as ClassifierContext[] };
   const sendOptions: unknown[] = [];
   const ui: FakeUi = {
     hasUI: init.hasUI ?? true,
@@ -97,8 +99,9 @@ export function createFakePi(init: FakePiOptions = {}) {
           const at = c.indexOf("/");
           return { provider: c.slice(0, at), id: c.slice(at + 1) };
         }),
-      classify: async () => {
+      classify: async (_model: unknown, context: ClassifierContext) => {
         classifyCalls.count += 1;
+        classifyCalls.contexts.push(context);
         const answers = init.classifyAnswers;
         if (answers === undefined) throw new Error("fake registry: classify not configured");
         return {

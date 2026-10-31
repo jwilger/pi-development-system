@@ -9,7 +9,12 @@ test("intent fixture reaches 0.8 with a real Jev", async () => {
   let passed = 0;
   const misses: string[] = [];
   for (const c of fixture.cases) {
-    const r = await judgeIntent(jev, { prompt: c.state.prompt ?? "", phase: c.state.phase ?? "" });
+    const r = await judgeIntent(jev, {
+      prompt: c.state.prompt ?? "",
+      phase: c.state.phase ?? "",
+      activeSlice: c.state.activeSlice ?? "",
+      recentEvidence: c.state.recentEvidence ?? "",
+    });
     const got = r.ok ? r.value.intent : "error";
     if (got === c.expected) passed++;
     else misses.push(`${c.state.prompt} → ${got}, expected ${c.expected}`);
