@@ -411,6 +411,58 @@ async function unchangedInputs(
   return ok(undefined);
 }
 
+/** Integrate existing authoritative commits only; this never admits a newly authored result. */
+export async function inspectAuthoritativeFastForward(
+  exec: Exec,
+  cwd: string,
+  trunkRef: string,
+): Promise<Read<undefined>> {
+  const git: Git = async (args) => {
+    try {
+      const result = await exec("git", ["--no-replace-objects", ...args], { cwd, timeout: 10_000 });
+      return result.code === 0
+        ? ok(result.stdout)
+        : unavailable("Cannot establish safe authoritative fast-forward ancestry.");
+    } catch {
+      return unavailable("Cannot execute authoritative fast-forward inspection.");
+    }
+  };
+  const grafts = await rejectGrafts(git, cwd);
+  if (!grafts.ok) return grafts;
+  const replacements = await git(["for-each-ref", "--format=%(refname)", "refs/replace/"]);
+  if (!replacements.ok) return replacements;
+  if (replacements.value.trim() !== "")
+    return unavailable("Replacement refs must not redefine integration ancestry.");
+  const operand = trunkRef.replace(/^refs\/remotes\//, "");
+  const resolvedOperand = await git([
+    "rev-parse",
+    "--symbolic-full-name",
+    "--verify",
+    "--end-of-options",
+    operand,
+  ]);
+  if (!resolvedOperand.ok) return resolvedOperand;
+  if (resolvedOperand.value.trim() !== trunkRef)
+    return unavailable(
+      "The merge operand is ambiguous or does not resolve to the authoritative remote-tracking ref.",
+    );
+  const head = await git(["rev-parse", "--verify", "HEAD^{commit}"]);
+  if (!head.ok) return head;
+  const authority = await git([
+    "rev-parse",
+    "--verify",
+    "--end-of-options",
+    `${trunkRef}^{commit}`,
+  ]);
+  if (!authority.ok) return authority;
+  const headId = objectId(head.value);
+  if (!headId.ok) return headId;
+  const authorityId = objectId(authority.value);
+  if (!authorityId.ok) return authorityId;
+  const ancestor = await git(["merge-base", "--is-ancestor", headId.value, authorityId.value]);
+  return ancestor.ok ? ok(undefined) : ancestor;
+}
+
 export async function inspectArchitecture(
   exec: Exec,
   cwd: string,

@@ -21,6 +21,9 @@ test("test-change fixture reaches 0.9 with a real Jev", async () => {
       ...(c.state.before !== undefined ? { before: c.state.before } : {}),
       ...(c.state.after !== undefined ? { after: c.state.after } : {}),
       ...(c.state.recentFailure !== undefined ? { recentFailure: c.state.recentFailure } : {}),
+      ...(c.state.contractEvidence !== undefined
+        ? { contractEvidence: c.state.contractEvidence }
+        : {}),
     });
     const got = verdict(r);
     if (got === c.expected) passed++;

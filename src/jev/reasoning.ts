@@ -6,7 +6,12 @@ import { resolveSlot } from "../core/models.ts";
 import { redactSecrets } from "../core/redact.ts";
 import { err, ok, type Result } from "../core/result.ts";
 import { loadConfig } from "../state/config.ts";
-import { type Answers, answerIssue, type ReasoningAssessor } from "./cascade.ts";
+import {
+  type Answers,
+  answerIssue,
+  assessmentCategory,
+  type ReasoningAssessor,
+} from "./cascade.ts";
 import type { JevError } from "./client.ts";
 
 const Unit = Type.Number({ minimum: 0, maximum: 1 });
@@ -26,7 +31,10 @@ const Assessment = Type.Object({
   answers: Type.Record(Type.String(), Answer),
 });
 
-const unresolved = (message: string) => err<JevError>({ kind: "assessment-unresolved", message });
+const unresolved = (
+  message: string,
+  category: "insufficient-evidence" | "invalid-output" | "infrastructure" = "infrastructure",
+) => err<JevError>({ kind: "assessment-unresolved", category, message });
 
 /** Boundary: JSON is unknown until schema and question-specific validation both succeed. */
 export function parseAssessment(
@@ -37,7 +45,10 @@ export function parseAssessment(
   try {
     parsed = JSON.parse(text);
   } catch {
-    return unresolved("reasoning.json: invalid JSON; repair the assessor response and retry.");
+    return unresolved(
+      "reasoning.json: invalid JSON; repair the assessor response and retry.",
+      "invalid-output",
+    );
   }
   if (
     Value.Check(
@@ -58,16 +69,21 @@ export function parseAssessment(
       .slice(0, 500);
     return unresolved(
       `reasoning.evidence: ${reason}; supply the missing evidence or narrow the operation, not human permission.`,
+      "insufficient-evidence",
     );
   }
   if (!Value.Check(Assessment, parsed) || parsed.reason.trim() === "") {
     return unresolved(
       "reasoning.schema: malformed assessment envelope or answer schema; repair the assessor response and retry.",
+      "invalid-output",
     );
   }
   const issue = answerIssue(parsed.answers, questions);
   if (issue !== undefined)
-    return unresolved(`reasoning.answers: ${issue}; this is not a human approval request.`);
+    return unresolved(
+      `reasoning.answers: ${issue}; this is not a human approval request.`,
+      assessmentCategory(parsed.answers, questions),
+    );
   return ok(parsed.answers);
 }
 

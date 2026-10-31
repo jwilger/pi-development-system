@@ -1,5 +1,5 @@
 {
-  "questionHash": "7a278457fdb82eea71333e8285ba8070",
+  "questionHash": "cb45d75a9c7188b554ca7f0483136260",
   "cases": [
     {
       "state": {
@@ -117,6 +117,15 @@
         "path": "test/cart.test.ts",
         "before": "assert.equal(status(), 'pending');",
         "after": "assert.equal(status(), 'queued');"
+      },
+      "expected": "ok"
+    },
+    {
+      "state": {
+        "path": "tests/terminal.py",
+        "before": "def wait_for(output, needle): assert needle in output\nchild.send(ctrl_c)\nassert child.exit_status == 0\nassert child.input_restored",
+        "after": "def wait_for(output, needle, after=0): assert needle in output\nif scenario == 'keyboard':\n    child.send(ctrl_k)\n    wait_for(child.output, 'Quit')\n    child.send('qui\\r')\nelse:\n    child.send(ctrl_c)\nassert child.exit_status == 0\nassert child.input_restored",
+        "contractEvidence": "D40 approved: Ctrl-K opens Quit menu, typing filters, Enter quits with input restored and exit 0. Keep default launch and shared restoration assertions."
       },
       "expected": "ok"
     }

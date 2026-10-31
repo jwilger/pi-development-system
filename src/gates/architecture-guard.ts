@@ -3,12 +3,15 @@ import type { Exec } from "../core/exec.ts";
 import { resolveGit } from "../core/git-invocations.ts";
 import { pushTargets } from "../core/push-command.ts";
 import { architectureReviewGap } from "../review/architecture-evidence.ts";
-import { inspectArchitecture } from "../state/architecture-history.ts";
-import { loadConfig, POLICY_ONLY } from "../state/config.ts";
+import {
+  inspectArchitecture,
+  inspectAuthoritativeFastForward,
+} from "../state/architecture-history.ts";
+import { type DevsysConfig, loadConfig, POLICY_ONLY } from "../state/config.ts";
 import type { SessionState } from "../state/session-state.ts";
 
 type Refusal = { readonly block: true; readonly reason: string };
-type Boundary = "commit" | "delivery";
+type Boundary = "commit" | "delivery" | "integration";
 const refuse = (reason: string): Refusal => ({ block: true, reason });
 
 function commandBoundary(command: string): Boundary | Refusal | undefined {
@@ -25,6 +28,7 @@ function commandBoundary(command: string): Boundary | Refusal | undefined {
           "architecture-command-shape: use one explicit git push REMOTE HEAD:TRUNK. Compound calls, arbitrary sources, tags and implicit push settings cannot establish the complete delivered history.",
         );
   }
+  if (/^git merge --ff-only [A-Za-z0-9][\w./-]*$/.test(command)) return "integration";
   const mutatesHistory = resolveGit(command).invocations.some((git) =>
     ["commit", "commit-tree", "merge", "cherry-pick", "revert", "am"].includes(git.sub),
   );
@@ -34,6 +38,25 @@ function commandBoundary(command: string): Boundary | Refusal | undefined {
     : refuse(
         "architecture-command-shape: stage separately, then use one plain git commit -m with a literal message. Compound calls, alternate indices, implicit staging and uninspected commit makers cannot establish the resulting tree.",
       );
+}
+
+async function integrationRefusal(
+  exec: Exec,
+  cwd: string,
+  command: string,
+  config: DevsysConfig,
+): Promise<Refusal | undefined> {
+  const target = `${config.delivery.remote}/${config.delivery.trunk}`;
+  const authority = `refs/remotes/${target}`;
+  if (
+    command !== `git merge --ff-only ${target}` ||
+    (config.architecture !== undefined && config.architecture.trunkRef !== authority)
+  )
+    return refuse(
+      "architecture-integration-target: only the configured authoritative remote trunk may be fast-forwarded; other history still requires inspection and review.",
+    );
+  const inspected = await inspectAuthoritativeFastForward(exec, cwd, authority);
+  return inspected.ok ? undefined : refuse(`${inspected.error.kind}: ${inspected.error.message}`);
 }
 
 /** Pi action blocking, not an operating-system sandbox or a substitute for semantic review. */
@@ -49,6 +72,8 @@ export function registerArchitectureGuard(deps: {
     if (boundary === undefined || typeof boundary !== "string") return boundary;
     const config = await loadConfig(ctx.cwd, POLICY_ONLY);
     if (!config.ok) return refuse(`architecture-config: ${config.error.message}`);
+    if (boundary === "integration")
+      return integrationRefusal(deps.exec, ctx.cwd, command, config.value);
     if (
       boundary === "delivery" &&
       command !== `git push ${config.value.delivery.remote} HEAD:${config.value.delivery.trunk}`

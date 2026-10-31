@@ -19,11 +19,13 @@ import {
   weakeningSignals,
 } from "../core/test-weakening.ts";
 import { type GateId, isParseError, parseGateId } from "../core/types.ts";
-import type { Jev } from "../jev/client.ts";
+import type { Jev, JevError } from "../jev/client.ts";
 import { judgeTestChange, WEAKENS_THRESHOLD } from "../jev/questions/test-change.ts";
 import type { SessionState } from "../state/session-state.ts";
 import { type ApprovalStore, requestHardStop } from "./approvals.ts";
+import { assessmentRecovery } from "./assessment-recovery.ts";
 import { departureUse } from "./departure-use.ts";
+import type { TestContractEvidence } from "./test-contract.ts";
 
 export type TestGuardDeps = {
   pi: ExtensionAPI;
@@ -31,6 +33,7 @@ export type TestGuardDeps = {
   approvals: ApprovalStore;
   jev: (ctx: ExtensionContext) => Jev;
   now?: () => Date;
+  contractEvidence?: TestContractEvidence;
 };
 
 type Change = {
@@ -43,7 +46,7 @@ type Change = {
 
 type Verdict =
   | { kind: "allow" }
-  | { kind: "unresolved"; why: string }
+  | { kind: "unresolved"; why: string; cause: JevError }
   | { kind: "require-departure"; why: string }
   | { kind: "hard-stop"; why: string };
 
@@ -128,13 +131,30 @@ const judge = async (
         ? (state.lastTestRun?.evidence ?? state.lastTestRun?.summary)
         : undefined,
     departures: JSON.stringify(departures),
+    contractEvidence:
+      change.rewritten === undefined
+        ? deps.contractEvidence?.read({
+            cwd: ctx.cwd,
+            slice: state.activeSlice,
+            path: change.path,
+            before: change.before,
+            after: change.after,
+          })
+        : undefined,
   });
-  if (!judged.ok && judged.error.kind === "assessment-unresolved") {
+  if (!judged.ok && judged.error.kind !== "no-model") {
+    const cause =
+      "message" in judged.error
+        ? { ...judged.error, message: redactSecrets(judged.error.message).slice(0, 1000) }
+        : judged.error;
     return {
       kind: "unresolved",
-      why: `${GATE_ID} assessment (${change.path}): ${judged.error.message}`,
+      cause,
+      why: `${GATE_ID} assessment (${change.path}): ${"message" in cause ? cause.message : cause.kind}`,
     };
   }
+  // An explicitly unavailable classifier retains the existing deterministic-only mode.
+  // A failed or cancelled attempted assessment above must never fall through as permission.
   if (judged.ok && judged.value.motive === "requirement-change") {
     // Retiring an obsolete contract still needs the recorded decision. Spend once-scoped
     // evidence even when Jev correctly says the intended contract is not weakened.
@@ -241,7 +261,14 @@ export function registerTestGuard(deps: TestGuardDeps): void {
     }
     const unresolved = verdicts.find(({ verdict }) => verdict.kind === "unresolved");
     if (unresolved?.verdict.kind === "unresolved") {
-      return { block: true, reason: unresolved.verdict.why };
+      return {
+        block: true,
+        reason: assessmentRecovery(
+          unresolved.change.path,
+          unresolved.verdict.why,
+          unresolved.verdict.cause,
+        ),
+      };
     }
     for (const { change, verdict } of verdicts) {
       if (verdict.kind !== "hard-stop") continue;

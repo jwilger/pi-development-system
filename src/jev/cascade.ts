@@ -42,6 +42,38 @@ export function answerIssue(
   return undefined;
 }
 
+/** Separate malformed evidence from valid but unresolved judgments without parsing diagnostics. */
+export function assessmentCategory(
+  answers: Answers,
+  questions: Record<string, ClassifierQuestion>,
+): "invalid-output" | "insufficient-evidence" {
+  for (const [key, question] of Object.entries(questions)) {
+    const answer = answers[key];
+    if (answer === undefined || answer.type !== question.type) return "invalid-output";
+    if (answer.type === "bool" && !unit(answer.probability)) return "invalid-output";
+    if (answer.type === "score" && !(unit(answer.score) && unit(answer.confidence)))
+      return "invalid-output";
+    if (answer.type === "choice" && question.type === "choice") {
+      const entries = Object.entries(answer.probabilities);
+      const valid =
+        Object.hasOwn(question.criteria, answer.choice) &&
+        unit(answer.confidence) &&
+        Object.keys(question.criteria).every((label) =>
+          unit(answer.probabilities[label] ?? Number.NaN),
+        ) &&
+        entries.every(
+          ([label, p]) =>
+            Object.hasOwn(question.criteria, label) &&
+            unit(p) &&
+            p <= (answer.probabilities[answer.choice] ?? -1),
+        ) &&
+        Math.abs(entries.reduce((sum, [, p]) => sum + p, 0) - 1) < 0.01;
+      if (!valid) return "invalid-output";
+    }
+  }
+  return "insufficient-evidence";
+}
+
 /** Conservative common floor; consumers may still apply stricter substantive policy. */
 function resolvedAnswers(answers: Answers, questions: Record<string, ClassifierQuestion>): boolean {
   return Object.entries(questions).every(([key, question]) => {
@@ -96,6 +128,7 @@ export function withReasoningFallback(primary: Jev, assess: ReasoningAssessor): 
       const assessed = await assess(state, questions, options).catch(() =>
         err<JevError>({
           kind: "assessment-unresolved",
+          category: "infrastructure",
           message:
             "Reasoning request failed; inspect model configuration and evidence, then retry.",
         }),
@@ -106,6 +139,7 @@ export function withReasoningFallback(primary: Jev, assess: ReasoningAssessor): 
         ? assessed
         : err({
             kind: "assessment-unresolved",
+            category: assessmentCategory(assessed.value, questions),
             message:
               "Reasoning could not resolve the judgment. Inspect the evidence, supply missing context or simplify the operation, then retry; classifier uncertainty is not a request for human approval.",
           });

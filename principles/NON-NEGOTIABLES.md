@@ -22,7 +22,7 @@ Except a change whose purpose is fixing that failure. Because unrelated work on 
 
 ## 5. Never work around an unresolved gate
 
-Stop, record, ask. Because a gate you can route around is not a gate.
+Stop the rejected operation; never use another writer or waiver to evade assessment. Recoverable automated uncertainty is not a prohibition, owner-policy decision, or request for human approval: inspect the specific missing evidence, supply the existing contract through the supported assessment path, and retry the normal gate only when justified. Do not request renewed approval for already-approved scope or mark a persistent goal blocked merely because an assessment is unresolved. Invalid model output and provider failure need bounded diagnostic recovery, not fabricated answers or infinite retries. After appropriate recovery, ask only for a concrete remaining owner decision or external intervention. Because a gate you can route around is not a gate, and uncertainty alone is not permission or a human blocker.
 
 ## 6. Never violate repo-local delivery policy
 

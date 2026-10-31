@@ -31,6 +31,10 @@ import { createRecordDepartureTool } from "../src/gates/record-departure-tool.ts
 import { registerRedFirstGuard } from "../src/gates/red-first-guard.ts";
 import { createRequestApprovalTool } from "../src/gates/request-approval-tool.ts";
 import { registerSpawnGuard } from "../src/gates/spawn-guard.ts";
+import {
+  createSupplyTestContractTool,
+  createTestContractEvidence,
+} from "../src/gates/test-contract.ts";
 import { registerTestGuard } from "../src/gates/test-guard.ts";
 import { hookJev } from "../src/jev/execution.ts";
 import { createJevHolder } from "../src/jev/holder.ts";
@@ -65,6 +69,7 @@ const nonNegotiables = readFileSync(
 export function createDevelopmentSystem(pi: ExtensionAPI) {
   const state = createSessionState(pi);
   const approvals = createApprovalStore(pi);
+  const contractEvidence = createTestContractEvidence();
 
   const jevHolder = createJevHolder({
     onReasoningUsage: (report) => pi.appendEntry("devsys-reasoning-usage", report),
@@ -181,6 +186,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
     pi,
     state,
     approvals,
+    contractEvidence,
     jev: (ctx) => hookJev(pi, jevHolder.forContext(ctx), ctx, "test-guard"),
   });
   registerTestEvidence({ pi, state });
@@ -204,6 +210,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   registerRedFirstGuard({ pi, state });
   registerSliceClose({ pi, state, exec });
   registerLintSuppressionGuard({ pi, state });
+  pi.registerTool(createSupplyTestContractTool({ evidence: contractEvidence, state }));
   pi.registerTool(createRecordDepartureTool({ pi, state }));
   pi.registerTool(createRequestApprovalTool({ pi, approvals }));
   // Rare tools stay discoverable through codemode/tool_search, with direct fallback otherwise.
