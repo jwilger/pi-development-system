@@ -1,4 +1,5 @@
 import type { GuidanceSnapshot } from "../state/local-guidance.ts";
+import { ARCHITECTURE_POLICY } from "./architecture-policy.ts";
 import { assertNever } from "./exhaustive.ts";
 import {
   cleanStreak,
@@ -189,6 +190,8 @@ export function reviewerTask(input: {
         ]),
     `See the change with \`git diff ${input.diffRange}\` (and \`git diff --stat ${input.diffRange}\`), plus any untracked files listed by \`git ls-files --others --exclude-standard\` (git diff does not show them; read them directly). Read the callers, callees and tests it depends on, no more.`,
     "Do not modify files; report demonstrable defects with a realistic trigger and the smallest local repair.",
+    ARCHITECTURE_POLICY.trim(),
+    "When architecture or ADRs change, report the substantive correspondence and history checks under Sources inspected even when there are no findings. Check the resulting delivery units and the entire pending range, not just the final aggregate diff. Missing semantic evidence is not established by file presence or a checker passing.",
     `Report your result by calling devsys_submit_review with slice "${input.slice}", round ${input.round}, lenses ${JSON.stringify(input.lenses)}${identityArgument}, your sources, your findings (lens, severity, path, line, summary) and the verdict. If it refuses, for example with verdict-contradicts-findings or wrong-round, correct the call and submit again; when it accepts, end with one short line.`,
     "Only if devsys_submit_review is not available, return the review packet from your instructions instead, with exactly this header (slice and round must not change):",
     "",

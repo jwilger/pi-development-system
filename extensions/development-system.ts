@@ -20,6 +20,7 @@ import { DEFAULT_VERIFIER_MAX, registerTurnVerifier } from "../src/context/turn-
 import { type Exec, timeoutAsFailure } from "../src/core/exec.ts";
 import { defaultMatrix } from "../src/core/models.ts";
 import { createApprovalStore } from "../src/gates/approvals.ts";
+import { registerArchitectureGuard } from "../src/gates/architecture-guard.ts";
 import { registerCommitGuard } from "../src/gates/commit-guard.ts";
 import { createExcusedMessages } from "../src/gates/excused-messages.ts";
 import { registerDiscoveryFallback } from "../src/gates/exposure.ts";
@@ -147,6 +148,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   const exec: Exec = async (command, args, options) =>
     timeoutAsFailure(await pi.exec(command, args, options));
   registerSpawnGuard({ pi });
+  registerArchitectureGuard({ pi, exec, state });
   registerGitGuard({
     pi,
     approvals,
@@ -218,7 +220,7 @@ export function createDevelopmentSystem(pi: ExtensionAPI) {
   }
   pi.registerTool(createPhaseTool({ state }));
   pi.registerTool(createBeginWorkTool({ state }));
-  pi.registerTool(createAdrNewTool({ now: () => new Date() }));
+  pi.registerTool(createAdrNewTool({ now: () => new Date(), exec }));
   registerEventModelProvider(pi);
   pi.registerTool(createFinishSliceTool({ state, exec }));
   pi.registerTool(

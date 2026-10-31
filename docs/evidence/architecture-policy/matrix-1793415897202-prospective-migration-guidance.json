@@ -1,0 +1,236 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-31T03:07:24.945Z",
+  "requested": {
+    "provider": "openai",
+    "model": "gpt-6.1-sol",
+    "thinkingLevel": "off"
+  },
+  "condition": "guidance",
+  "fixture": {
+    "id": "prospective-migration",
+    "facts": "Owner explicitly approved prospective policy adoption in an existing project. Main history includes old commits adding multiple ADRs and ADRs with legacy formatting. There is unrelated uncommitted product work. Main authority is resolved and the complete pending range is known.",
+    "proposal": "Inspect conflicts and propose prospective compliance. Preserve merged ADR identities and bytes, legacy formats, old commits and unrelated product work. Bring current ARCHITECTURE.md to self-contained requirements with owner approval and independent review; do not rewrite historical decisions or reconstruct old commits. Apply one-new-ADR paired delivery rules to future decisions."
+  },
+  "fixtureHash": "571b3bb9192c0d5139e60bd66d5e4729f71129d14ffc45ddc2d6bc84653f998e",
+  "prompt": "Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary.\n\nFacts:\nOwner explicitly approved prospective policy adoption in an existing project. Main history includes old commits adding multiple ADRs and ADRs with legacy formatting. There is unrelated uncommitted product work. Main authority is resolved and the complete pending range is known.\n\nProposal:\nInspect conflicts and propose prospective compliance. Preserve merged ADR identities and bytes, legacy formats, old commits and unrelated product work. Bring current ARCHITECTURE.md to self-contained requirements with owner approval and independent review; do not rewrite historical decisions or reconstruct old commits. Apply one-new-ADR paired delivery rules to future decisions.",
+  "promptHash": "6d7cf348f18b9f13ee8fff616456cf357e0b42cfd6de093d8fa09f990cf42a53",
+  "policy": {
+    "source": "src/core/architecture-policy.ts",
+    "sourceHash": "73279ce62e9a94240f4ae57bbd82c9ecfdc2b84d23b4f1961b85ab111a4c4de8",
+    "injectedHash": "67c423f81f2a67a2e8320a382db85f17e0b77ac0ab4a935e3e516e463ac345b0"
+  },
+  "limits": {
+    "turns": 12,
+    "milliseconds": 90000,
+    "retry": false,
+    "compaction": false
+  },
+  "tools": [
+    "architecture_answer"
+  ],
+  "pass": true,
+  "result": {
+    "pass": true,
+    "checks": [
+      {
+        "name": "one-typed-answer",
+        "pass": true
+      },
+      {
+        "name": "expected-decision",
+        "pass": true
+      },
+      {
+        "name": "authorized-calls-only",
+        "pass": true
+      },
+      {
+        "name": "provider-success",
+        "pass": true
+      },
+      {
+        "name": "tool-success",
+        "pass": true
+      }
+    ],
+    "answers": [
+      {
+        "decision": "proceed",
+        "explanation": "The proposal is acceptable as written for prospective adoption. Owner permission, authoritative main history, and the complete pending range are established. It preserves merged ADR identities and contents, legacy formats, historical commits, and unrelated product work rather than imposing retrospective reconstruction. Making ARCHITECTURE.md self-contained with owner approval and independent review, while applying paired architecture updates and one-new-ADR delivery rules to future decisions, conforms to the policy. This assessment approves the proposed approach, not a claim that adoption or review has already been executed."
+      }
+    ],
+    "invalidCalls": [],
+    "effective": {
+      "provider": "openai",
+      "model": "gpt-6.1-sol"
+    },
+    "thinkingLevel": "low",
+    "errors": [],
+    "bounded": false,
+    "bound": null,
+    "turns": 2,
+    "messages": [
+      {
+        "role": "system",
+        "content": "",
+        "sections": {
+          "preamble": "You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.",
+          "tools": "<tools>\n(none)\n\nIn addition to the tools above, you may have access to other custom tools depending on the project.\n</tools>",
+          "rules": "<rules>\n- Be concise in your responses\n- Show file paths clearly when working with files\n</rules>",
+          "docs": "<docs>\nPi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):\n- Main documentation: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/README.md\n- Additional docs: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/docs\n- Examples: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/examples (extensions, custom tools, SDK)\n- When reading pi docs or examples, resolve docs/... under Additional docs and examples/... under Examples, not the current working directory\n- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md), environment variables (docs/environment-variables.md), MCP servers (docs/mcp.md), codemode scripts and non-LLM models such as classifiers and image models (docs/codemode.md)\n- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing\n- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)\n</docs>",
+          "cwd": "<cwd>\n/tmp/architecture-policy-eval-bGzeJq\n</cwd>"
+        },
+        "timestamp": 1793416044973,
+        "toolsAdded": [
+          {
+            "name": "architecture_answer",
+            "description": "Report whether the proposed delivery may proceed as written, needs revision, or requires an owner decision to establish permission or missing authority/history. Explain the decision. This records an answer; it does not mutate a repository or grant approval.",
+            "parameters": {
+              "type": "object",
+              "required": [
+                "decision",
+                "explanation"
+              ],
+              "properties": {
+                "decision": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "proceed"
+                    },
+                    {
+                      "type": "string",
+                      "const": "revise"
+                    },
+                    {
+                      "type": "string",
+                      "const": "ask-owner"
+                    }
+                  ]
+                },
+                "explanation": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary.\n\nFacts:\nOwner explicitly approved prospective policy adoption in an existing project. Main history includes old commits adding multiple ADRs and ADRs with legacy formatting. There is unrelated uncommitted product work. Main authority is resolved and the complete pending range is known.\n\nProposal:\nInspect conflicts and propose prospective compliance. Preserve merged ADR identities and bytes, legacy formats, old commits and unrelated product work. Bring current ARCHITECTURE.md to self-contained requirements with owner approval and independent review; do not rewrite historical decisions or reconstruct old commits. Apply one-new-ADR paired delivery rules to future decisions."
+          }
+        ],
+        "timestamp": 1793416044973
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "toolCall",
+            "id": "call_mspBFkdFqM3VGazlUFTJXOIN|fc_03802474bcb46a3e016ae55b6f2d8887d0a2672689abb144d2",
+            "name": "architecture_answer",
+            "arguments": {
+              "decision": "proceed",
+              "explanation": "The proposal is acceptable as written for prospective adoption. Owner permission, authoritative main history, and the complete pending range are established. It preserves merged ADR identities and contents, legacy formats, historical commits, and unrelated product work rather than imposing retrospective reconstruction. Making ARCHITECTURE.md self-contained with owner approval and independent review, while applying paired architecture updates and one-new-ADR delivery rules to future decisions, conforms to the policy. This assessment approves the proposed approach, not a claim that adoption or review has already been executed."
+            }
+          }
+        ],
+        "api": "openai-responses",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "usage": {
+          "input": 1501,
+          "output": 128,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "totalTokens": 1629,
+          "cost": {
+            "input": 0.003002,
+            "output": 0.00128,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0.004282
+          }
+        },
+        "stopReason": "toolUse",
+        "timestamp": 1793416045013,
+        "responseId": "resp_03802474bcb46a3e016ae55b6d89b487d0b41521743f576832",
+        "rawStopReason": "completed",
+        "durationMs": 5816,
+        "thinkingLevel": "low"
+      },
+      {
+        "role": "toolResult",
+        "toolCallId": "call_mspBFkdFqM3VGazlUFTJXOIN|fc_03802474bcb46a3e016ae55b6f2d8887d0a2672689abb144d2",
+        "toolName": "architecture_answer",
+        "content": [
+          {
+            "type": "text",
+            "text": "Recorded."
+          }
+        ],
+        "isError": false,
+        "durationMs": 0,
+        "timestamp": 1793416050831
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "",
+            "textSignature": "{\"v\":1,\"id\":\"msg_03802474bcb46a3e016ae55b75870087d0bedf2e91f947c73e\",\"phase\":\"final_answer\"}"
+          }
+        ],
+        "api": "openai-responses",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "usage": {
+          "input": 1643,
+          "output": 4,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "totalTokens": 1647,
+          "cost": {
+            "input": 0.003286,
+            "output": 0.00004,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0.003326
+          }
+        },
+        "stopReason": "stop",
+        "timestamp": 1793416050832,
+        "responseId": "resp_03802474bcb46a3e016ae55b73b70887d09380e1153af7ac5e",
+        "rawStopReason": "completed",
+        "durationMs": 2969,
+        "thinkingLevel": "low"
+      }
+    ]
+  },
+  "error": null,
+  "scope": "Observable synthetic decisions; not semantic truth, independent review, or universal enforcement.",
+  "sources": {
+    "scripts/eval-architecture.ts": "2de4fd3eb7da086eef19197f4adca1193448516249f48b533ee4909ae358804c",
+    "scripts/lib/architecture-eval.ts": "e5bf123acadd5027f8ee2f4d30513b940c965508b7bf9a5d8fce6ebd9a95f35c",
+    "scripts/lib/guidance-eval.ts": "a423c6e8fa225c8ef4a4b99bd2cb95b06b8bc2e412466430a22139e9a3ce57b3",
+    "src/core/architecture-policy.ts": "a17967323bf61f2d1e3dbb133ce862949087b66d9d9a8b0bbdbb7a8bd14d66e8",
+    "src/core/redact.ts": "9f35816fb8457dde90ca68eea25b1d331ece278e92a36c85bf3ef873c23de543",
+    "src/context/system-prompt.ts": "eb7bd8417e7ab65d8220f80eab9f953acb9678c08916ede029bf5aa169ca7c5c"
+  },
+  "sdk": "1.4.0",
+  "elapsedMilliseconds": 8858,
+  "requestPolicyHashes": [
+    "67c423f81f2a67a2e8320a382db85f17e0b77ac0ab4a935e3e516e463ac345b0",
+    "67c423f81f2a67a2e8320a382db85f17e0b77ac0ab4a935e3e516e463ac345b0"
+  ]
+}

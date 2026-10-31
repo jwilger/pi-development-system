@@ -32,6 +32,16 @@ test("a file in the artifact's place, or a recorded skip, accounts for it", () =
   assert.deepEqual(found, ["decision-register", "event-model"]);
 });
 
+test("only root architecture accounts for current authority and a planning skip cannot waive it", () => {
+  for (const departedGates of [[], ["artifact.skipped:architecture"]]) {
+    const found = missingArtifacts("product", {
+      exists: (path) => path !== "ARCHITECTURE.md",
+      departedGates,
+    });
+    assert.deepEqual(found, ["architecture"]);
+  }
+});
+
 test("a skip of another artifact does not account for this one", () => {
   const found = missingArtifacts("capability", {
     exists: () => true,

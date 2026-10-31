@@ -25,7 +25,14 @@ export type ConfigError = {
   readonly file?: string;
 };
 
+export type ArchitecturePolicyConfig = {
+  readonly trunkRef: string;
+  readonly adoptedAt: string;
+};
+
 export type DevsysConfig = {
+  /** Absent means adoption is unresolved, never that mandatory policy is disabled. */
+  readonly architecture?: ArchitecturePolicyConfig;
   readonly delivery: {
     readonly mode: DeliveryMode;
     readonly trunk: string;
@@ -243,6 +250,37 @@ function workflow(root: Table): Result<DevsysConfig["workflow"], ConfigError> {
     : fail("workflow.guidance must be an array of non-empty paths", "workflow.guidance");
 }
 
+function architecture(root: Table): Result<ArchitecturePolicyConfig | undefined, ConfigError> {
+  if (root.architecture === undefined) return ok(undefined);
+  const table = section(root, "architecture", ["trunk_ref", "adopted_at"]);
+  if (!table.ok) return table;
+  const ref = table.value.trunk_ref;
+  const anchor = table.value.adopted_at;
+  if (
+    typeof ref !== "string" ||
+    !/^refs\/(?:heads|remotes)\/[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(ref) ||
+    ref.includes("..") ||
+    ref
+      .split("/")
+      .some(
+        (part) =>
+          part === "" || part.startsWith(".") || part.endsWith(".") || part.endsWith(".lock"),
+      )
+  ) {
+    return fail(
+      "architecture.trunk_ref must be an explicit safe refs/heads/... or refs/remotes/... ref",
+      "architecture.trunk_ref",
+    );
+  }
+  if (typeof anchor !== "string" || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(anchor)) {
+    return fail(
+      "architecture.adopted_at must be the full immutable commit object identity approved for prospective adoption",
+      "architecture.adopted_at",
+    );
+  }
+  return ok({ trunkRef: ref, adoptedAt: anchor });
+}
+
 const TOP_LEVEL = [
   "version",
   "delivery",
@@ -255,6 +293,7 @@ const TOP_LEVEL = [
   "cadence",
   "event_model",
   "workflow",
+  "architecture",
 ];
 
 function evidence(
@@ -420,13 +459,16 @@ export function parseConfig(source: string): Result<DevsysConfig, ConfigError> {
   const routes = routing(root);
   const prof = profiles(root);
   const localWorkflow = workflow(root);
+  const historyPolicy = architecture(root);
   if (!delivery.ok) return delivery;
   if (!lim.ok) return lim;
   if (!matrix.ok) return matrix;
   if (!routes.ok) return routes;
   if (!prof.ok) return prof;
   if (!localWorkflow.ok) return localWorkflow;
+  if (!historyPolicy.ok) return historyPolicy;
   return ok({
+    ...(historyPolicy.value === undefined ? {} : { architecture: historyPolicy.value }),
     ...delivery.value,
     ...lim.value,
     profiles: { override: prof.value },

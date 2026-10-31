@@ -1,0 +1,236 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-31T03:06:16.107Z",
+  "requested": {
+    "provider": "openai",
+    "model": "gpt-6.1-sol",
+    "thinkingLevel": "off"
+  },
+  "condition": "baseline",
+  "fixture": {
+    "id": "linked-supersession",
+    "facts": "Authoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.",
+    "proposal": "One resulting commit on authoritative main adds ADR-002 choosing a durable queue. Its context is outage-driven message loss; rejected synchronous retry cannot survive process loss; consequences include persistent storage and worker operations; reconsider if the product no longer requires delivery after process failure. In that same commit ARCHITECTURE.md replaces synchronous delivery requirements with durable enqueue before acknowledgement, worker retry after restart, and the operational goal of surviving process loss. The record describes architectural intent, not executed verification. Independent semantic review confirms correspondence and self-contained requirements; appropriate verification is complete.  Change merged ADR-001 only by adding 'Status: superseded by ADR-002' with a link to the new record; every other byte and its historical path remain intact. This is the only other ADR change."
+  },
+  "fixtureHash": "c08ddc68f32dab056087e825e98736b026098c911596fd58ec3a58c2ad91b29e",
+  "prompt": "Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary.\n\nFacts:\nAuthoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.\n\nProposal:\nOne resulting commit on authoritative main adds ADR-002 choosing a durable queue. Its context is outage-driven message loss; rejected synchronous retry cannot survive process loss; consequences include persistent storage and worker operations; reconsider if the product no longer requires delivery after process failure. In that same commit ARCHITECTURE.md replaces synchronous delivery requirements with durable enqueue before acknowledgement, worker retry after restart, and the operational goal of surviving process loss. The record describes architectural intent, not executed verification. Independent semantic review confirms correspondence and self-contained requirements; appropriate verification is complete.  Change merged ADR-001 only by adding 'Status: superseded by ADR-002' with a link to the new record; every other byte and its historical path remain intact. This is the only other ADR change.",
+  "promptHash": "9599496da33ed4faa91d7897fb90f535038b632c0483682cb80e50e5b2a99bca",
+  "policy": {
+    "source": "src/core/architecture-policy.ts",
+    "sourceHash": "73279ce62e9a94240f4ae57bbd82c9ecfdc2b84d23b4f1961b85ab111a4c4de8",
+    "injectedHash": null
+  },
+  "limits": {
+    "turns": 12,
+    "milliseconds": 90000,
+    "retry": false,
+    "compaction": false
+  },
+  "tools": [
+    "architecture_answer"
+  ],
+  "pass": true,
+  "result": {
+    "pass": true,
+    "checks": [
+      {
+        "name": "one-typed-answer",
+        "pass": true
+      },
+      {
+        "name": "expected-decision",
+        "pass": true
+      },
+      {
+        "name": "authorized-calls-only",
+        "pass": true
+      },
+      {
+        "name": "provider-success",
+        "pass": true
+      },
+      {
+        "name": "tool-success",
+        "pass": true
+      }
+    ],
+    "answers": [
+      {
+        "decision": "proceed",
+        "explanation": "The proposal explicitly supersedes ADR-001 through a new ADR-002 while preserving the prior decision's content and historical path, adding only a linked superseded status. ADR-002 explains the motivation, rejected alternative, operational consequences, and reconsideration condition, and ARCHITECTURE.md is updated consistently in the same resulting commit. Authoritative history and the full pending range are resolved, independent semantic review and appropriate verification are complete, and the record does not misrepresent intent as executed verification. No unresolved authority or known architectural inconsistency requires revision; unrelated work must remain preserved as stipulated."
+      }
+    ],
+    "invalidCalls": [],
+    "effective": {
+      "provider": "openai",
+      "model": "gpt-6.1-sol"
+    },
+    "thinkingLevel": "low",
+    "errors": [],
+    "bounded": false,
+    "bound": null,
+    "turns": 2,
+    "messages": [
+      {
+        "role": "system",
+        "content": "",
+        "sections": {
+          "preamble": "You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.",
+          "tools": "<tools>\n(none)\n\nIn addition to the tools above, you may have access to other custom tools depending on the project.\n</tools>",
+          "rules": "<rules>\n- Be concise in your responses\n- Show file paths clearly when working with files\n</rules>",
+          "docs": "<docs>\nPi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):\n- Main documentation: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/README.md\n- Additional docs: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/docs\n- Examples: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/examples (extensions, custom tools, SDK)\n- When reading pi docs or examples, resolve docs/... under Additional docs and examples/... under Examples, not the current working directory\n- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md), environment variables (docs/environment-variables.md), MCP servers (docs/mcp.md), codemode scripts and non-LLM models such as classifiers and image models (docs/codemode.md)\n- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing\n- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)\n</docs>",
+          "cwd": "<cwd>\n/tmp/architecture-policy-eval-A5S30i\n</cwd>"
+        },
+        "timestamp": 1793415976249,
+        "toolsAdded": [
+          {
+            "name": "architecture_answer",
+            "description": "Report whether the proposed delivery may proceed as written, needs revision, or requires an owner decision to establish permission or missing authority/history. Explain the decision. This records an answer; it does not mutate a repository or grant approval.",
+            "parameters": {
+              "type": "object",
+              "required": [
+                "decision",
+                "explanation"
+              ],
+              "properties": {
+                "decision": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "proceed"
+                    },
+                    {
+                      "type": "string",
+                      "const": "revise"
+                    },
+                    {
+                      "type": "string",
+                      "const": "ask-owner"
+                    }
+                  ]
+                },
+                "explanation": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary.\n\nFacts:\nAuthoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.\n\nProposal:\nOne resulting commit on authoritative main adds ADR-002 choosing a durable queue. Its context is outage-driven message loss; rejected synchronous retry cannot survive process loss; consequences include persistent storage and worker operations; reconsider if the product no longer requires delivery after process failure. In that same commit ARCHITECTURE.md replaces synchronous delivery requirements with durable enqueue before acknowledgement, worker retry after restart, and the operational goal of surviving process loss. The record describes architectural intent, not executed verification. Independent semantic review confirms correspondence and self-contained requirements; appropriate verification is complete.  Change merged ADR-001 only by adding 'Status: superseded by ADR-002' with a link to the new record; every other byte and its historical path remain intact. This is the only other ADR change."
+          }
+        ],
+        "timestamp": 1793415976248
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "toolCall",
+            "id": "call_nGfdrZJKi6U3zvz3IrhuZPx2|fc_004f766bb6621918016ae55b2ae8dc87d088458578b61e70e1",
+            "name": "architecture_answer",
+            "arguments": {
+              "decision": "proceed",
+              "explanation": "The proposal explicitly supersedes ADR-001 through a new ADR-002 while preserving the prior decision's content and historical path, adding only a linked superseded status. ADR-002 explains the motivation, rejected alternative, operational consequences, and reconsideration condition, and ARCHITECTURE.md is updated consistently in the same resulting commit. Authoritative history and the full pending range are resolved, independent semantic review and appropriate verification are complete, and the record does not misrepresent intent as executed verification. No unresolved authority or known architectural inconsistency requires revision; unrelated work must remain preserved as stipulated."
+            }
+          }
+        ],
+        "api": "openai-responses",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "usage": {
+          "input": 879,
+          "output": 141,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "totalTokens": 1020,
+          "cost": {
+            "input": 0.001758,
+            "output": 0.00141,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0.003168
+          }
+        },
+        "stopReason": "toolUse",
+        "timestamp": 1793415976582,
+        "responseId": "resp_004f766bb6621918016ae55b296bd087d0b1270abba9883da1",
+        "rawStopReason": "completed",
+        "durationMs": 6367,
+        "thinkingLevel": "low"
+      },
+      {
+        "role": "toolResult",
+        "toolCallId": "call_nGfdrZJKi6U3zvz3IrhuZPx2|fc_004f766bb6621918016ae55b2ae8dc87d088458578b61e70e1",
+        "toolName": "architecture_answer",
+        "content": [
+          {
+            "type": "text",
+            "text": "Recorded."
+          }
+        ],
+        "isError": false,
+        "durationMs": 0,
+        "timestamp": 1793415982951
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "",
+            "textSignature": "{\"v\":1,\"id\":\"msg_004f766bb6621918016ae55b3070a087d09a756e3c04190b6f\",\"phase\":\"final_answer\"}"
+          }
+        ],
+        "api": "openai-responses",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "usage": {
+          "input": 1034,
+          "output": 4,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "totalTokens": 1038,
+          "cost": {
+            "input": 0.002068,
+            "output": 0.00004,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0.002108
+          }
+        },
+        "stopReason": "stop",
+        "timestamp": 1793415982952,
+        "responseId": "resp_004f766bb6621918016ae55b2f891487d0a3057c8b233d2e8a",
+        "rawStopReason": "completed",
+        "durationMs": 1841,
+        "thinkingLevel": "low"
+      }
+    ]
+  },
+  "error": null,
+  "scope": "Observable synthetic decisions; not semantic truth, independent review, or universal enforcement.",
+  "sources": {
+    "scripts/eval-architecture.ts": "2de4fd3eb7da086eef19197f4adca1193448516249f48b533ee4909ae358804c",
+    "scripts/lib/architecture-eval.ts": "e5bf123acadd5027f8ee2f4d30513b940c965508b7bf9a5d8fce6ebd9a95f35c",
+    "scripts/lib/guidance-eval.ts": "a423c6e8fa225c8ef4a4b99bd2cb95b06b8bc2e412466430a22139e9a3ce57b3",
+    "src/core/architecture-policy.ts": "a17967323bf61f2d1e3dbb133ce862949087b66d9d9a8b0bbdbb7a8bd14d66e8",
+    "src/core/redact.ts": "9f35816fb8457dde90ca68eea25b1d331ece278e92a36c85bf3ef873c23de543",
+    "src/context/system-prompt.ts": "eb7bd8417e7ab65d8220f80eab9f953acb9678c08916ede029bf5aa169ca7c5c"
+  },
+  "sdk": "1.4.0",
+  "elapsedMilliseconds": 8688,
+  "requestPolicyHashes": [
+    null,
+    null
+  ]
+}

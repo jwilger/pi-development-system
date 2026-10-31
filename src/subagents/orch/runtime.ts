@@ -1,4 +1,5 @@
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: the flagged functions (driver construction, settings resolution) are long sequences over pi sessions; only the pin and resume paths are covered by test/subagents/spawn-pins.test.ts, so splitting them would move untested behaviour (see src/subagents/VENDORED.md)
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
@@ -41,6 +42,7 @@ import {
   buildUpdateDetails,
   DurableMailbox,
 } from "./mailbox.ts";
+import { claimInheritedReviewer, runWithInheritedToolCaller } from "./tool-caller.ts";
 import { TranscriptChannel } from "./transcript.ts";
 
 const BUILTINS = ["read", "bash", "powershell", "edit", "write", "grep", "find", "ls"];
@@ -406,7 +408,24 @@ export function createDriverFactory(
     const model = await resolveRuntimeModel(provider, id, initialScopedModels);
     const inherited = getInheritedTools();
     const localNames = new Set([...BUILTINS, ...options.tools.map((tool) => tool.name)]);
-    const externalTools = inherited.tools.filter((tool) => !localNames.has(tool.name));
+    const caller = {
+      rootId,
+      threadPath: options.path,
+      parentPath: options.parentPath,
+      agentType: options.type.name,
+      sessionFile: sessionManager.getSessionFile(),
+      attemptId:
+        (!options.sessionFile && options.parentPath === null && options.type.name === "reviewer"
+          ? claimInheritedReviewer(rootId, options.path)
+          : undefined) ?? randomUUID(),
+    };
+    const externalTools = inherited.tools
+      .filter((tool) => !localNames.has(tool.name))
+      .map((tool) => ({
+        ...tool,
+        execute: (...args: Parameters<typeof tool.execute>) =>
+          runWithInheritedToolCaller(caller, () => tool.execute(...args)),
+      }));
     const toolNames = selectTools(
       options.type.tools,
       [...localNames, ...externalTools.map((tool) => tool.name)],

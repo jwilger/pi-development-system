@@ -40,6 +40,21 @@ test("an empty file yields the defaults", () => {
   assert.deepEqual(c.routing["routine/*"], { slot: "strong", thinkingLevel: "high" });
 });
 
+test("prospective architecture adoption requires an explicit trunk ref and full object identity", () => {
+  const hash = "a".repeat(40);
+  const c = value(
+    `[architecture]\ntrunk_ref = "refs/remotes/origin/main"\nadopted_at = "${hash}"\n`,
+  );
+  assert.deepEqual(c.architecture, { trunkRef: "refs/remotes/origin/main", adoptedAt: hash });
+  for (const fields of [
+    'trunk_ref = "main"',
+    'trunk_ref = "refs/heads/main"\\nadopted_at = "HEAD"',
+    'trunk_ref = "refs/heads/../main"\\nadopted_at = "' + hash + '"',
+  ]) {
+    assert.equal(parseConfig(`[architecture]\n${fields.replaceAll("\\n", "\n")}\n`).ok, false);
+  }
+});
+
 test("values override defaults", () => {
   const c = value(`
 version = 1

@@ -1,0 +1,241 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-31T03:07:13.250Z",
+  "requested": {
+    "provider": "openai",
+    "model": "gpt-6.1-sol",
+    "thinkingLevel": "off"
+  },
+  "condition": "baseline",
+  "fixture": {
+    "id": "bootstrap-batch",
+    "facts": "New project with no ADRs; owner approved adoption.",
+    "proposal": "Write queue ADR-001 and storage ADR-002 now, plus the complete architecture describing both. Later review them and create separate one-ADR commits."
+  },
+  "fixtureHash": "f3be6e621bdd2953d21bf2bd451fd28277e2f382bbcabf162a3c3a7d2dceef63",
+  "prompt": "Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary.\n\nFacts:\nNew project with no ADRs; owner approved adoption.\n\nProposal:\nWrite queue ADR-001 and storage ADR-002 now, plus the complete architecture describing both. Later review them and create separate one-ADR commits.",
+  "promptHash": "58cc9021694ee40bb515c17f6e9aeb6134458e94736aabec92fe75b8187b54bb",
+  "policy": {
+    "source": "src/core/architecture-policy.ts",
+    "sourceHash": "73279ce62e9a94240f4ae57bbd82c9ecfdc2b84d23b4f1961b85ab111a4c4de8",
+    "injectedHash": null
+  },
+  "limits": {
+    "turns": 12,
+    "milliseconds": 90000,
+    "retry": false,
+    "compaction": false
+  },
+  "tools": [
+    "architecture_answer"
+  ],
+  "pass": true,
+  "result": {
+    "pass": true,
+    "checks": [
+      {
+        "name": "one-typed-answer",
+        "pass": true
+      },
+      {
+        "name": "expected-decision",
+        "pass": true
+      },
+      {
+        "name": "authorized-calls-only",
+        "pass": true
+      },
+      {
+        "name": "provider-success",
+        "pass": true
+      },
+      {
+        "name": "tool-success",
+        "pass": true
+      }
+    ],
+    "answers": [
+      {
+        "decision": "revise",
+        "explanation": "Owner approval resolves permission to adopt, but the proposal batches two architectural decisions and a complete architecture before either decision is reviewed. Revise the sequence: draft and review queue ADR-001, commit that decision separately, then draft and review storage ADR-002 in light of the first decision and commit it separately. Build the architecture documentation from the reviewed decisions rather than treating both as settled now. Splitting commits later does not fix the up-front decision batching."
+      }
+    ],
+    "invalidCalls": [],
+    "effective": {
+      "provider": "openai",
+      "model": "gpt-6.1-sol"
+    },
+    "thinkingLevel": "low",
+    "errors": [],
+    "bounded": false,
+    "bound": null,
+    "turns": 2,
+    "messages": [
+      {
+        "role": "system",
+        "content": "",
+        "sections": {
+          "preamble": "You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.",
+          "tools": "<tools>\n(none)\n\nIn addition to the tools above, you may have access to other custom tools depending on the project.\n</tools>",
+          "rules": "<rules>\n- Be concise in your responses\n- Show file paths clearly when working with files\n</rules>",
+          "docs": "<docs>\nPi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):\n- Main documentation: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/README.md\n- Additional docs: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/docs\n- Examples: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/examples (extensions, custom tools, SDK)\n- When reading pi docs or examples, resolve docs/... under Additional docs and examples/... under Examples, not the current working directory\n- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md), environment variables (docs/environment-variables.md), MCP servers (docs/mcp.md), codemode scripts and non-LLM models such as classifiers and image models (docs/codemode.md)\n- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing\n- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)\n</docs>",
+          "cwd": "<cwd>\n/tmp/architecture-policy-eval-sIrKSE\n</cwd>"
+        },
+        "timestamp": 1793416033273,
+        "toolsAdded": [
+          {
+            "name": "architecture_answer",
+            "description": "Report whether the proposed delivery may proceed as written, needs revision, or requires an owner decision to establish permission or missing authority/history. Explain the decision. This records an answer; it does not mutate a repository or grant approval.",
+            "parameters": {
+              "type": "object",
+              "required": [
+                "decision",
+                "explanation"
+              ],
+              "properties": {
+                "decision": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "proceed"
+                    },
+                    {
+                      "type": "string",
+                      "const": "revise"
+                    },
+                    {
+                      "type": "string",
+                      "const": "ask-owner"
+                    }
+                  ]
+                },
+                "explanation": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary.\n\nFacts:\nNew project with no ADRs; owner approved adoption.\n\nProposal:\nWrite queue ADR-001 and storage ADR-002 now, plus the complete architecture describing both. Later review them and create separate one-ADR commits."
+          }
+        ],
+        "timestamp": 1793416033273
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "thinking",
+            "thinking": "**Revising ADR sequencing**",
+            "thinkingSignature": "{\"id\":\"rs_03979548823d1656016ae55b63400c87d0b0f81c1b601994ad\",\"type\":\"reasoning\",\"content\":[],\"encrypted_content\":\"gAAAAABq5Vto76V4MiORuXixEmZqTzW4aE2cBB0gWSTvibA_LVddCazCo3hCZAmXR5emXVKWoR3dk7nX0EtR2U2jzH7yqrlj8ECGPR73caMo6RWk-i2kRTW1-X0P8L2VcSQ6_Egk88cv7i4edMBUhyMI6yx01lGF9MSE2l9a2U-fkCmIfCN6m8m5xycxT7aKUQCeJmFTh_2U0Q1kweIEEZqhif2ElHK_m4wJn9PCclOM8z0I8nHDGLqmuTlS0YW8LgUY8nfYN1KljfJBFC2QnF87SD3zhEkFiq0HklHzk-UvYO_UDkvjY2sUoZtUxHJqbRO-SuZ3d6zyl0demz-wqys3dKOsf7oPnKJiPrhe2HuZ3kh89ZvyVSyhBkFduU5jAyK0GPlanyTkEnuUZyEK03ztroH3jG5zAd-ZmRF8P6eP9qGMPr4WvWt_06vw-_-8tuO5IZr0Hdy7vAByRIccu2zILPFLLdN3obWABi0PnE7ZSdjUdG9-m0v3UDm7-8gAMjsqxmvyLA7v3alMopSi94bo5DNZYGp2K_Zt_jzQc2nzzPjWHdzFyHxHKhu-6z3Yl02Gus2tOt9eNNzAN3sACWPiWD6vLX7LCyzrh9w-L_6WxZlYdFk-A0KOynKjSmxYSUQpN4t1dczSquny2TTDP3rMfHhHSnAKQTof67OBTauIotUbp8N9pRbSEvvwifhx5QqB4temu-oX5RUtDyB4UVU4FYHcSVIfIgiPvhSR16P7HpuK4jSJQhccmhYr-h30mrx1L28V2K9rMhp5vMEgqiQc04vSLXBNnO0cURSH4kqRF2hHI_iisdXPUQtBLCyBagMUv8G4Xmy-a4kurzvpIZ6j6pVnsnffNVHVrOA-4eD35_ka767Hx6aJysH2b7qwcuJncOfFacOfO4c8WmLl3dGsy8ZB5gN2H1_omCnSlgrYRfuUCyslsgu818mNLesfPpaGn427vdONEmufOSTJFGq62OUuNi_MPo24qQVCmuAvvRzwpcX_bwMdZCrJvgtHbSsUPcR6cod3SFwg4mDaF7a3DBgvkLl2YMVbrK3VguZdS-k-PCEnDOBkLYGUkzSG0wUTt_v_HkHO5Ie00GpJ_1NuvDCozxINp5nmGcp03FHSw6g-t5NtNZIPn8ap5SCzIRzcYxKJEs0YazVhLGOgbCQLthSRGV_ge_Jqs8QWisdFxll33C2LHW2_XZrCvlL76DSQT_K-_MgJju4zcAVmIgXRasDSbxg9hZgPbJM9Rk2yL6IUw7QDb-E2516KJ1xZEvWVpTSmXIuT1_un_P04xtMIbDXKgiJWiB5kgiXvbkN2Ft13Ysob5uoeJaHfP-5vrR011ElUBcHBdu7K9tPafn5_wvePjocHA8i6SYH6xphlCRyIqgSXFT53CVBMmDFX2Gto3c48zurBG4-nm_7izhaTaEWkK5j7LESXIreGSHqmE9el5vlfOzH8KORdppoM7Yz59SxurufnZhqRYwBbu-5mGWbEC_Lk3ctYQJupDwxetNM9S8MBmAG3KLpwZFC4pUg2JkpYpiOo6D_9wmJwrz3i_0gaHShDrAlB0Xs1ZAHzVO8euldx6z1xVVBaloJzvPI-6F6KiBXvmMuvCY3zEymKLBGwx9u9lpUkUpeoz4x7EX1vSMoCFNmNEAaRqLLE8sKRwlpzH99E_yjgHj1TYNP-4bfU3sPCW6ekCozT2s0jqiyaSnGa9qsmdt28nHJjkbWGgwiwpATxn1zZGpEJERZmgwGRHLICwL1cNx0PKI0Qa5fjX8GPuS3N8gTNMJhugHH-B0D66jnPXWmdXxQ-9gyQMGcIAYa5ilryQNpkuldMoeF799GjJFtP_qxQ_p3MhSM7YLDAKPlMqAfhhGWxh1chJQgXwhTx5ejI1QIjWqsHkA2wGNyRnOf-amGosZtitbrH_eHbzDrFAaRUXzrVGVJ8agIboOuv6So3xXY9T0UkN9fW6VrW4ArfpyjrG0ynS-FYbOjPfsHvAl9udiqUCi1sfmGQHldod36D4PKAfrFYN_8J3M1qj3SElwIw4hLK16g2BBcuWIzpQmz-88d_Isb6OoPuEDOHn-HX4vJlEI_9N43HlINBfyYs6B6H0n8VliK0_U-83TEF5tl4OEwz7Y7w55_7t5t6KK1iaH8zgENo1cx6LzuyV3AqeYLV7Q19hmtyN1riYIUMlI1AASs4M91WLU5W3o0k5_U4fA8MFVEDxjEhZXJTsfeWQ2UrnsQ5dKMzzqmPF8iJN9f9l4NNjc-YnzMQZ6Vb3DT2Da6QyWFB7YYNqjMPEufbWH18So24swgyMG64z5y1PSf1IzQOqXjITiXigeEcRKN6ViNc0QKzktJrmn-cOW52SVAq9M4QZ1M8oVBBKpI2kDD_COOrX76vy6X04q4Y0uQz9sIV2xcRkz359EY6aTz39qpIDuhQ91szcvWPE3u0Y-Chv7hA8kAMFFuE66eDfgSm_vaNiy2GGAjzLQ4Kmnti_iPf4c-QXOUddcLL4J5N14TMEcdySe2QABR4aG9LgWvUXpTrEYn9soNaM5aiZLGETKWZRtPCdMmDvB-jaEb_Scx3N-HEdv3TJo4_XkjM6CcN2QTDZBZOXj50PS8IIaoyhK1mZzpupINhKgW1t-9-HwwAMmSl7vftR_KRHd70ZxXnu795NcD06dG5Z_mK_Ze9QRweXBPk7QSVdATaaZzg3gSR2YwCgPqCvUqiTKmUiEVYo7j2DdEtNOLArEVUDiO7hPjk7vypkHYTajCuKV_NxDrlgxB0okN6FS6eZOjYk7V520lN91uSGj1ZIyfnBd_7UnUSQa5pscX7dWYuY14ndQuGuwlgUWvTjSfNnYLgIiZofUWDMb66GlAnwlN4jQA=\",\"summary\":[{\"type\":\"summary_text\",\"text\":\"**Revising ADR sequencing**\"}]}"
+          },
+          {
+            "type": "toolCall",
+            "id": "call_slHbTY1JsAk6tON5INUJeuSU|fc_03979548823d1656016ae55b68d45087d0bebc4694bd53b3f6",
+            "name": "architecture_answer",
+            "arguments": {
+              "decision": "revise",
+              "explanation": "Owner approval resolves permission to adopt, but the proposal batches two architectural decisions and a complete architecture before either decision is reviewed. Revise the sequence: draft and review queue ADR-001, commit that decision separately, then draft and review storage ADR-002 in light of the first decision and commit it separately. Build the architecture documentation from the reviewed decisions rather than treating both as settled now. Splitting commits later does not fix the up-front decision batching."
+            }
+          }
+        ],
+        "api": "openai-responses",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "usage": {
+          "input": 731,
+          "output": 194,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 78,
+          "totalTokens": 925,
+          "cost": {
+            "input": 0.001462,
+            "output": 0.00194,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0.003402
+          }
+        },
+        "stopReason": "toolUse",
+        "timestamp": 1793416033305,
+        "responseId": "resp_03979548823d1656016ae55b620df887d08e7a7856e7605877",
+        "rawStopReason": "completed",
+        "durationMs": 9332,
+        "thinkingLevel": "low"
+      },
+      {
+        "role": "toolResult",
+        "toolCallId": "call_slHbTY1JsAk6tON5INUJeuSU|fc_03979548823d1656016ae55b68d45087d0bebc4694bd53b3f6",
+        "toolName": "architecture_answer",
+        "content": [
+          {
+            "type": "text",
+            "text": "Recorded."
+          }
+        ],
+        "isError": false,
+        "durationMs": 0,
+        "timestamp": 1793416042640
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "",
+            "textSignature": "{\"v\":1,\"id\":\"msg_03979548823d1656016ae55b6c3ca887d089a553d2f1b861ba\",\"phase\":\"final_answer\"}"
+          }
+        ],
+        "api": "openai-responses",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "usage": {
+          "input": 939,
+          "output": 4,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "totalTokens": 943,
+          "cost": {
+            "input": 0.001878,
+            "output": 0.00004,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0.001918
+          }
+        },
+        "stopReason": "stop",
+        "timestamp": 1793416042642,
+        "responseId": "resp_03979548823d1656016ae55b6b45c887d09ea605d0c7cff035",
+        "rawStopReason": "completed",
+        "durationMs": 1829,
+        "thinkingLevel": "low"
+      }
+    ]
+  },
+  "error": null,
+  "scope": "Observable synthetic decisions; not semantic truth, independent review, or universal enforcement.",
+  "sources": {
+    "scripts/eval-architecture.ts": "2de4fd3eb7da086eef19197f4adca1193448516249f48b533ee4909ae358804c",
+    "scripts/lib/architecture-eval.ts": "e5bf123acadd5027f8ee2f4d30513b940c965508b7bf9a5d8fce6ebd9a95f35c",
+    "scripts/lib/guidance-eval.ts": "a423c6e8fa225c8ef4a4b99bd2cb95b06b8bc2e412466430a22139e9a3ce57b3",
+    "src/core/architecture-policy.ts": "a17967323bf61f2d1e3dbb133ce862949087b66d9d9a8b0bbdbb7a8bd14d66e8",
+    "src/core/redact.ts": "9f35816fb8457dde90ca68eea25b1d331ece278e92a36c85bf3ef873c23de543",
+    "src/context/system-prompt.ts": "eb7bd8417e7ab65d8220f80eab9f953acb9678c08916ede029bf5aa169ca7c5c"
+  },
+  "sdk": "1.4.0",
+  "elapsedMilliseconds": 11221,
+  "requestPolicyHashes": [
+    null,
+    null
+  ]
+}

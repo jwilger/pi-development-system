@@ -58,6 +58,16 @@ push is a hard stop. A call that commits and pushes together on a red trunk is r
 is missing or unauthenticated, CI reads as unknown and the push is allowed:
 check CI by other means before relying on it.
 
+## Architecture and decision-history admission
+
+Root `ARCHITECTURE.md` is mandatory self-contained current architectural authority, without ADR backlinks, source tables or delegated requirements. Code must conform to it; goals are not proof of implementation or delivery. Historical decisions preserve rationale and rejected alternatives, not competing current requirements. Reconsider rejected ideas only after a material context change.
+
+Before committing or delivering, resolve explicit authoritative main/trunk and the prospective adoption boundary. Inspect the complete pending sequence and actual intended resulting commits. Fail closed if necessary history is unavailable or supplied inputs omit pending commits. Require independent semantic review of substantive correspondence, authority, significance, preserved rationale and reconsideration; a changed file or structural pass is insufficient.
+
+Every new ADR and every premerge ADR edit has its substantive architecture update in the same commit. Each resulting main/trunk commit adds at most one ADR; other records may change in that addition commit only for status-only supersession linked to its new replacement. Once merged, never otherwise correct, delete, rename or change a record. Correct through a new decision and paired update. Preserve replacement records and updates through squash; use separate delivery units rather than combining decisions. Bootstrap one cumulative decision/update pair at a time, with verification, independent review and commit before introducing another. Do not prewrite all records and reconstruct history later.
+
+For existing projects, inventory conflicts and propose prospective migration preserving merged history and unrelated work. Do not silently modify consumers, normalize unsupported historical formats or impose retrospective reconstruction. Obtain authorization before adoption changes. Instructions, structural detection and supported action blocking are distinct; raw external Git, scripts and child-local built-ins may remain outside extension hooks. Report uncovered paths rather than implying a universal wall.
+
 ## Pull-request mode
 
 Never push to the trunk directly (hard stop, gate `push.delivery-mode`). Push a

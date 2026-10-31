@@ -11,11 +11,22 @@ export const digestOf = (text: string): string =>
   createHash("sha256").update(text).digest("hex").slice(0, 16);
 
 /** Full identity of the exact diff and guidance snapshot presented for review. Pure. */
-export const reviewInput = (diffDigest: string, guidanceIdentity: string): ReviewInput => ({
+export const reviewInput = (
+  diffDigest: string,
+  guidanceIdentity: string,
+  architectureIdentity?: string,
+): ReviewInput => ({
   diffDigest,
   guidanceIdentity,
+  ...(architectureIdentity === undefined ? {} : { architectureIdentity }),
   identity: createHash("sha256")
-    .update(JSON.stringify([diffDigest, guidanceIdentity]))
+    .update(
+      JSON.stringify(
+        architectureIdentity === undefined
+          ? [diffDigest, guidanceIdentity]
+          : [diffDigest, guidanceIdentity, architectureIdentity],
+      ),
+    )
     .digest("hex"),
 });
 

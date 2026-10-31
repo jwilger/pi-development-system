@@ -8,5 +8,5 @@
     "MD060": false  // table column style: tables are not column-aligned by hand
   },
   "globs": ["**/*.md"],
-  "ignores": [".direnv", "node_modules", "docs/research", "src/subagents", "test/fixtures", ".pi"]
+  "ignores": [".direnv", "node_modules", "docs/research", "src/subagents", "test/fixtures", ".pi", ".worktrees"]
 }

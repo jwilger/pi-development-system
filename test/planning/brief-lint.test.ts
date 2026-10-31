@@ -45,5 +45,7 @@ test("product words that merely look technical are not flagged", () => {
 
 test("each finding explains where the detail belongs", () => {
   const [f] = lintBrief("POST /api/orders");
-  assert.match(f?.message ?? "", /ADR|architecture/i);
+  assert.match(f?.message ?? "", /ARCHITECTURE\.md/);
+  assert.match(f?.message ?? "", /significant|hard-to-reverse/);
+  assert.match(f?.message ?? "", /same commit/);
 });

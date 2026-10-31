@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { ARCHITECTURE_POLICY } from "../../src/core/architecture-policy.ts";
 import { addRound, type Finding, startReview } from "../../src/core/review.ts";
 import {
   adoptSeverity,
@@ -18,6 +19,15 @@ import { parseConfig } from "../../src/state/config.ts";
 import type { GuidanceSnapshot } from "../../src/state/local-guidance.ts";
 
 const s1 = "s1" as SliceRef;
+
+test("fresh reviewers receive architecture authority and substantive history criteria without local guidance", () => {
+  const task = reviewerTask({ slice: s1, round: 1, lenses: ["types"], diffRange: "HEAD" });
+  assert.match(task, /ARCHITECTURE\.md is the authoritative, self-contained/);
+  assert.match(task, /independent semantic review/);
+  assert.match(task, /no ADR backlinks, source tables/);
+  assert.match(task, /rejected idea without a material change/);
+  assert.match(task, /same commit/);
+});
 const finding = (severity: Finding["severity"], id = "types-1"): Finding => ({
   id,
   severity,
@@ -261,13 +271,15 @@ test("reviewerTask carries snapshot and both identity routes", () => {
   );
 });
 
-test("reviewerTask without optional inputs returns the exact legacy string", () => {
+test("reviewerTask without optional inputs preserves the packet contract with mandatory policy", () => {
   assert.equal(
     reviewerTask({ slice: s1, round: 2, lenses: ["types", "tests"], diffRange: "HEAD" }),
     [
       "Review slice s1, round 2, through these lenses: types, tests.",
       "See the change with `git diff HEAD` (and `git diff --stat HEAD`), plus any untracked files listed by `git ls-files --others --exclude-standard` (git diff does not show them; read them directly). Read the callers, callees and tests it depends on, no more.",
       "Do not modify files; report demonstrable defects with a realistic trigger and the smallest local repair.",
+      ARCHITECTURE_POLICY.trim(),
+      "When architecture or ADRs change, report the substantive correspondence and history checks under Sources inspected even when there are no findings. Check the resulting delivery units and the entire pending range, not just the final aggregate diff. Missing semantic evidence is not established by file presence or a checker passing.",
       'Report your result by calling devsys_submit_review with slice "s1", round 2, lenses ["types","tests"], your sources, your findings (lens, severity, path, line, summary) and the verdict. If it refuses, for example with verdict-contradicts-findings or wrong-round, correct the call and submit again; when it accepts, end with one short line.',
       "Only if devsys_submit_review is not available, return the review packet from your instructions instead, with exactly this header (slice and round must not change):",
       "",

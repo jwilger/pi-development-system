@@ -50,7 +50,7 @@ work (tokens, then components; build from the design system's materials and log 
 Product planning has a skill (`product-planning`: brief, decision register, follow-ups,
 terminology, journeys). `devsys_lens_review` plans a review of the brief by five product lenses and
 writes the packets to `docs/product/reviews/`; `devsys_adr_new` creates the next numbered ADR, and
-a commit that shapes the architecture without one is stopped by the soft gate `adr.missing`.
+root `ARCHITECTURE.md` is the mandatory self-contained authority for current architecture and goals. Significant or hard-to-reverse decisions require historical ADRs paired with substantive architecture updates in the same resulting trunk commit. See [architecture policy and prospective adoption](docs/architecture-policy.md). The legacy `adr.missing` judgment is only a significance detector, not a waiver of that policy or proof of compliance.
 
 A reviewer subagent hands over its result with `devsys_submit_review` (typed arguments; a result that
 contradicts itself or is for the wrong round is refused with an error id), and `devsys_review_record`
@@ -510,8 +510,9 @@ What the tiers do not cover, so you can decide what to trust:
 
 - **Not every non-negotiable is a hard stop.** Rewriting history, force-pushing, `--no-verify`,
   trailers, a red trunk and the delivery mode are stopped by code. A false claim of "done" is
-  checked by a Jev turn verifier that nudges (and only with Jev), an architecture decision without
-  an ADR is a soft gate (also Jev), and an evidence check on model-visible text is a CI test.
+  checked by a Jev turn verifier that nudges (and only with Jev). The legacy missing-ADR judgment is
+  a soft significance detector, not architecture/history enforcement or a policy waiver. Model-visible
+  policy requires fixture/evaluation evidence; prompts do not mechanically enforce semantic truth.
 - **The secret stop reads known formats, not every secret.** A commit that adds a private key, a
   GitHub, AWS, Stripe, Google, Slack, GitLab or npm token, a JSON web token, a password inside a URL,
   a quoted literal assigned to a `secret`/`token`/`password`/`api_key` name, or a file such as `.env`
@@ -554,9 +555,11 @@ What the tiers do not cover, so you can decide what to trust:
 ## Decision log
 
 Every departure and approval is appended to `docs/decisions/YYYY-MM.md` in the repository, so the
-reasons survive compaction and are reviewable. Architecture-shaping decisions get an ADR in
-`docs/adr/` (`devsys_adr_new`); product decisions go in the decision register that the
-`product-planning` skill describes.
+reasons survive compaction and are reviewable. Significant architecture decisions get a historical ADR in
+`docs/adr/` (`devsys_adr_new`) and their substantive root `ARCHITECTURE.md` update in the same commit;
+product decisions go in the decision register. Current architecture requirements never depend on
+reading ADRs. Each resulting main/trunk commit adds only one new ADR; merged records are otherwise
+immutable except linked status-only supersession. See the [mandatory policy](docs/architecture-policy.md).
 
 ## Commands
 

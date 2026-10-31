@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { type Static, Type } from "typebox";
+import type { ArchitectureBinding } from "../core/architecture-review.ts";
 import type { Exec } from "../core/exec.ts";
 import { afterReviewRound } from "../core/lifecycle.ts";
 import { resolveSlot } from "../core/models.ts";
@@ -30,13 +31,20 @@ import { type DevsysState, isParseError, type SliceRef } from "../core/types.ts"
 import type { Jev } from "../jev/client.ts";
 import { withJevToolUsage } from "../jev/execution.ts";
 import { judgeLenses, judgeSeverity } from "../jev/questions/review.ts";
+import {
+  type ArchitectureInspectionRequest,
+  inspectArchitecture,
+} from "../state/architecture-history.ts";
 import { configErrorText, type LoadOptions, loadConfig, POLICY_ONLY } from "../state/config.ts";
 import { type GuidanceSnapshot, loadReviewGuidance } from "../state/local-guidance.ts";
 import { availableModels } from "../state/models-command.ts";
 import type { SessionState } from "../state/session-state.ts";
 import { sameWorkflow } from "../state/workflow.ts";
+import { expectInheritedReviewer, forgetInheritedReviewer } from "../subagents/orch/tool-caller.ts";
+import type { PendingArchitectureReview } from "./architecture-evidence.ts";
+import { architectureReviewGap } from "./architecture-evidence.ts";
 import { reviewInput, snapshotDiff } from "./digest.ts";
-import type { SubmissionStore } from "./submissions.ts";
+import type { SubmissionStore, SubmittedReviewPacket } from "./submissions.ts";
 
 export type ReviewToolDeps = {
   state: SessionState;
@@ -70,6 +78,23 @@ const NO_RESULT = (slice: string, round: number): string =>
   `no result for round ${round} of "${slice}": the reviewer submits it with devsys_submit_review before you record, or you pass its packet markdown in \`packets\``;
 
 const StartParameters = Type.Object({
+  architectureBoundary: Type.Optional(
+    Type.Union([Type.Literal("commit"), Type.Literal("delivery")], {
+      description:
+        "Architecture boundary to inspect; defaults to commit when adoption is configured.",
+    }),
+  ),
+  resulting: Type.Optional(
+    Type.Array(Type.String({ minLength: 1 }), {
+      description: "Explicit complete ordered resulting revisions for a delivery review.",
+    }),
+  ),
+  restart: Type.Optional(
+    Type.Boolean({
+      description:
+        "Cancel the pending dispatch and issue a fresh independent reviewer attempt, preserving accepted rounds and required depth.",
+    }),
+  ),
   slice: Type.Optional(
     Type.String({ description: "Slice being reviewed; defaults to the active slice." }),
   ),
@@ -86,7 +111,7 @@ const pathSafe = (slice: string): string =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 16);
+    .slice(0, 12);
 
 type LensJudgement = Awaited<ReturnType<typeof judgeLenses>>;
 
@@ -117,29 +142,38 @@ function spawnPayload(input: {
   range: string;
   model: ReturnType<typeof resolveSlot>;
   thinkingLevel: ThinkingLevel;
-  attempt: string;
+  path: string;
+  architecture?: ArchitectureBinding;
+
   guidance?: GuidanceSnapshot;
   reviewInputIdentity?: string;
 }): Record<string, unknown> {
   return {
     // A fresh path per attempt: a failed spawn must not leave a thread that blocks the retry.
-    path: `/review-${pathSafe(input.slice)}-r${input.round}-${input.attempt}-${input.lens}`,
+    path: input.path,
+
     type: "reviewer",
-    task: reviewerTask({
-      slice: input.slice,
-      round: input.round,
-      lenses: [input.lens],
-      diffDigest: input.digest,
-      diffRange: input.range,
-      ...(input.guidance === undefined ? {} : { guidance: input.guidance }),
-      ...(input.reviewInputIdentity === undefined
-        ? {}
-        : { reviewInputIdentity: input.reviewInputIdentity }),
-    }),
+    task:
+      reviewerTask({
+        slice: input.slice,
+        round: input.round,
+        lenses: [input.lens],
+        diffDigest: input.digest,
+        diffRange: input.range,
+        ...(input.guidance === undefined ? {} : { guidance: input.guidance }),
+        ...(input.reviewInputIdentity === undefined
+          ? {}
+          : { reviewInputIdentity: input.reviewInputIdentity }),
+      }) + (input.architecture === undefined ? "" : architectureTask(input.architecture)),
+
     ...(input.model.ok ? { model: input.model.value.model } : {}),
     thinkingLevel: input.thinkingLevel,
     wait: false,
   };
+}
+
+function architectureTask(binding: ArchitectureBinding): string {
+  return `\n\nMandatory architecture semantic inspection (the binding below is exact, complete and ordered):\n${JSON.stringify(binding)}\nInspect every source and resulting unit independently in parent-before-child order, including identical units in both scopes. Use immutable Git object IDs: git show <commit>:<path>, git ls-tree -r <objectId>, and git show <tree>:<path> for staged-tree units. Read the full root ARCHITECTURE.md, applicable decisions and implementation at each unit, its parent, and current authority. Do not substitute the working tree or an aggregate/per-file diff for the ordered units. Evaluate correspondence, currentAuthority, significance, rationalePreservation, reconsideration, sequentialIntroduction for EVERY scoped unit. Explain each judgment with concrete immutable objectId/path/startLine/endLine citations; not-applicable also needs explanation and sources, and currentAuthority must be evaluated. Report blocking and should-fix findings, not just a clean verdict. Append architectureEvidence to devsys_submit_review using this schema:\n${JSON.stringify({ bindingIdentity: binding.identity, units: [{ scope: "source | resulting", unit: { kind: "commit | staged-tree", objectId: "full immutable identity" }, checks: Object.fromEntries(["correspondence", "currentAuthority", "significance", "rationalePreservation", "reconsideration", "sequentialIntroduction"].map((name) => [name, { status: "satisfied | violated | not-applicable", explanation: "reasoned inspection", sources: [{ objectId: "full immutable identity", path: "path", startLine: 1, endLine: 1 }] }])) }], findings: [{ severity: "blocking | should-fix | nit | false-positive", summary: "explained finding" }], verdict: "no-blocking | blocking" })}\nReturn every scoped unit exactly once; no subset credit. Origin is provided only by the host of this fresh independent reviewer. Root calls, restored attempts and pasted markdown cannot supply semantic credit.\n`;
 }
 
 type Reply = ReturnType<typeof reply>;
@@ -153,6 +187,7 @@ type Prepared = {
   snap: Snapshot;
   guidance: GuidanceSnapshot;
   input: ReviewInput;
+  architecture?: { binding: ArchitectureBinding; request: ArchitectureInspectionRequest };
   isCurrent: () => boolean;
 };
 
@@ -216,13 +251,36 @@ const requiredRounds = (config: Config): number =>
 
 const rangeOf = (given: string | undefined): string => given?.trim() || "HEAD";
 
+function inspectionRequest(
+  prior: PendingArchitectureReview | undefined,
+  given: {
+    architectureBoundary?: "commit" | "delivery" | undefined;
+    resulting?: string[] | undefined;
+  },
+): ArchitectureInspectionRequest {
+  if (prior?.request !== undefined) return prior.request;
+  if (prior !== undefined)
+    return prior.binding.boundary === "delivery"
+      ? { kind: "delivery", resulting: prior.binding.resulting.map((unit) => unit.objectId) }
+      : { kind: "commit" };
+  return given.architectureBoundary === "delivery"
+    ? { kind: "delivery", ...(given.resulting === undefined ? {} : { resulting: given.resulting }) }
+    : { kind: "commit" };
+}
+
 /** The slice, config and diff snapshot both tools need, or the error reply that explains why not. */
 async function prepare(
   deps: ReviewToolDeps,
   ctx: ExtensionContext,
-  given: { slice?: string | undefined; diffRange?: string | undefined },
+  given: {
+    slice?: string | undefined;
+    diffRange?: string | undefined;
+    architectureBoundary?: "commit" | "delivery" | undefined;
+    resulting?: string[] | undefined;
+  },
   failure: (range: string, error: string) => string,
   load: LoadOptions = {},
+  usePending = false,
 ): Promise<{ ok: true; value: Prepared } | { ok: false; reply: Reply }> {
   const slice = sliceOf(given.slice, deps.state);
   if (slice === undefined) return { ok: false, reply: reply(NO_SLICE, true) };
@@ -240,6 +298,41 @@ async function prepare(
   if (!guidance.ok)
     return { ok: false, reply: reply(`guidance-error: ${guidance.error.message}`, true) };
   if (!isCurrent()) return { ok: false, reply: changedReview() };
+  const prior = usePending ? review?.pending?.architecture : undefined;
+  if (given.resulting !== undefined && given.architectureBoundary !== "delivery")
+    return {
+      ok: false,
+      reply: reply("architecture request: resulting revisions require delivery boundary.", true),
+    };
+  const request = inspectionRequest(prior, given);
+  let architecture: Prepared["architecture"];
+  if (
+    config.value.architecture !== undefined ||
+    given.architectureBoundary !== undefined ||
+    prior !== undefined
+  ) {
+    const inspected = await inspectArchitecture(
+      deps.exec,
+      ctx.cwd,
+      config.value.architecture,
+      request,
+    );
+    if (!inspected.ok)
+      return {
+        ok: false,
+        reply: reply(`${inspected.error.kind}: ${inspected.error.message}`, true),
+      };
+    if (inspected.value.violations.length > 0)
+      return {
+        ok: false,
+        reply: reply(
+          `architecture structural failure: ${inspected.value.violations.map((v) => `${v.kind}: ${v.message}`).join("; ")}`,
+          true,
+        ),
+      };
+    architecture = { binding: inspected.value.binding, request };
+  }
+  if (!isCurrent()) return { ok: false, reply: changedReview() };
   return {
     ok: true,
     value: {
@@ -248,7 +341,12 @@ async function prepare(
       range,
       snap: snap.value,
       guidance: guidance.value,
-      input: reviewInput(snap.value.digest, guidance.value.identity),
+      input: reviewInput(
+        snap.value.digest,
+        guidance.value.identity,
+        architecture?.binding.identity,
+      ),
+      ...(architecture === undefined ? {} : { architecture }),
       isCurrent,
     },
   };
@@ -263,10 +361,29 @@ async function freshInput(
   if (!snap.ok) return reply(`cannot read the diff: ${snap.error}`, true);
   const guidance = await loadReviewGuidance(ctx.cwd);
   if (!guidance.ok) return reply(`guidance-error: ${guidance.error.message}`, true);
-  return reviewInput(snap.value.digest, guidance.value.identity).identity === p.input.identity
+  const config = await loadConfig(ctx.cwd, POLICY_ONLY);
+  if (!config.ok) return reply(configErrorText(config.error), true);
+  let identity: string | undefined;
+  if (p.architecture !== undefined || config.value.architecture !== undefined) {
+    const inspected = await inspectArchitecture(
+      deps.exec,
+      ctx.cwd,
+      config.value.architecture,
+      p.architecture?.request ?? { kind: "commit" },
+    );
+    if (!inspected.ok) return reply(`${inspected.error.kind}: ${inspected.error.message}`, true);
+    if (inspected.value.violations.length > 0)
+      return reply(
+        `architecture structural failure: ${inspected.value.violations.map((v) => v.kind).join(", ")}`,
+        true,
+      );
+    identity = inspected.value.binding.identity;
+  }
+  return reviewInput(snap.value.digest, guidance.value.identity, identity).identity ===
+    p.input.identity
     ? undefined
     : reply(
-        "stale-review-input: diff or repository guidance changed while waiting; start a fresh review.",
+        "stale-review-input: diff, repository guidance or exact architecture binding changed while waiting; start a fresh review.",
         true,
       );
 }
@@ -283,10 +400,12 @@ function matchesPendingInput(
   if (pending === undefined) {
     const dispatch = current?.dispatch;
     return (
+      p.architecture === undefined &&
       p.guidance.sources.length === 0 &&
       (dispatch === undefined ? identity === undefined : identity === dispatch.inputIdentity)
     );
   }
+
   return (
     pending.round === (current?.rounds.length ?? 0) + 1 &&
     pending.range === p.range &&
@@ -298,10 +417,19 @@ function matchesPendingInput(
 
 /** The reply for a round that must not start: already satisfied, or findings still open. */
 function startRefusal(review: ReviewState, p: Prepared): Reply | undefined {
+  const semanticGap =
+    p.architecture === undefined
+      ? undefined
+      : architectureReviewGap(review, p.architecture.binding);
   const guidanceIdentity = p.guidance.sources.length === 0 ? undefined : p.guidance.identity;
-  if (review.rounds.at(-1)?.input?.guidanceIdentity !== guidanceIdentity) return undefined;
+  if (
+    p.architecture === undefined
+      ? review.rounds.at(-1)?.input?.guidanceIdentity !== guidanceIdentity
+      : review.rounds.at(-1)?.input?.identity !== p.input.identity
+  )
+    return undefined;
   const action = nextAction(review, p.snap.digest);
-  if (action === "done") {
+  if (action === "done" && semanticGap === undefined) {
     return reply(
       `${reviewLabel(review)}. Review of ${p.slice} is already satisfied on this diff; nothing to run.${rangeNote(p.range)}`,
     );
@@ -316,13 +444,26 @@ function startRefusal(review: ReviewState, p: Prepared): Reply | undefined {
   return undefined;
 }
 
+function existingHandoff(deps: ReviewToolDeps, p: Prepared): Reply | undefined {
+  const pending = pendingStartReply(deps, p);
+  if (pending !== undefined) return pending;
+  const durable = reviewOf(deps.state.get(), p.slice)?.pending?.architecture;
+  if (durable !== undefined)
+    return reply(
+      "architecture review dispatch is pending or reloaded. Record its submitted result, or pass restart: true to issue a fresh independent reviewer; do not restore or reissue its consumed attempt.",
+      true,
+    );
+  return undefined;
+}
+
 async function startRound(
   deps: ReviewToolDeps,
   ctx: ExtensionContext,
   p: Prepared,
   signal: AbortSignal | undefined,
+  restart = false,
 ): Promise<Reply> {
-  const pending = pendingStartReply(deps, p);
+  const pending = restart ? undefined : existingHandoff(deps, p);
   if (pending !== undefined) return pending;
   const judged = await judgeLenses(deps.jev(ctx), {
     diffStat: p.snap.stat,
@@ -339,7 +480,18 @@ async function startRound(
   const required = requiredRounds(p.config);
   const existing = reviewOf(deps.state.get(), p.slice) ?? startReview(p.slice, required);
   const round = existing.rounds.length + 1;
-  const configured = p.guidance.sources.length > 0;
+  const configured = p.guidance.sources.length > 0 || p.architecture !== undefined;
+  const attempt = randomUUID().replaceAll("-", "").slice(0, 12);
+  const reviewerPath = (lens: Lens): string =>
+    `/review-${pathSafe(p.slice)}-r${round}-${attempt}-${lens}`;
+  const path = reviewerPath(lenses[0] ?? "types");
+  // Do not register a dispatch until all asynchronous preparation has finished.
+  let architecture: PendingArchitectureReview | undefined;
+  if (p.architecture !== undefined)
+    architecture = {
+      ...p.architecture,
+      expected: expectInheritedReviewer(ctx.sessionManager.getSessionId(), path),
+    };
   // New defaults or config edits must not lower an in-flight review's requirement.
   const review: ReviewState = {
     slice: existing.slice,
@@ -352,15 +504,29 @@ async function startRound(
       inputIdentity: p.input.identity,
       lenses,
     },
-    ...(configured ? { pending: { round, range: p.range, input: p.input } } : {}),
+    ...(configured
+      ? {
+          pending: {
+            round,
+            range: p.range,
+            input: p.input,
+            ...(architecture === undefined ? {} : { architecture }),
+          },
+        }
+      : {}),
   };
   const refusal = startRefusal(review, p);
-  if (refusal !== undefined) return refusal;
+  if (refusal !== undefined) {
+    if (architecture !== undefined)
+      forgetInheritedReviewer(architecture.expected.rootId, architecture.expected.threadPath);
+    return refusal;
+  }
+  const old = existing.pending?.architecture?.expected;
+  if (old !== undefined) forgetInheritedReviewer(old.rootId, old.threadPath);
   // Only a successful new preparation replaces pending submissions.
   deps.submissions.clear(p.slice);
   deps.state.update((s) => upsertReview(s, review));
   deps.state.update((s) => afterReviewRound(s, "review", p.slice));
-  const attempt = randomUUID().replaceAll("-", "").slice(0, 12);
   const spawns = lenses.map((lens) =>
     spawnPayload({
       slice: p.slice,
@@ -370,12 +536,16 @@ async function startRound(
       range: p.range,
       model: resolveSlot(p.config.models, "reviewer", availableModels(ctx.modelRegistry)),
       thinkingLevel: p.config.review.thinkingLevel,
-      attempt,
+      path: reviewerPath(lens),
+      ...(lens === lenses[0] && p.architecture !== undefined
+        ? { architecture: p.architecture.binding }
+        : {}),
       reviewInputIdentity: p.input.identity,
       ...(configured ? { guidance: p.guidance } : {}),
     }),
   );
   const identityArg = ` and reviewInputIdentity "${p.input.identity}"`;
+
   const rangeArg = p.range === "HEAD" ? "" : ` and diffRange "${p.range}"`;
   const handoff = [
     `${reviewLabel(review)}; round ${round}; diff ${p.snap.digest}. ${basis}`,
@@ -421,9 +591,9 @@ function buildReviewStartTool(deps: ReviewToolDeps): ToolDefinition<typeof Start
         (range, error) => `cannot read the diff for ${range}: ${error}`,
       );
       if (!prepared.ok) return prepared.reply;
-      if (prepared.value.snap.stat.trim() === "")
+      if (prepared.value.snap.stat.trim() === "" && prepared.value.architecture === undefined)
         return reply(`the diff for ${prepared.value.range} is empty; nothing to review`, true);
-      return startRound(deps, ctx, prepared.value, _signal);
+      return startRound(deps, ctx, prepared.value, _signal, params.restart);
     },
   };
 }
@@ -475,8 +645,8 @@ const lensKey = (p: ReviewPacket): string => [...p.lenses].sort().join("\u0000")
 /** Submitted results win over a markdown packet for the same lenses (a reviewer that did both). */
 function mergeResults(
   markdown: readonly ReviewPacket[],
-  submitted: readonly ReviewPacket[],
-): { packets: ReviewPacket[]; dropped: number } {
+  submitted: readonly SubmittedReviewPacket[],
+): { packets: SubmittedReviewPacket[]; dropped: number } {
   const taken = new Set(submitted.map(lensKey));
   const kept = markdown.filter((m) => !taken.has(lensKey(m)));
   return { packets: [...kept, ...submitted], dropped: markdown.length - kept.length };
@@ -529,7 +699,7 @@ async function recordRound(
   deps: ReviewToolDeps,
   ctx: ExtensionContext,
   p: Prepared,
-  packets: readonly ReviewPacket[],
+  packets: readonly SubmittedReviewPacket[],
   signal: AbortSignal | undefined,
 ): Promise<Reply> {
   const required = requiredRounds(p.config);
@@ -566,7 +736,30 @@ async function recordRound(
   }
 
   const merged = combinePackets(packets);
-  const { findings, notes } = await adjusted(deps, ctx, merged.findings, p.snap.sample);
+  const judged = await adjusted(deps, ctx, merged.findings, p.snap.sample);
+  // Severity adjudication must not erase an ordinary serious finding at this boundary.
+  const findings = judged.findings.map((f, index) => {
+    const original = merged.findings[index];
+    return original !== undefined &&
+      (original.severity === "blocking" || original.severity === "should-fix") &&
+      (f.severity === "nit" || f.severity === "false-positive") &&
+      before.pending?.architecture !== undefined
+      ? original
+      : f;
+  });
+  const notes = judged.notes;
+  const semantic = packets.flatMap((packet) =>
+    packet.architecture === undefined ? [] : [packet.architecture],
+  );
+  for (const [index, submission] of semantic.entries()) {
+    if (submission.refusal !== undefined)
+      findings.push({
+        id: `architecture-${index}`,
+        lens: "architecture",
+        severity: "blocking",
+        summary: submission.refusal,
+      });
+  }
   if (isAborted(signal)) return reply("Review recording cancelled; nothing changed.", true);
   const stale = await freshInput(deps, ctx, p);
   if (stale !== undefined) return stale;
@@ -581,6 +774,9 @@ async function recordRound(
       diffDigest: p.snap.digest,
       files: p.snap.files,
       ...(before.pending === undefined ? {} : { input: before.pending.input }),
+      ...(before.pending?.architecture === undefined
+        ? {}
+        : { architecture: { ...before.pending.architecture, submissions: semantic } }),
     },
   );
   deps.state.update((s) => upsertReview(s, review));
@@ -614,6 +810,7 @@ function buildReviewRecordTool(deps: ReviewToolDeps): ToolDefinition<typeof Reco
         params,
         (_range, error) => `cannot read the diff: ${error}`,
         POLICY_ONLY,
+        true,
       );
       if (!prepared.ok) return prepared.reply;
       const p = prepared.value;

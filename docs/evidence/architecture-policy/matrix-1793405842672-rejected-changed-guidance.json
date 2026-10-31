@@ -1,0 +1,241 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-31T00:19:12.203Z",
+  "requested": {
+    "provider": "openai",
+    "model": "gpt-6.1-sol",
+    "thinkingLevel": "off"
+  },
+  "condition": "guidance",
+  "fixture": {
+    "id": "rejected-changed",
+    "facts": "Authoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.",
+    "proposal": "ADR-001 rejected polling solely because a quota of one request per minute prevented required sub-second latency. The provider has now contractually increased the quota to 100 requests per second and measured verification confirms 100ms polling meets the unchanged goal. Reconsider polling through one new ADR documenting this material context change, preserved original rejection and all rationale fields, with a matching substantive architecture update in the same resulting commit. Original ADR stays unchanged; independent review is complete."
+  },
+  "fixtureHash": "d094d3e2b5077ea852cc7ec6dfffa9ed922f56fafd1b33383243c4a8ebe72880",
+  "prompt": "Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary.\n\nFacts:\nAuthoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.\n\nProposal:\nADR-001 rejected polling solely because a quota of one request per minute prevented required sub-second latency. The provider has now contractually increased the quota to 100 requests per second and measured verification confirms 100ms polling meets the unchanged goal. Reconsider polling through one new ADR documenting this material context change, preserved original rejection and all rationale fields, with a matching substantive architecture update in the same resulting commit. Original ADR stays unchanged; independent review is complete.",
+  "promptHash": "1e3e107e773c38241ef3f84c1f0d3974a5c84ebed6ab98b8329e6810575d7576",
+  "policy": {
+    "source": "src/core/architecture-policy.ts",
+    "sourceHash": "c4c72672a06e6f98f2b4732ff17e517dbf3933b9ac92a2365381388497900c2f",
+    "injectedHash": "1f42037b34796af6e43409bbaf14d3377b6589681f0c24e4ff1af0480738009e"
+  },
+  "limits": {
+    "turns": 12,
+    "milliseconds": 90000,
+    "retry": false,
+    "compaction": false
+  },
+  "tools": [
+    "architecture_answer"
+  ],
+  "pass": true,
+  "result": {
+    "pass": true,
+    "checks": [
+      {
+        "name": "one-typed-answer",
+        "pass": true
+      },
+      {
+        "name": "expected-decision",
+        "pass": true
+      },
+      {
+        "name": "authorized-calls-only",
+        "pass": true
+      },
+      {
+        "name": "provider-success",
+        "pass": true
+      },
+      {
+        "name": "tool-success",
+        "pass": true
+      }
+    ],
+    "answers": [
+      {
+        "decision": "proceed",
+        "explanation": "The quota increase is a material change to the sole stated reason polling was rejected, and measured 100ms polling satisfies the unchanged latency goal. Reconsideration through one new ADR is therefore justified. The proposal preserves the merged original and its rejection rationale, includes all required decision-history fields and a corresponding substantive, self-contained architecture update in the same resulting commit, and has completed independent review. Authoritative history and the full pending range are resolved. Delivery must retain unrelated work; no historical rewrite or retrospective reconstruction is needed."
+      }
+    ],
+    "invalidCalls": [],
+    "effective": {
+      "provider": "openai",
+      "model": "gpt-6.1-sol"
+    },
+    "thinkingLevel": "low",
+    "errors": [],
+    "bounded": false,
+    "bound": null,
+    "turns": 2,
+    "messages": [
+      {
+        "role": "system",
+        "content": "",
+        "sections": {
+          "preamble": "You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.",
+          "tools": "<tools>\n(none)\n\nIn addition to the tools above, you may have access to other custom tools depending on the project.\n</tools>",
+          "rules": "<rules>\n- Be concise in your responses\n- Show file paths clearly when working with files\n</rules>",
+          "docs": "<docs>\nPi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):\n- Main documentation: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/README.md\n- Additional docs: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/docs\n- Examples: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/examples (extensions, custom tools, SDK)\n- When reading pi docs or examples, resolve docs/... under Additional docs and examples/... under Examples, not the current working directory\n- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md), environment variables (docs/environment-variables.md), MCP servers (docs/mcp.md), codemode scripts and non-LLM models such as classifiers and image models (docs/codemode.md)\n- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing\n- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)\n</docs>",
+          "cwd": "<cwd>\n/tmp/architecture-policy-eval-gMZpZ2\n</cwd>"
+        },
+        "timestamp": 1793405952226,
+        "toolsAdded": [
+          {
+            "name": "architecture_answer",
+            "description": "Report whether the proposed delivery may proceed as written, needs revision, or requires an owner decision to establish permission or missing authority/history. Explain the decision. This records an answer; it does not mutate a repository or grant approval.",
+            "parameters": {
+              "type": "object",
+              "required": [
+                "decision",
+                "explanation"
+              ],
+              "properties": {
+                "decision": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "proceed"
+                    },
+                    {
+                      "type": "string",
+                      "const": "revise"
+                    },
+                    {
+                      "type": "string",
+                      "const": "ask-owner"
+                    }
+                  ]
+                },
+                "explanation": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary.\n\nFacts:\nAuthoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.\n\nProposal:\nADR-001 rejected polling solely because a quota of one request per minute prevented required sub-second latency. The provider has now contractually increased the quota to 100 requests per second and measured verification confirms 100ms polling meets the unchanged goal. Reconsider polling through one new ADR documenting this material context change, preserved original rejection and all rationale fields, with a matching substantive architecture update in the same resulting commit. Original ADR stays unchanged; independent review is complete."
+          }
+        ],
+        "timestamp": 1793405952226
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "thinking",
+            "thinking": "**Checking polling delivery fit**",
+            "thinkingSignature": "{\"id\":\"rs_0c67e3030f248a97016ae53402960487d085144381ef1b76b0\",\"type\":\"reasoning\",\"content\":[],\"encrypted_content\":\"gAAAAABq5TQHGkJgi8zFDfvCUPQOiy2B46IdZB5S9R3YbrcFiVZ284kZDQHRYvOSoEogOFViykfmAHAQRi6DY7M0mffI9ywjGYHUJrl3CnfI3zUzWqqGFvjqxi8iwcUXzp-z6SDF9v27ArDsuIY3KwlGplsLOI4Gu4KJvGxFhvTqnOjoxRaE_ew0oP6g5xMXc0edG1XMQQcdvA1BRFZGn5W8QmM30vs0ZsAqn7PtFtCwCKEU6-TkT-DPIus70T09mM2znWDQ8EZfcYc80SBNSX6O_d1AgUhsuvf5-3z1JvBIH3khcfw3BG-TBD0dKjYFkTLtvgRDneOup1T_460wk315_t8c2Q9gXx02d8TBJJt4cvhU7IOK6QLK71RllIXf9EgOINMlo-Uiz9a53abU1rauuChb5PikqgB_G4T9LOOlqZk9T1BDckGBkBMkm5Lnp1CC4yFVmAv0729gy5Tw9H7AMvPblLDn_f8yYR4V_l_JoTUFwAz3nR3xyjgCx1cNC90Z3Nqgrxe7qJ3Xsc0wUmgBTygVRv7LdIUhqLUFnNpoMf3Q8n3TMvS8jupY6xGv2qy9g2jUlqfii8-ucbDOPK0YzHtKBDwAfu1sLNObP1KcxoCgHXFXHSLXbIaYqIHARK4mPFGBHphXm1SrZR57A7OZbWiILxWpH5IYpKteMdhGk7H1Te307UQ9YHwQ8KCIl5bE_sw2JCq9sD1ZkNdb9e0TXzdPX5ufWNcRQo71jcz1eWy0ky6D9KQmHdR3vc2wjA1KCT7fpHBW6v0u-ffgJnHFN4Asg5g2kWl6xjMbPayKgTZk0KFDc2be5977IFwr4qN-An7NvOY506cTwlu-fFrGMdS15ptbX2k1GQOfXI8TRVvR3DUdP6Zul1OEKdypbjeVmjWH3o9YSPht_s1QXqUT2QFkDeGtkylBZmyAWLRWGAwlVEirHfaGShCQTgnc_zuyId5CILFr9yGs6SCM_s3Rsf-pvQ3EMJiuFxlvXdwu7lt3eo7wxo7ey3frBjyeZY4TC_tDEvwGjqwkW1TFDVtpxrVXHGieVg6PANKVncQpyu9ucGek58uubYSjx9TSvwn5egDtfuvYDWENVk3d58SjegN4FZgnToLs4VSBL0aswaXBouNDUoNEanAsPIRYPH1iyiJai2CWbp_ELtpGTc3hFa2Kl7sGtMGg5FoVDKNvelH8Oyex7xP5LMV9hq6wXKuXTUuwrGgCwnviT9P-M2bviZCduHWChTBwx_Oql7beb7Y8tHBqJVdjzbiBZ17sGyPXhO0jsghqjR7Kg6U2BxhpyPokbkscxkvJcagtdiXgJKaCYOywnRSS2b_Ehvc5fLChoCd-AjfwUgeqxXzT_330b5ULwzY9NOyLcFxF9Z_2gi7vW4VQvO67w5azx-iNYv5jLtKn5nD3IY8OXZzKf_WeGpGnMpTT7dxthp2utwlwOct-Jillgx1pDBAzGwZJ5yen9CJj1o0Z0XwjsWFlTRqJNrbaVKfeEqibvf5QHy0Dngmp25tgwVP5HJEe2kkvWtPDvVLh437-xcWTMrLg35yhwB6X1O6hewGkqx3-gcWQt0OVpWUcA-wcnaQYm7eoUJz8tbi4OXZAoUMImCSnCrWYWxPdr56ag-Y6_f9Atbvc6HQsCc68Lo7QPd0NtV8qdv1oe-mZtgNRTMphwLIa9g_zqp-e7MHHRk_7jP2998FvdlEB33wnj9RI0WoNBlSkbrUoMB-Nu0CNYtZeW-Kl4CFXy3b20ntIX50mJ-o77ojeY1QjnwsuSoRjNHtZbTfQ-j3ggbdl82XUcBtCGg-1X8FMTGsol6elKOk-QdT-TdutLqFL3l6t-DK7jxQSLdq8LKyxArRxwbpiw_BTiKC3PR-OI3KxjPim1XDuLYasWWzJsfGQpKWmekMsaWTEgp6IWMMMHelhuM7gIlHAw4_-eXhj7mKU21q6iLP1n9vUZ_QvyUQYc-zSZ_c0FbdcM0l1lpzelSEW1_NUr0i0wZvET-SGzSJfIVH6e2TkVHVkE_PdjeUMHawUOGU7So1WiN_IlOxLCtJYzjgMBvx74RrCf6jEOUZojWUNjqIyMTFrG2P0gC_UoTHCFsSQmk7IJ5IghFVUdBFQJAvlKaNuVpgZDzNMLD377NtYiAIpux3DNqhT0m5ZEydPUwNsItIYyg_pQfvHV5ySi3A6Qiua2LXHL2n0i-21j_Lxox2o8pr_eWSBb1D85VrsvXRnz3nl2x9kPI7oPFBf0iBPvuCWzdntWkrnulTh-DwEIiXOTBYS-nQ5bFpCOk045TGCbNTiH-NtT3gA7YV-XlWvoID9263WNDpHRxTdj8p16_0qzpAEAPwiAfjCVYQDgArFXJtn_qn6IKOWPuIMiWe1\",\"summary\":[{\"type\":\"summary_text\",\"text\":\"**Checking polling delivery fit**\"}]}"
+          },
+          {
+            "type": "toolCall",
+            "id": "call_FhgL7mLbVD3XS2JLUs2oR1iv|fc_0c67e3030f248a97016ae534079cd087d09409223930708a98",
+            "name": "architecture_answer",
+            "arguments": {
+              "decision": "proceed",
+              "explanation": "The quota increase is a material change to the sole stated reason polling was rejected, and measured 100ms polling satisfies the unchanged latency goal. Reconsideration through one new ADR is therefore justified. The proposal preserves the merged original and its rejection rationale, includes all required decision-history fields and a corresponding substantive, self-contained architecture update in the same resulting commit, and has completed independent review. Authoritative history and the full pending range are resolved. Delivery must retain unrelated work; no historical rewrite or retrospective reconstruction is needed."
+            }
+          }
+        ],
+        "api": "openai-responses",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "usage": {
+          "input": 1429,
+          "output": 178,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 49,
+          "totalTokens": 1607,
+          "cost": {
+            "input": 0.002858,
+            "output": 0.0017800000000000001,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0.004638
+          }
+        },
+        "stopReason": "toolUse",
+        "timestamp": 1793405952260,
+        "responseId": "resp_0c67e3030f248a97016ae53400fdf887d0b0930b4ac207fe9c",
+        "rawStopReason": "completed",
+        "durationMs": 7939,
+        "thinkingLevel": "low"
+      },
+      {
+        "role": "toolResult",
+        "toolCallId": "call_FhgL7mLbVD3XS2JLUs2oR1iv|fc_0c67e3030f248a97016ae534079cd087d09409223930708a98",
+        "toolName": "architecture_answer",
+        "content": [
+          {
+            "type": "text",
+            "text": "Recorded."
+          }
+        ],
+        "isError": false,
+        "durationMs": 0,
+        "timestamp": 1793405960201
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "",
+            "textSignature": "{\"v\":1,\"id\":\"msg_0c67e3030f248a97016ae53409953087d0a458aba2bc836714\",\"phase\":\"final_answer\"}"
+          }
+        ],
+        "api": "openai-responses",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "usage": {
+          "input": 213,
+          "output": 4,
+          "cacheRead": 1408,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "totalTokens": 1625,
+          "cost": {
+            "input": 0.000426,
+            "output": 0.00004,
+            "cacheRead": 0.0001408,
+            "cacheWrite": 0,
+            "total": 0.0006068
+          }
+        },
+        "stopReason": "stop",
+        "timestamp": 1793405960202,
+        "responseId": "resp_0c67e3030f248a97016ae53408c21487d0bb2798c23b3dfa32",
+        "rawStopReason": "completed",
+        "durationMs": 1642,
+        "thinkingLevel": "low"
+      }
+    ]
+  },
+  "error": null,
+  "scope": "Observable synthetic decisions; not semantic truth, independent review, or universal enforcement.",
+  "sources": {
+    "scripts/eval-architecture.ts": "2de4fd3eb7da086eef19197f4adca1193448516249f48b533ee4909ae358804c",
+    "scripts/lib/architecture-eval.ts": "e5bf123acadd5027f8ee2f4d30513b940c965508b7bf9a5d8fce6ebd9a95f35c",
+    "scripts/lib/guidance-eval.ts": "a423c6e8fa225c8ef4a4b99bd2cb95b06b8bc2e412466430a22139e9a3ce57b3",
+    "src/core/architecture-policy.ts": "2c93efeef4311b0956c19c0c0b2a5daaf1cf7fd50a5fcfb63996297befac8c19",
+    "src/core/redact.ts": "9f35816fb8457dde90ca68eea25b1d331ece278e92a36c85bf3ef873c23de543",
+    "src/context/system-prompt.ts": "eb7bd8417e7ab65d8220f80eab9f953acb9678c08916ede029bf5aa169ca7c5c"
+  },
+  "sdk": "1.4.0",
+  "elapsedMilliseconds": 9642,
+  "requestPolicyHashes": [
+    "1f42037b34796af6e43409bbaf14d3377b6589681f0c24e4ff1af0480738009e",
+    "1f42037b34796af6e43409bbaf14d3377b6589681f0c24e4ff1af0480738009e"
+  ]
+}

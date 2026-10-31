@@ -8,7 +8,7 @@ description: How to review a slice before it is committed in this development sy
 Every slice is reviewed by a **fresh-context reviewer per selected lens** before
 it is committed. Each reviewer receives exactly one lens and has not seen your
 reasoning or the other reviewers' conversations, so it judges the diff, not your intent.
-Review is a soft gate (`review.unsatisfied`): skipping it needs a recorded departure.
+Ordinary slice review is a soft gate (`review.unsatisfied`): skipping it needs a recorded departure. This does not waive mandatory independent architecture-semantic review or deterministic architecture/history checks.
 
 ## Run a round
 
@@ -60,6 +60,14 @@ no-blocking | blocking
 
 A malformed packet is rejected with the reason; ask the reviewer to resend it.
 The verdict must agree with the findings.
+
+## Mandatory architecture-semantic review
+
+Treat root `ARCHITECTURE.md` as the self-contained current architecture and goals. Check new and modified code against it, and distinguish declared intent from verified implementation or delivery. It must contain no ADR backlinks, source tables or delegated current requirements. Consult ADRs for rationale, rejected alternatives, consequences and reconsideration; reject retries of rejected ideas without a material context change.
+
+Inspect every pending and proposed resulting delivery unit against explicit authoritative main/trunk and prospective adoption, not only the aggregate diff. Require explained substantive correspondence for every ADR addition or premerge edit and its same-commit architecture update; reject cosmetic substitutes. Assess decision significance, preserved context/decision/alternatives/consequences, and meaningful reconsideration conditions. Merged records cannot otherwise change, including correction, deletion, renaming or reintroduction. A permitted status-only supersession must point to the newly added replacement in that commit and preserve every other byte.
+
+Check one new ADR per resulting trunk commit, retained replacements and architecture updates after squash, and sequential bootstrap: verification, independent review and commit of each cumulative self-contained pair before beginning another. Never approve manufactured history. Ordinary markdown fallback or lens labels alone do not establish authenticated architecture-semantic credit; structural success does not establish semantic truth. Preserve concrete sources, explanations and the exact reviewed history/tree binding. Stop on missing authoritative history or unavailable required evidence rather than guessing.
 
 ## Severity and the clean streak
 

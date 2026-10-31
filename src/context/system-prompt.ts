@@ -3,6 +3,7 @@ import type {
   ContextWithSystemEvent,
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
+import { ARCHITECTURE_POLICY } from "../core/architecture-policy.ts";
 import type { Departure, DevsysState } from "../core/types.ts";
 import { loadWorkflowGuidance } from "../state/local-guidance.ts";
 
@@ -24,7 +25,7 @@ const scopeLabel = (d: Departure): string =>
 
 /** Pure: the static principles section — byte-identical whatever the state. */
 export function buildPrinciplesSection(nonNegotiables: string): string {
-  return nonNegotiables.trim();
+  return `${nonNegotiables.trim()}\n\n${ARCHITECTURE_POLICY.trim()}`;
 }
 
 /**
@@ -80,21 +81,40 @@ export async function applyWorkflowRequest(
     context.abort();
     throw new Error(`${result.error.kind}: ${result.error.message}`);
   }
-  if (result.value.sources.length > 0 && options?.forceSystemPrompt !== undefined) {
+  if (options?.forceSystemPrompt !== undefined) {
     context.abort();
     throw new Error(
-      "guidance-error: Configured workflow conflicts with a forced system prompt. Repair the overriding extension to use named sections and retry preparation.",
+      "guidance-error: Mandatory architecture policy and repository workflow conflict with a forced system prompt. Repair the overriding extension to use named sections and retry preparation.",
     );
   }
   const section = `<repository-workflow>\n${result.value.section}\n</repository-workflow>`;
   // Request-local patches are not persisted by the SDK. Replace this section in place so an
   // unchanged continuation preserves the previous request prefix rather than moving a tail patch.
   let installed = false;
+  if (!event.messages.some((message) => message.role === "system")) {
+    context.abort();
+    throw new Error(
+      "guidance-error: No system message is available for mandatory architecture policy.",
+    );
+  }
   return {
     messages: event.messages.map((message) => {
       if (message.role !== "system") return message;
-      const { "repository-workflow": _previous, ...others } = message.sections ?? {};
-      const sections = installed ? others : { ...others, "repository-workflow": section };
+      const {
+        "repository-workflow": _previous,
+        "architecture-policy": _previousPolicy,
+        ...others
+      } = message.sections ?? {};
+      const alreadyIncluded = Object.values(others).some((value) =>
+        value?.includes(ARCHITECTURE_POLICY.trim()),
+      );
+      const sections = installed
+        ? others
+        : {
+            ...others,
+            "repository-workflow": section,
+            ...(alreadyIncluded ? {} : { "architecture-policy": ARCHITECTURE_POLICY.trim() }),
+          };
       installed = true;
       return { ...message, sections };
     }),

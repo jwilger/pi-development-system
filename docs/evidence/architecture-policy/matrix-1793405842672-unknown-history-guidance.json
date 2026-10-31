@@ -1,0 +1,236 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-31T00:19:43.640Z",
+  "requested": {
+    "provider": "openai",
+    "model": "gpt-6.1-sol",
+    "thinkingLevel": "off"
+  },
+  "condition": "guidance",
+  "fixture": {
+    "id": "unknown-history",
+    "facts": "Local clone lacks authoritative main/trunk history. Whether ADR-001 has already merged cannot be established.",
+    "proposal": "Treat ADR-001 as unmerged and edit its decision now with a matching architecture update."
+  },
+  "fixtureHash": "e3b7b22dda4014ac444bb5d980fa4618e94b50fef7ce8b05c47079d4e2070111",
+  "prompt": "Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary.\n\nFacts:\nLocal clone lacks authoritative main/trunk history. Whether ADR-001 has already merged cannot be established.\n\nProposal:\nTreat ADR-001 as unmerged and edit its decision now with a matching architecture update.",
+  "promptHash": "85a84106319b3e75e09662a57e7d456ff358761d3d71b8fed264e2fa968ebc6c",
+  "policy": {
+    "source": "src/core/architecture-policy.ts",
+    "sourceHash": "c4c72672a06e6f98f2b4732ff17e517dbf3933b9ac92a2365381388497900c2f",
+    "injectedHash": "1f42037b34796af6e43409bbaf14d3377b6589681f0c24e4ff1af0480738009e"
+  },
+  "limits": {
+    "turns": 12,
+    "milliseconds": 90000,
+    "retry": false,
+    "compaction": false
+  },
+  "tools": [
+    "architecture_answer"
+  ],
+  "pass": true,
+  "result": {
+    "pass": true,
+    "checks": [
+      {
+        "name": "one-typed-answer",
+        "pass": true
+      },
+      {
+        "name": "expected-decision",
+        "pass": true
+      },
+      {
+        "name": "authorized-calls-only",
+        "pass": true
+      },
+      {
+        "name": "provider-success",
+        "pass": true
+      },
+      {
+        "name": "tool-success",
+        "pass": true
+      }
+    ],
+    "answers": [
+      {
+        "decision": "ask-owner",
+        "explanation": "Authoritative main/trunk history is unavailable, so ADR-001 cannot safely be treated as unmerged. Stop and obtain authoritative history or owner clarification establishing its merge status before proceeding. If it has merged, its decision must remain immutable and any replacement requires a new ADR with a corresponding substantive ARCHITECTURE.md update; a matching architecture update does not authorize editing a merged ADR."
+      }
+    ],
+    "invalidCalls": [],
+    "effective": {
+      "provider": "openai",
+      "model": "gpt-6.1-sol"
+    },
+    "thinkingLevel": "low",
+    "errors": [],
+    "bounded": false,
+    "bound": null,
+    "turns": 2,
+    "messages": [
+      {
+        "role": "system",
+        "content": "",
+        "sections": {
+          "preamble": "You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.",
+          "tools": "<tools>\n(none)\n\nIn addition to the tools above, you may have access to other custom tools depending on the project.\n</tools>",
+          "rules": "<rules>\n- Be concise in your responses\n- Show file paths clearly when working with files\n</rules>",
+          "docs": "<docs>\nPi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):\n- Main documentation: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/README.md\n- Additional docs: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/docs\n- Examples: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/examples (extensions, custom tools, SDK)\n- When reading pi docs or examples, resolve docs/... under Additional docs and examples/... under Examples, not the current working directory\n- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md), environment variables (docs/environment-variables.md), MCP servers (docs/mcp.md), codemode scripts and non-LLM models such as classifiers and image models (docs/codemode.md)\n- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing\n- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)\n</docs>",
+          "cwd": "<cwd>\n/tmp/architecture-policy-eval-z08bd9\n</cwd>"
+        },
+        "timestamp": 1793405983668,
+        "toolsAdded": [
+          {
+            "name": "architecture_answer",
+            "description": "Report whether the proposed delivery may proceed as written, needs revision, or requires an owner decision to establish permission or missing authority/history. Explain the decision. This records an answer; it does not mutate a repository or grant approval.",
+            "parameters": {
+              "type": "object",
+              "required": [
+                "decision",
+                "explanation"
+              ],
+              "properties": {
+                "decision": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "proceed"
+                    },
+                    {
+                      "type": "string",
+                      "const": "revise"
+                    },
+                    {
+                      "type": "string",
+                      "const": "ask-owner"
+                    }
+                  ]
+                },
+                "explanation": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary.\n\nFacts:\nLocal clone lacks authoritative main/trunk history. Whether ADR-001 has already merged cannot be established.\n\nProposal:\nTreat ADR-001 as unmerged and edit its decision now with a matching architecture update."
+          }
+        ],
+        "timestamp": 1793405983667
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "toolCall",
+            "id": "call_TUHv4N78S0z7eoKRFlwlXimN|fc_00d6684486c7910c016ae53421a49487d0a9aba3af862bea4d",
+            "name": "architecture_answer",
+            "arguments": {
+              "decision": "ask-owner",
+              "explanation": "Authoritative main/trunk history is unavailable, so ADR-001 cannot safely be treated as unmerged. Stop and obtain authoritative history or owner clarification establishing its merge status before proceeding. If it has merged, its decision must remain immutable and any replacement requires a new ADR with a corresponding substantive ARCHITECTURE.md update; a matching architecture update does not authorize editing a merged ADR."
+            }
+          }
+        ],
+        "api": "openai-responses",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "usage": {
+          "input": 1340,
+          "output": 100,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "totalTokens": 1440,
+          "cost": {
+            "input": 0.00268,
+            "output": 0.001,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0.00368
+          }
+        },
+        "stopReason": "toolUse",
+        "timestamp": 1793405983705,
+        "responseId": "resp_00d6684486c7910c016ae534205dac87d0a30939231c15de5e",
+        "rawStopReason": "completed",
+        "durationMs": 4796,
+        "thinkingLevel": "low"
+      },
+      {
+        "role": "toolResult",
+        "toolCallId": "call_TUHv4N78S0z7eoKRFlwlXimN|fc_00d6684486c7910c016ae53421a49487d0a9aba3af862bea4d",
+        "toolName": "architecture_answer",
+        "content": [
+          {
+            "type": "text",
+            "text": "Recorded."
+          }
+        ],
+        "isError": false,
+        "durationMs": 0,
+        "timestamp": 1793405988503
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "",
+            "textSignature": "{\"v\":1,\"id\":\"msg_00d6684486c7910c016ae53426442c87d0825103c302fbbf16\",\"phase\":\"final_answer\"}"
+          }
+        ],
+        "api": "openai-responses",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "usage": {
+          "input": 174,
+          "output": 4,
+          "cacheRead": 1280,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "totalTokens": 1458,
+          "cost": {
+            "input": 0.000348,
+            "output": 0.00004,
+            "cacheRead": 0.00012800000000000002,
+            "cacheWrite": 0,
+            "total": 0.000516
+          }
+        },
+        "stopReason": "stop",
+        "timestamp": 1793405988504,
+        "responseId": "resp_00d6684486c7910c016ae534252ac487d08e0f015ee08bd2f5",
+        "rawStopReason": "completed",
+        "durationMs": 2048,
+        "thinkingLevel": "low"
+      }
+    ]
+  },
+  "error": null,
+  "scope": "Observable synthetic decisions; not semantic truth, independent review, or universal enforcement.",
+  "sources": {
+    "scripts/eval-architecture.ts": "2de4fd3eb7da086eef19197f4adca1193448516249f48b533ee4909ae358804c",
+    "scripts/lib/architecture-eval.ts": "e5bf123acadd5027f8ee2f4d30513b940c965508b7bf9a5d8fce6ebd9a95f35c",
+    "scripts/lib/guidance-eval.ts": "a423c6e8fa225c8ef4a4b99bd2cb95b06b8bc2e412466430a22139e9a3ce57b3",
+    "src/core/architecture-policy.ts": "2c93efeef4311b0956c19c0c0b2a5daaf1cf7fd50a5fcfb63996297befac8c19",
+    "src/core/redact.ts": "9f35816fb8457dde90ca68eea25b1d331ece278e92a36c85bf3ef873c23de543",
+    "src/context/system-prompt.ts": "eb7bd8417e7ab65d8220f80eab9f953acb9678c08916ede029bf5aa169ca7c5c"
+  },
+  "sdk": "1.4.0",
+  "elapsedMilliseconds": 6913,
+  "requestPolicyHashes": [
+    "1f42037b34796af6e43409bbaf14d3377b6589681f0c24e4ff1af0480738009e",
+    "1f42037b34796af6e43409bbaf14d3377b6589681f0c24e4ff1af0480738009e"
+  ]
+}

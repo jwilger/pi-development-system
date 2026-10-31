@@ -12,7 +12,7 @@ const LOCATIONS: Readonly<Partial<Record<ArtifactId, readonly string[]>>> = {
   "decision-register": ["docs/product/decisions.md"],
   journeys: ["docs/product/journeys.md"],
   "event-model": ["docs/event-model/"],
-  architecture: ["docs/architecture.md", "ARCHITECTURE.md"],
+  architecture: ["ARCHITECTURE.md"],
   "lens-review": ["docs/product/reviews/"],
 };
 
@@ -33,6 +33,6 @@ export function missingArtifacts(sizing: Sizing, evidence: ArtifactEvidence): Ar
     const places = LOCATIONS[id];
     if (places === undefined) return false;
     if (places.some((p) => evidence.exists(p))) return false;
-    return !evidence.departedGates.includes(`artifact.skipped:${id}`);
+    return id === "architecture" || !evidence.departedGates.includes(`artifact.skipped:${id}`);
   });
 }

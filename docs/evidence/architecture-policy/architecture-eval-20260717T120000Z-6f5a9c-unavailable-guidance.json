@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-29T14:24:38.060Z",
+  "requested": {
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-5",
+    "thinkingLevel": "off"
+  },
+  "condition": "guidance",
+  "fixture": {
+    "id": "cosmetic-update",
+    "facts": "Authoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.",
+    "proposal": "Add ADR-002 choosing a durable queue. ARCHITECTURE.md changes only heading whitespace; its current requirements still specify synchronous delivery. Proceed with this commit."
+  },
+  "fixtureHash": "505580533fff5be5678a19cdd079b92d4c413724643b7982e51fb2f56e31e918",
+  "prompt": "Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary.\n\nFacts:\nAuthoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.\n\nProposal:\nAdd ADR-002 choosing a durable queue. ARCHITECTURE.md changes only heading whitespace; its current requirements still specify synchronous delivery. Proceed with this commit.",
+  "promptHash": "d6ea99ea149b44d7502a0c5b4f81d533fec69167dc169034acc91e9c75c40606",
+  "policy": {
+    "source": "src/core/architecture-policy.ts",
+    "sourceHash": "c4c72672a06e6f98f2b4732ff17e517dbf3933b9ac92a2365381388497900c2f",
+    "injectedHash": "1f42037b34796af6e43409bbaf14d3377b6589681f0c24e4ff1af0480738009e"
+  },
+  "limits": {
+    "turns": 12,
+    "milliseconds": 90000,
+    "retry": false,
+    "compaction": false
+  },
+  "tools": [
+    "architecture_answer"
+  ],
+  "pass": false,
+  "result": null,
+  "error": "architecture-eval-model-unavailable: explicit model or credentials unavailable; no fallback selected",
+  "scope": "Observable synthetic decisions; not semantic truth, independent review, or universal enforcement.",
+  "sources": {
+    "scripts/eval-architecture.ts": "63dfdaaaeaa55667a1d48881200b7b61caad1a99650dff1ade4b8e94a773d811",
+    "scripts/lib/architecture-eval.ts": "3b7b0f7df660cdf3650d62435b0472177645de79dee35f7305495be3f3730426",
+    "scripts/lib/guidance-eval.ts": "a423c6e8fa225c8ef4a4b99bd2cb95b06b8bc2e412466430a22139e9a3ce57b3",
+    "src/core/architecture-policy.ts": "2c93efeef4311b0956c19c0c0b2a5daaf1cf7fd50a5fcfb63996297befac8c19",
+    "src/core/redact.ts": "9f35816fb8457dde90ca68eea25b1d331ece278e92a36c85bf3ef873c23de543",
+    "src/context/system-prompt.ts": "eb7bd8417e7ab65d8220f80eab9f953acb9678c08916ede029bf5aa169ca7c5c"
+  },
+  "sdk": "1.4.0",
+  "elapsedMilliseconds": 5,
+  "requestPolicyHashes": []
+}

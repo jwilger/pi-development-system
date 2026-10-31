@@ -34,11 +34,12 @@ test("a nested force push is hard-stopped like a direct one", async () => {
   assert.match(result.reason ?? "", /hard stop git\.force-push/);
 });
 
-test("a nested force push asks the user, and an approval lets it run", async () => {
+test("nested force-push approval cannot waive the independent architecture delivery boundary", async () => {
   const { fake, script } = setup(true);
   fake.ui.confirmResponses.push(true);
   const result = await script("bash", { command: "git push --force origin main" });
-  assert.equal(result.blocked, false);
+  assert.equal(result.blocked, true);
+  assert.match(result.reason ?? "", /architecture-command-shape/);
   assert.equal(fake.ui.calls.filter((c) => c.kind === "confirm").length, 1);
 });
 

@@ -53,6 +53,8 @@ test("the proposal names the size, the artifacts, the departure rule and that ev
   assert.match(text, /consider: architecture/i);
   assert.match(text, /artifact\.skipped:<artifact>/);
   assert.match(text, /never blocked/i);
+  assert.match(text, /ARCHITECTURE\.md is mandatory/);
+  assert.match(text, /cannot waive the architecture\/ADR policy/);
 });
 
 test("a family of light and full artifacts is offered once, and not at all when one is recommended", () => {

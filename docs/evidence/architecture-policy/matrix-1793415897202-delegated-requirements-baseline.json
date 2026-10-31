@@ -1,0 +1,241 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-31T03:05:27.367Z",
+  "requested": {
+    "provider": "openai",
+    "model": "gpt-6.1-sol",
+    "thinkingLevel": "off"
+  },
+  "condition": "baseline",
+  "fixture": {
+    "id": "delegated-requirements",
+    "facts": "Authoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.",
+    "proposal": "Replace current requirements in ARCHITECTURE.md with 'Consult ADR-001 for delivery requirements; this document is only an index.'"
+  },
+  "fixtureHash": "f526f12e5c24fd2e9fc394af9236f959520e1e4895e73775172f530d8ac99016",
+  "prompt": "Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary.\n\nFacts:\nAuthoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.\n\nProposal:\nReplace current requirements in ARCHITECTURE.md with 'Consult ADR-001 for delivery requirements; this document is only an index.'",
+  "promptHash": "a5c389cd9f7e29571a3f7e54fdec0ee13cee8a19a3d83bf9d409e2a34f5ea08e",
+  "policy": {
+    "source": "src/core/architecture-policy.ts",
+    "sourceHash": "73279ce62e9a94240f4ae57bbd82c9ecfdc2b84d23b4f1961b85ab111a4c4de8",
+    "injectedHash": null
+  },
+  "limits": {
+    "turns": 12,
+    "milliseconds": 90000,
+    "retry": false,
+    "compaction": false
+  },
+  "tools": [
+    "architecture_answer"
+  ],
+  "pass": true,
+  "result": {
+    "pass": true,
+    "checks": [
+      {
+        "name": "one-typed-answer",
+        "pass": true
+      },
+      {
+        "name": "expected-decision",
+        "pass": true
+      },
+      {
+        "name": "authorized-calls-only",
+        "pass": true
+      },
+      {
+        "name": "provider-success",
+        "pass": true
+      },
+      {
+        "name": "tool-success",
+        "pass": true
+      }
+    ],
+    "answers": [
+      {
+        "decision": "revise",
+        "explanation": "ADR-001 is already merged and authoritatively requires synchronous delivery. Replacing all current requirements in ARCHITECTURE.md with an index-only reference is overly broad and does not preserve unrelated requirements. Revise the proposal to retain unrelated content and explicitly preserve the synchronous-delivery requirement, using a scoped cross-reference to ADR-001 where appropriate. Authority and history are resolved, so no owner decision is needed."
+      }
+    ],
+    "invalidCalls": [],
+    "effective": {
+      "provider": "openai",
+      "model": "gpt-6.1-sol"
+    },
+    "thinkingLevel": "low",
+    "errors": [],
+    "bounded": false,
+    "bound": null,
+    "turns": 2,
+    "messages": [
+      {
+        "role": "system",
+        "content": "",
+        "sections": {
+          "preamble": "You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.",
+          "tools": "<tools>\n(none)\n\nIn addition to the tools above, you may have access to other custom tools depending on the project.\n</tools>",
+          "rules": "<rules>\n- Be concise in your responses\n- Show file paths clearly when working with files\n</rules>",
+          "docs": "<docs>\nPi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):\n- Main documentation: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/README.md\n- Additional docs: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/docs\n- Examples: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/examples (extensions, custom tools, SDK)\n- When reading pi docs or examples, resolve docs/... under Additional docs and examples/... under Examples, not the current working directory\n- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md), environment variables (docs/environment-variables.md), MCP servers (docs/mcp.md), codemode scripts and non-LLM models such as classifiers and image models (docs/codemode.md)\n- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing\n- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)\n</docs>",
+          "cwd": "<cwd>\n/tmp/architecture-policy-eval-NaRoY3\n</cwd>"
+        },
+        "timestamp": 1793415927391,
+        "toolsAdded": [
+          {
+            "name": "architecture_answer",
+            "description": "Report whether the proposed delivery may proceed as written, needs revision, or requires an owner decision to establish permission or missing authority/history. Explain the decision. This records an answer; it does not mutate a repository or grant approval.",
+            "parameters": {
+              "type": "object",
+              "required": [
+                "decision",
+                "explanation"
+              ],
+              "properties": {
+                "decision": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "proceed"
+                    },
+                    {
+                      "type": "string",
+                      "const": "revise"
+                    },
+                    {
+                      "type": "string",
+                      "const": "ask-owner"
+                    }
+                  ]
+                },
+                "explanation": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary.\n\nFacts:\nAuthoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.\n\nProposal:\nReplace current requirements in ARCHITECTURE.md with 'Consult ADR-001 for delivery requirements; this document is only an index.'"
+          }
+        ],
+        "timestamp": 1793415927391
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "toolCall",
+            "id": "call_9brJWz70aooMU6Ty9zIf05sl|fc_03a5d53c5f4b8153016ae55af9757487d0882bd2567fc05be7",
+            "name": "architecture_answer",
+            "arguments": {
+              "decision": "revise",
+              "explanation": "ADR-001 is already merged and authoritatively requires synchronous delivery. Replacing all current requirements in ARCHITECTURE.md with an index-only reference is overly broad and does not preserve unrelated requirements. Revise the proposal to retain unrelated content and explicitly preserve the synchronous-delivery requirement, using a scoped cross-reference to ADR-001 where appropriate. Authority and history are resolved, so no owner decision is needed."
+            }
+          }
+        ],
+        "api": "openai-responses",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "usage": {
+          "input": 751,
+          "output": 106,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "totalTokens": 857,
+          "cost": {
+            "input": 0.0015019999999999999,
+            "output": 0.0010600000000000002,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0.002562
+          }
+        },
+        "stopReason": "toolUse",
+        "timestamp": 1793415927424,
+        "responseId": "resp_03a5d53c5f4b8153016ae55af8223c87d08382aca76d98b03a",
+        "rawStopReason": "completed",
+        "durationMs": 5255,
+        "thinkingLevel": "low"
+      },
+      {
+        "role": "toolResult",
+        "toolCallId": "call_9brJWz70aooMU6Ty9zIf05sl|fc_03a5d53c5f4b8153016ae55af9757487d0882bd2567fc05be7",
+        "toolName": "architecture_answer",
+        "content": [
+          {
+            "type": "text",
+            "text": "Recorded."
+          }
+        ],
+        "isError": false,
+        "durationMs": 0,
+        "timestamp": 1793415932683
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "thinking",
+            "thinking": "**Stopping work**",
+            "thinkingSignature": "{\"id\":\"rs_03a5d53c5f4b8153016ae55afedbfc87d09222a1f9ae210753\",\"type\":\"reasoning\",\"content\":[],\"encrypted_content\":\"gAAAAABq5VsA6fMQaftErXTV4SBE0SLGrBhYkrOXg-6wkWAXLb7RYywEz-LOHmg5EPtwqrjCFeO_6oSCzAp8tFsnX7WdNIUWMc1hmN8sAljr6pmPxrdlTdkPvBOHj0H2pjILCTYRMVvr636uZNkgGFdtjOFsfacWq0kPLZa06LAzmKz2Ey1xQy8b1--7iiMBMJb8yUME204SkKrdNmNQSIHEC6VJvze8QeH3KJkTCAvUpsT_mrA9Jsa9g4yQ3AUYCgdpmCrLj58u-e3k3YQ55f-bBWt-yATaVfBChN6Dhi2BbcPIIkj0PHNtkKegcmsGItVx5vk-BDSGzKnUKNeP6rQoxFz8Wr23nF-ia280Z7Jb5OnEMcLZxvi_1_7Lnc_T2H3Y2EJIemilvwSBIbrKsKDK9WTFZCFQTLqlWUdPsYwRC3gz4ER2k2viY9dcIYOpjh6jQqlbPUrDXYTJXzmVuumcxlNui5Hb08f40-bUFJUbQ_MqxVN2MY5bVA_5LurcOVvQxVYIlixWdlLWngPGGVL3HpLkBLNveHBkeB29wFQ8zZxoq54WDtkN4sCO0lMToLDvIb4DK_rOkDVglvHzXKRuYFfK8cBTJQiX4XOxIqEngdFEeeOlQgfSItzzhtsUtrNbSYnPN99EcZ2SlcMe5rlMHEFuQA2nFNrNqB_LQoX9eh5ixp7kA_0T6D6emo9XekM0O11bXVrxsJldIIy04ZX0NtHg-6HbBvJwRT45-S6VbKOzFrOXluvswLKilx8E4-f2VD53kPf0GQsMEVd-1ejVGwawfgjGfCpIf-WmwC4Ds1ux_8SAvVsf1_4XfbpKwNtlwzSG0vqDro8ikN6jdEUzsuKY14fl1AqCz22aZYaljqkHL5ixo-qkO5k71-oAt7TUmrLrKkT8_QiC5ZCRshTjLYRPa-sJayJreUbrgZlsPWvAW4T2LqzldcjUSmXrox5NrVQv_C-RzKdT5xG5g89sVWjGpr-32TwqPCynlAmhMDoufjPiJ_lp2nSnp9PI1Gjg68oz9y5Vni3G7CXGidZEIif6vgZlmha0yo2ZChNcYGbJpK7rf9W2V-jklQ1-QqEfC9WBp9EWmlYSR-rJL2jGh-ZqTYGvfmvQEPprDx88pRGnXJ8NzA0P-AAbeQbUjBOYheEyPhRiqNsq1RzKfgtOQprhEZ4tvwQv9c55sJzS2kiBT1qyhXWKZNEOv8LhMG1NLFgH1y1tx26KoDdkMSdWLWf43BRn2MKEKWJaxMqfVQ-BievxosoSLJu0069ReLwba8LaFEhwkUmEpLvILkLrRBJARbfT29oa6No1rjkFO2Ytl188w8G9Qwmuy0oRGw8wF7HTjIJTJ8PR4D1cgcxInbalKWn6mSy9mXKeXPSySz2M4GHwNcHijH3UGBACMi7IGNHEmn-eyeiDrNb86U0DwCv183tHv3dk4lwBO_I5u8nnBeIn0cUI2CJQi6aQbqzt4y-po5I3ynH1LMyyiEJ21gMmx5HrUlgFeCr7RMy7iXTyiaAim70Z1FKAMZ3AIBaWIdJuYd57rzRuZdde8Rgyb_1NGPwd84fNZ8mATksrxwqQlfFtj8UDmq-JcS-k4w7wYN3_rztiOnZZ_WK1NF52nkTJexHLGTpU8GHoRaTWOVvIYikAGZ5Xx59v3-ZbnVC6L7JnhqswU3Z7A7x1mpq1boSA0-BKbOVT2D7V4y_UIiLtzMHJDqQ=\",\"summary\":[{\"type\":\"summary_text\",\"text\":\"**Stopping work**\"}]}"
+          },
+          {
+            "type": "text",
+            "text": "",
+            "textSignature": "{\"v\":1,\"id\":\"msg_03a5d53c5f4b8153016ae55b00bda087d09562940396165ffc\",\"phase\":\"final_answer\"}"
+          }
+        ],
+        "api": "openai-responses",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "usage": {
+          "input": 871,
+          "output": 15,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 9,
+          "totalTokens": 886,
+          "cost": {
+            "input": 0.0017419999999999998,
+            "output": 0.00015000000000000001,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0.0018919999999999998
+          }
+        },
+        "stopReason": "stop",
+        "timestamp": 1793415932684,
+        "responseId": "resp_03a5d53c5f4b8153016ae55afda11487d08c3e717b0abb0bd3",
+        "rawStopReason": "completed",
+        "durationMs": 4517,
+        "thinkingLevel": "low"
+      }
+    ]
+  },
+  "error": null,
+  "scope": "Observable synthetic decisions; not semantic truth, independent review, or universal enforcement.",
+  "sources": {
+    "scripts/eval-architecture.ts": "2de4fd3eb7da086eef19197f4adca1193448516249f48b533ee4909ae358804c",
+    "scripts/lib/architecture-eval.ts": "e5bf123acadd5027f8ee2f4d30513b940c965508b7bf9a5d8fce6ebd9a95f35c",
+    "scripts/lib/guidance-eval.ts": "a423c6e8fa225c8ef4a4b99bd2cb95b06b8bc2e412466430a22139e9a3ce57b3",
+    "src/core/architecture-policy.ts": "a17967323bf61f2d1e3dbb133ce862949087b66d9d9a8b0bbdbb7a8bd14d66e8",
+    "src/core/redact.ts": "9f35816fb8457dde90ca68eea25b1d331ece278e92a36c85bf3ef873c23de543",
+    "src/context/system-prompt.ts": "eb7bd8417e7ab65d8220f80eab9f953acb9678c08916ede029bf5aa169ca7c5c"
+  },
+  "sdk": "1.4.0",
+  "elapsedMilliseconds": 9836,
+  "requestPolicyHashes": [
+    null,
+    null
+  ]
+}

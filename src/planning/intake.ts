@@ -67,7 +67,7 @@ export const renderProposal = (input: {
   if (proposal.consider.length > 0) lines.push(`Also consider: ${proposal.consider.join(", ")}.`);
   lines.push(
     "Skipping a recommended artifact is allowed but recorded: call devsys_record_departure with gate artifact.skipped:<artifact>.",
-    "The event model and architecture are never blocked by a gate; they are recommended, not enforced.",
+    "The event model is never blocked by the planning-artifact gate; it remains recommended. ARCHITECTURE.md is mandatory current architectural authority regardless of work size; planning-artifact departures cannot waive the architecture/ADR policy.",
   );
   return lines.join("\n");
 };

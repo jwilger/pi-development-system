@@ -1,3 +1,9 @@
+import {
+  type ArchitectureRound,
+  type PendingArchitectureReview,
+  parseArchitectureRound,
+  parsePendingArchitecture,
+} from "../review/architecture-evidence.ts";
 import { type ParseError, parseError, type SliceRef } from "./types.ts";
 
 /** Severity of one review finding. Only blocking and should-fix make a round unclean. */
@@ -18,6 +24,7 @@ export type ReviewInput = {
   readonly diffDigest: string;
   readonly guidanceIdentity: string;
   readonly identity: string;
+  readonly architectureIdentity?: string;
 };
 
 export type ReviewRound = {
@@ -28,6 +35,7 @@ export type ReviewRound = {
   /** Digest of the diff the round reviewed (see `digestOf` in src/review/digest.ts). */
   readonly diffDigest: string;
   readonly input?: ReviewInput;
+  readonly architecture?: ArchitectureRound;
   /** Per-file digests of the reviewed diff, so a commit of part of it is still covered. */
   readonly files?: Readonly<Record<string, string>>;
 };
@@ -49,6 +57,7 @@ export type ReviewState = {
     readonly round: number;
     readonly range: string;
     readonly input: ReviewInput;
+    readonly architecture?: PendingArchitectureReview;
   };
 };
 
@@ -168,7 +177,19 @@ function parseInput(input: unknown): ReviewInput | ParseError {
   if (typeof identity !== "string" || identity === "") {
     return parseError("review input identity must be a nonempty string");
   }
-  return { diffDigest, guidanceIdentity, identity };
+  if (
+    input.architectureIdentity !== undefined &&
+    (typeof input.architectureIdentity !== "string" || input.architectureIdentity === "")
+  )
+    return parseError("invalid architecture input identity");
+  return {
+    diffDigest,
+    guidanceIdentity,
+    identity,
+    ...(input.architectureIdentity === undefined
+      ? {}
+      : { architectureIdentity: input.architectureIdentity }),
+  };
 }
 
 function parsePending(input: unknown): NonNullable<ReviewState["pending"]> | ParseError {
@@ -182,7 +203,14 @@ function parsePending(input: unknown): NonNullable<ReviewState["pending"]> | Par
   }
   const parsed = parseInput(input.input);
   if ("kind" in parsed) return parsed;
-  return { round, range, input: parsed };
+  const architecture =
+    input.architecture === undefined ? undefined : parsePendingArchitecture(input.architecture);
+  if (architecture !== undefined && "kind" in architecture) return architecture;
+  if (architecture !== undefined && parsed.architectureIdentity !== architecture.binding.identity)
+    return parseError("pending architecture input mismatch");
+  if (architecture === undefined && parsed.architectureIdentity !== undefined)
+    return parseError("pending architecture binding missing");
+  return { round, range, input: parsed, ...(architecture === undefined ? {} : { architecture }) };
 }
 
 function parseRound(input: unknown): ReviewRound | ParseError {
@@ -210,6 +238,8 @@ function parseRound(input: unknown): ReviewRound | ParseError {
       return parseError("round input diffDigest must match round diffDigest");
     }
   }
+  const architecture = parseRoundArchitecture(input.architecture, reviewInput);
+  if (architecture !== undefined && "kind" in architecture) return architecture;
   return {
     n,
     lenses: lenses as string[],
@@ -217,6 +247,7 @@ function parseRound(input: unknown): ReviewRound | ParseError {
     reviewedAt,
     diffDigest,
     ...(reviewInput === undefined ? {} : { input: reviewInput }),
+    ...(architecture === undefined ? {} : { architecture }),
     ...(files === undefined ? {} : { files }),
   };
 }
@@ -243,6 +274,19 @@ function parseDispatch(input: unknown): NonNullable<ReviewState["dispatch"]> | P
   if (typeof inputIdentity !== "string" || inputIdentity === "")
     return parseError("review dispatch inputIdentity must be a nonempty string");
   return { round, range, diffDigest, inputIdentity, lenses };
+}
+
+function parseRoundArchitecture(value: unknown, reviewInput: ReviewInput | undefined) {
+  const architecture = value === undefined ? undefined : parseArchitectureRound(value);
+  if (architecture !== undefined && "kind" in architecture) return architecture;
+  if (
+    architecture !== undefined &&
+    reviewInput?.architectureIdentity !== architecture.binding.identity
+  )
+    return parseError("round architecture input mismatch");
+  if (architecture === undefined && reviewInput?.architectureIdentity !== undefined)
+    return parseError("round architecture binding missing");
+  return architecture;
 }
 
 /** Boundary parse for a persisted review (one slice's rounds). */

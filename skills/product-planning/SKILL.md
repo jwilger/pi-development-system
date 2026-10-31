@@ -77,7 +77,13 @@ customer evidence.** Record rejected recommendations in the register instead of 
 
 A decision about how the code is built that is hard to reverse (a boundary, a dependency, a data format, a
 protocol) gets an ADR through `devsys_adr_new`. Product decisions stay in the register. Do not write an ADR
-for something the register already holds, or the other way round.
+for something the register already holds, or the other way round. Routine implementation choices do not need ADRs.
+
+Root `ARCHITECTURE.md` is mandatory, self-contained current authority for architecture and goals; new and modified code must conform to it. Keep intent distinct from verified implementation and delivery. Do not put ADR backlinks, source tables or delegated current requirements there. Consult ADRs for historical context, rejected alternatives, consequences and reconsideration, not as a competing requirements source. Reconsider rejected ideas only after a material context change.
+
+Every new ADR or premerge ADR edit needs its corresponding substantive architecture update in the same commit. Add at most one ADR per resulting main/trunk commit; other ADR changes in that commit may only mark supersession linked to that newly added replacement. Preserve merged records unchanged otherwise, including mistakes: no correction, deletion or renaming. Replace through a new paired decision. Cosmetic architecture edits and file presence are not substantive evidence.
+
+Bootstrap one decision at a time: cumulative self-contained architecture containing only decisions introduced so far, verification, independent semantic review and its commit before beginning another. Check resulting squash commits as well; split delivery units instead of combining decisions or losing updates. For existing projects, propose prospective adoption against explicit authoritative trunk history, preserve merged history and unrelated work, and obtain authorization before consumer changes. Never manufacture incremental history or automatically rewrite unsupported historical formats.
 
 ## Status words
 

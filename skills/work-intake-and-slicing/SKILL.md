@@ -25,7 +25,7 @@ Ask these in order and stop at the first yes:
 - `capability`: add a brief-lite, journeys, an event model, and optionally lens review.
 - `product`: the full set, including brief, decision register and architecture.
 
-Skipping a recommended artifact is allowed and recorded: `devsys_record_departure` with gate `artifact.skipped:<artifact>` and the reason. The event model and architecture are never blocked by a gate; they are recommendations you accept or decline on the record.
+Skipping an optional recommended planning artifact is allowed and recorded: `devsys_record_departure` with gate `artifact.skipped:<artifact>` and the reason. The event model remains a recommendation. Root `ARCHITECTURE.md` is mandatory architectural authority regardless of work size; an artifact departure cannot waive it or the architecture/ADR policy. Keep current requirements self-contained without ADR backlinks or delegated requirements, and distinguish architectural goals from verified delivery. Significant or hard-to-reverse decisions require one new ADR and its substantive architecture update per resulting main/trunk commit, with independent semantic review; premerge edits need the same pairing, and merged history is immutable except linked status-only supersession. Bootstrap decision/update pairs sequentially, reviewing and committing each before starting the next.
 
 ## A plan longer than the code has written the code
 

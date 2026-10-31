@@ -1,0 +1,241 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-31T00:18:46.103Z",
+  "requested": {
+    "provider": "openai",
+    "model": "gpt-6.1-sol",
+    "thinkingLevel": "off"
+  },
+  "condition": "baseline",
+  "fixture": {
+    "id": "squash-multiple",
+    "facts": "Authoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.",
+    "proposal": "Two branch commits each add one new ADR with their paired architecture update. Squash them into a single resulting main commit adding both ADRs; keep all architecture requirements."
+  },
+  "fixtureHash": "168eb9cbaf947ef65bdd0d4fde58ceff9b6873aa6308743aae799134ec226cfa",
+  "prompt": "Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary.\n\nFacts:\nAuthoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.\n\nProposal:\nTwo branch commits each add one new ADR with their paired architecture update. Squash them into a single resulting main commit adding both ADRs; keep all architecture requirements.",
+  "promptHash": "31b8f76aeea93e22a7be0cfe108f85e7e63ceadec27bda8a4769fead2bf50465",
+  "policy": {
+    "source": "src/core/architecture-policy.ts",
+    "sourceHash": "c4c72672a06e6f98f2b4732ff17e517dbf3933b9ac92a2365381388497900c2f",
+    "injectedHash": null
+  },
+  "limits": {
+    "turns": 12,
+    "milliseconds": 90000,
+    "retry": false,
+    "compaction": false
+  },
+  "tools": [
+    "architecture_answer"
+  ],
+  "pass": false,
+  "result": {
+    "pass": false,
+    "checks": [
+      {
+        "name": "one-typed-answer",
+        "pass": true
+      },
+      {
+        "name": "expected-decision",
+        "pass": false
+      },
+      {
+        "name": "authorized-calls-only",
+        "pass": true
+      },
+      {
+        "name": "provider-success",
+        "pass": true
+      },
+      {
+        "name": "tool-success",
+        "pass": true
+      }
+    ],
+    "answers": [
+      {
+        "decision": "proceed",
+        "explanation": "The squash preserves synchronous delivery: both new ADRs and their paired architecture updates will land together in the resulting main commit. No stated requirement prohibits multiple ADRs in one commit. Authoritative history and the full pending range are resolved, so no owner decision is needed. Preserve all architecture requirements, including ADR-001's synchronous-delivery requirement, and all unrelated work."
+      }
+    ],
+    "invalidCalls": [],
+    "effective": {
+      "provider": "openai",
+      "model": "gpt-6.1-sol"
+    },
+    "thinkingLevel": "low",
+    "errors": [],
+    "bounded": false,
+    "bound": null,
+    "turns": 2,
+    "messages": [
+      {
+        "role": "system",
+        "content": "",
+        "sections": {
+          "preamble": "You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.",
+          "tools": "<tools>\n(none)\n\nIn addition to the tools above, you may have access to other custom tools depending on the project.\n</tools>",
+          "rules": "<rules>\n- Be concise in your responses\n- Show file paths clearly when working with files\n</rules>",
+          "docs": "<docs>\nPi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):\n- Main documentation: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/README.md\n- Additional docs: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/docs\n- Examples: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/examples (extensions, custom tools, SDK)\n- When reading pi docs or examples, resolve docs/... under Additional docs and examples/... under Examples, not the current working directory\n- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md), environment variables (docs/environment-variables.md), MCP servers (docs/mcp.md), codemode scripts and non-LLM models such as classifiers and image models (docs/codemode.md)\n- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing\n- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)\n</docs>",
+          "cwd": "<cwd>\n/tmp/architecture-policy-eval-fQQyKC\n</cwd>"
+        },
+        "timestamp": 1793405926127,
+        "toolsAdded": [
+          {
+            "name": "architecture_answer",
+            "description": "Report whether the proposed delivery may proceed as written, needs revision, or requires an owner decision to establish permission or missing authority/history. Explain the decision. This records an answer; it does not mutate a repository or grant approval.",
+            "parameters": {
+              "type": "object",
+              "required": [
+                "decision",
+                "explanation"
+              ],
+              "properties": {
+                "decision": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "proceed"
+                    },
+                    {
+                      "type": "string",
+                      "const": "revise"
+                    },
+                    {
+                      "type": "string",
+                      "const": "ask-owner"
+                    }
+                  ]
+                },
+                "explanation": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary.\n\nFacts:\nAuthoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.\n\nProposal:\nTwo branch commits each add one new ADR with their paired architecture update. Squash them into a single resulting main commit adding both ADRs; keep all architecture requirements."
+          }
+        ],
+        "timestamp": 1793405926127
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "thinking",
+            "thinking": "**Inferring ADR commit scope**",
+            "thinkingSignature": "{\"id\":\"rs_00c88072ff06f226016ae533e8422c87d0a39b149c28a3e8f9\",\"type\":\"reasoning\",\"content\":[],\"encrypted_content\":\"gAAAAABq5TPrutKQMtDEweGaNnytT5A5DEfUG3cko6WKs48RR6i2k7Qi_MFkckvW_fd3B01VizqCK9Qc9jmRpPEnmHiZ4T1ckvTCscYXUUBvS8Pm_occb7H-kY3TFxk9w3RBnCLxPmDU6yD9ynrXnfheXELeRnVk4lQuVvW_wkZ09ZzRSbVGg-Gfa1xyo4YMpH0JHq9s9zT_xIovKYemrSrxRKnDfA43p2ij-4QVV1cAYisLBb__4XLZWOBXjqLOwKnTwPMfhkdXZBtJRC6GjxopwpK7cVBzPUAW0cAGFE-0emRtvrL4o9uvZkmmm8p6Ll7wOIzOlM2gj6AaVmwskhA4G-Zl8d5ikghI7M4sAhciLrksAp0wneWPm6BJnpMxLlj-HlqoiJQyaN6cLjfmlaJ5iWPxw1Rh1xcuB5LK8Y6uhM4-63lbNe13uxsLMFxYm8bP6GV9e-x0Q3w5xb7cA3heZueYoL9OdHluT9kw1EuX3RcMxOCuks2aGCRfmWQX3jKQyl7fVdzDqsZgrfH8WdY76_vATrMDk2fulPnOu05MVUZF_cu2AB-fV7JGjSI6Wnx6Cf86E26GZPJgexsTNEZNMcfkJf6yo9yUbqtQjL7kPDSGBJHwtkhpD2uTQ6EGLRO61uWr6nXiLI4JFLS-2RXqMKbWZD87hogjCaHbz7buyZX8GFpXbXtsIR2MtEK_3-ZRlRy0LJONynuj_JBHcckoXUeqOXkoMhr0mp4p6xvAkRofSSROYk6KugvTgcFkJJ48pUEJsT1v0j0svOJDUW58zwOLHZ_mxTpA4j9zdw4n4eclVMwfE_061oHrJOJk1jrbc6FcI3lKYEbGXezaOzG_e3bQKlM722YWY_frkMdt6Msj4RrxAEj1Ky6Q_35i-dTBRvyUIPT5skDlxy8PKTPxiV480OPsmiK3NGKjUHiB9yofPS1oAVrEURvSI1jFludMImdDj19ru1fyXFm-aBN_fXSEKsfSPjx6FWO__lg2DKznNIPKPy83wA2fA2GLqSYRW_rz0VEnh-VwZPcDwFlcABmBTma46eBKCbGz_caouQwdAxKpZGyUy9CFCNQWShkyfyd_Ba47n8VSMk0-WYJKJtvZoK5PZOdmA7ipl_A7w_DkAFtBLv5vfV3DS77vlwsVPBXCQ7ttfPIgdv5tt8JdiK005L81ATEA_FBc9DrnKteGeKxstK8QYQqeySg35hytxrFTS-kfiZtYGaHuSw7AQiqntN0oAjwGSQHevvEHW43G9ltwdIbCEXNzpCQWOt5pPrbNA4b7t2hzhaxF94ypfv1kM-lvRXHS866tIGMb28Mv5iQgdqNucSa4zjLJE5J7cuXU7X7cOeQdTu1KuVPr-6q9x-o00VIoRshmFA2RwdGBGTkwLMqnrRiiIW2QRvbk1eYn9x8ZZHwE8nN21e_G0D2p67QYSKAzHdNSg733zWzhl8mSAUFIKGnI_y3hMnXIIkr_fzhjvayhTEEEE9_8i1CkMmmRDDLFDh0_zThNLy7Hk5o1cCaprziYNnEvSQnuyPfbKhav7XzhiwaE0y-S4jr4lx8tO69bfwx9ABOhgP2cZ7xHT0RMhhar9pWe1hcn7AvuXlbkq__8I1x6D47VkZdp_Ej8EzHT_inULSTxOZakyw1AFHZAB3N1lEfdBrUTFhcsNQaW0idHimbNuKJLCtU7w81fK0AGcSvjfuYZYtv9VAqlm93mVA7VFbqjUriZpRKy2MxlGJTx3_ZAukwtgJRV1HJDStqu1pAhgingUVXqRzmP_eeJ8lgFMAEEQUsP4Q0nwJdHpxePuOgXTyxrPpDw3e30KxmfqQn6lXlfPfiSwY2GGWV40UAuWXeRNyZ3hMdkT9W9VwjnM4u2HGZp7sd4JsT-Ie_hqyRBawD9KEb8jA1sS4RZTC6MGqfeYJsOXUKwc2UgdIWpdOZm8P9jp8Z5cuBFW0t2zFxMi3u3kHeDF_DWGrlyWjeC4XkabXTuswiXFFQkf-GqxjoY7MvzMWkhmDMmLkydEVGqaIIiN2Me4wXmjBWatejNzm0dTpc-o5YLZfw7awReZz5YXv817uINIxRl4MIsR4udmrgdOvVHuuHSDg4=\",\"summary\":[{\"type\":\"summary_text\",\"text\":\"**Inferring ADR commit scope**\"}]}"
+          },
+          {
+            "type": "toolCall",
+            "id": "call_ZoC1VslbZXn2cw7OPalp4hkb|fc_00c88072ff06f226016ae533ebb4e487d0b7fd849991a220c8",
+            "name": "architecture_answer",
+            "arguments": {
+              "decision": "proceed",
+              "explanation": "The squash preserves synchronous delivery: both new ADRs and their paired architecture updates will land together in the resulting main commit. No stated requirement prohibits multiple ADRs in one commit. Authoritative history and the full pending range are resolved, so no owner decision is needed. Preserve all architecture requirements, including ADR-001's synchronous-delivery requirement, and all unrelated work."
+            }
+          }
+        ],
+        "api": "openai-responses",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "usage": {
+          "input": 757,
+          "output": 134,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 35,
+          "totalTokens": 891,
+          "cost": {
+            "input": 0.001514,
+            "output": 0.00134,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0.0028539999999999998
+          }
+        },
+        "stopReason": "toolUse",
+        "timestamp": 1793405926162,
+        "responseId": "resp_00c88072ff06f226016ae533e6b10487d0baff352c561c4003",
+        "rawStopReason": "completed",
+        "durationMs": 6622,
+        "thinkingLevel": "low"
+      },
+      {
+        "role": "toolResult",
+        "toolCallId": "call_ZoC1VslbZXn2cw7OPalp4hkb|fc_00c88072ff06f226016ae533ebb4e487d0b7fd849991a220c8",
+        "toolName": "architecture_answer",
+        "content": [
+          {
+            "type": "text",
+            "text": "Recorded."
+          }
+        ],
+        "isError": false,
+        "durationMs": 0,
+        "timestamp": 1793405932787
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "",
+            "textSignature": "{\"v\":1,\"id\":\"msg_00c88072ff06f226016ae533ee79d487d0b5a2546fbca1a298\",\"phase\":\"final_answer\"}"
+          }
+        ],
+        "api": "openai-responses",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "usage": {
+          "input": 905,
+          "output": 4,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "totalTokens": 909,
+          "cost": {
+            "input": 0.00181,
+            "output": 0.00004,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0.00185
+          }
+        },
+        "stopReason": "stop",
+        "timestamp": 1793405932789,
+        "responseId": "resp_00c88072ff06f226016ae533ed7fc487d09eb5704b0d4c9e43",
+        "rawStopReason": "completed",
+        "durationMs": 1960,
+        "thinkingLevel": "low"
+      }
+    ]
+  },
+  "error": null,
+  "scope": "Observable synthetic decisions; not semantic truth, independent review, or universal enforcement.",
+  "sources": {
+    "scripts/eval-architecture.ts": "2de4fd3eb7da086eef19197f4adca1193448516249f48b533ee4909ae358804c",
+    "scripts/lib/architecture-eval.ts": "e5bf123acadd5027f8ee2f4d30513b940c965508b7bf9a5d8fce6ebd9a95f35c",
+    "scripts/lib/guidance-eval.ts": "a423c6e8fa225c8ef4a4b99bd2cb95b06b8bc2e412466430a22139e9a3ce57b3",
+    "src/core/architecture-policy.ts": "2c93efeef4311b0956c19c0c0b2a5daaf1cf7fd50a5fcfb63996297befac8c19",
+    "src/core/redact.ts": "9f35816fb8457dde90ca68eea25b1d331ece278e92a36c85bf3ef873c23de543",
+    "src/context/system-prompt.ts": "eb7bd8417e7ab65d8220f80eab9f953acb9678c08916ede029bf5aa169ca7c5c"
+  },
+  "sdk": "1.4.0",
+  "elapsedMilliseconds": 8648,
+  "requestPolicyHashes": [
+    null,
+    null
+  ]
+}

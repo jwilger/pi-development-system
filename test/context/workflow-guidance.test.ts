@@ -94,6 +94,7 @@ test("an independent fresh child receives configured tracked workflow content an
   await child.prompt("Choose the next work item.");
   const actual = requests.at(-1) ?? "";
   assert.ok(actual.includes(workflow), "independent request must contain local workflow content");
+  assert.ok(actual.includes("ARCHITECTURE.md is the authoritative, self-contained"));
   assert.ok(actual.includes("docs/workflow.md"));
   assert.ok(actual.includes(hash(workflow)));
   const changed = "The owner changed the repository workflow.";
@@ -103,6 +104,7 @@ test("an independent fresh child receives configured tracked workflow content an
   child = await restore();
   await child.prompt("Resume using the current workflow.");
   assert.ok(requests.at(-1)?.includes(changed));
+  assert.ok(requests.at(-1)?.includes("ARCHITECTURE.md is the authoritative, self-contained"));
   assert.ok(requests.at(-1)?.includes(hash(changed)));
   writeFileSync(
     join(host.root, ".development-system.toml"),
@@ -137,6 +139,45 @@ test("root requests receive configured workflow content", async (t) => {
   await host.session.prompt("Use the updated workflow.");
   assert.ok(requests.at(-1)?.includes("New owner-reviewed local workflow."));
   assert.ok(requests.at(-1)?.includes(hash("New owner-reviewed local workflow.")));
+  assert.deepEqual(host.errors, []);
+});
+
+test("mandatory architecture policy is restored after actual pi context compaction", async (t) => {
+  const requests: string[] = [];
+  let compactions = 0;
+  const host = await offlineSession(
+    t,
+    (pi) => {
+      createDevelopmentSystem(pi);
+      pi.on("session_before_compact", (event) => {
+        compactions++;
+        return {
+          compaction: {
+            summary: "Prior conversation was compacted without carrying policy instructions.",
+            firstKeptEntryId: event.preparation.firstKeptEntryId,
+            tokensBefore: event.preparation.tokensBefore,
+          },
+        };
+      });
+    },
+    (context) => {
+      requests.push(JSON.stringify(context));
+      return [];
+    },
+  );
+  host.session.settingsManager.applyOverrides({
+    compaction: { enabled: false, keepRecentTokens: 128, reserveTokens: 1024 },
+  });
+  await host.session.prompt("Earlier investigation. ".repeat(1000));
+  await host.session.prompt("Retain this recent task. ".repeat(100));
+  const compacted = await host.session.compact();
+  assert.equal(compactions, 1);
+  assert.match(compacted.summary, /without carrying policy/);
+  await host.session.prompt("Continue after compaction.");
+  const request = requests.at(-1) ?? "";
+  assert.ok(request.includes("Prior conversation was compacted"));
+  assert.ok(request.includes("ARCHITECTURE.md is the authoritative, self-contained"));
+  assert.ok(request.includes("Each commit may add only one new ADR"));
   assert.deepEqual(host.errors, []);
 });
 
@@ -260,31 +301,33 @@ test("unchanged third continuation retains a stable workflow section position", 
   assert.deepEqual(host.errors, []);
 });
 
-test("configured guidance refuses conflicting full-prompt overrides before dispatch", async (t) => {
-  let requests = 0;
-  let removeOverride: (() => void) | undefined;
-  const host = await offlineSession(
-    t,
-    (pi) => {
-      createDevelopmentSystem(pi);
-      removeOverride = pi.on("before_agent_start", (event) => ({
-        systemPrompt: event.systemPrompt,
-      }));
-    },
-    () => {
-      requests++;
-      return [];
-    },
-  );
-  configure(host.root);
-  await host.session.prompt("Use a full-prompt override.");
-  assert.equal(requests, 0, "a forced prompt must not bypass guidance refresh");
-  assert.match(JSON.stringify(host.errors), /guidance-error.*forced.*Repair/);
-  assert.ok(removeOverride);
-  removeOverride();
-  await host.session.prompt("Retry after removing the conflicting override.");
-  assert.equal(requests, 1);
-});
+for (const configured of [false, true]) {
+  test(`${configured ? "configured" : "unconfigured"} policy refuses conflicting full-prompt overrides before dispatch`, async (t) => {
+    let requests = 0;
+    let removeOverride: (() => void) | undefined;
+    const host = await offlineSession(
+      t,
+      (pi) => {
+        createDevelopmentSystem(pi);
+        removeOverride = pi.on("before_agent_start", (event) => ({
+          systemPrompt: event.systemPrompt,
+        }));
+      },
+      () => {
+        requests++;
+        return [];
+      },
+    );
+    if (configured) configure(host.root);
+    await host.session.prompt("Use a full-prompt override.");
+    assert.equal(requests, 0, "a forced prompt must not bypass guidance refresh");
+    assert.match(JSON.stringify(host.errors), /guidance-error.*forced.*Repair/);
+    assert.ok(removeOverride);
+    removeOverride();
+    await host.session.prompt("Retry after removing the conflicting override.");
+    assert.equal(requests, 1);
+  });
+}
 
 test("operational Git root discovery failures refuse nested preparation", async (t) => {
   let requests = 0;

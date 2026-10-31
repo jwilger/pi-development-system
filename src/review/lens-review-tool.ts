@@ -11,7 +11,7 @@ import {
   judgeSolutionDetail,
   SOLUTION_DETAIL_THRESHOLD,
 } from "../jev/questions/solution-detail.ts";
-import { lintBrief } from "../planning/brief-lint.ts";
+import { lintBrief, solutionDetailAdvice } from "../planning/brief-lint.ts";
 import { configErrorText, loadConfig } from "../state/config.ts";
 import { availableModels } from "../state/models-command.ts";
 import type { SessionState } from "../state/session-state.ts";
@@ -88,7 +88,7 @@ async function briefLint(
   const judged = await judgeSolutionDetail(deps.jev(ctx), { brief });
   return judged.ok && judged.value >= SOLUTION_DETAIL_THRESHOLD
     ? [
-        "- the brief prescribes the solution (tables, endpoints, classes or libraries) rather than the outcome; record that in an ADR (devsys_adr_new) or the architecture notes",
+        `- the brief prescribes the solution rather than the outcome. ${solutionDetailAdvice("Tables, endpoints, classes or libraries")}`,
       ]
     : [];
 }

@@ -38,7 +38,9 @@ No `Co-Authored-By`, no `Generated-by`. Because the message is the durable why; 
 
 ## 9. Never make an architecture-shaping decision without an ADR
 
-New dependency class, boundary change, persistence model, public contract. Because "Revisit when" is how decisions stay honest.
+New dependency class, boundary change, persistence model, public contract—not routine implementation. `ARCHITECTURE.md` is the authoritative, self-contained current architecture and architectural goals; code must conform to it, without ADR backlinks or delegated requirements. ADRs preserve context, decisions, rejected alternatives, consequences and reconsideration conditions, not competing current requirements. Do not retry rejected approaches without materially changed context.
+
+Every ADR addition or premerge edit needs its corresponding substantive architecture update in the same commit. Each resulting main/trunk commit adds at most one ADR; other records may change in that commit only for status-only supersession by that new decision. Once merged, never otherwise edit, delete, rename or correct a record; create a replacement decision instead. Squash delivery must preserve these rules and required updates. Bootstrap sequentially: one decision, cumulative self-contained architecture, verification, independent semantic review, then its commit before introducing the next. Architecture intent must remain distinct from verified implementation and delivery. Because current requirements and decision history serve different purposes, and neither cosmetic edits nor file presence establish substantive correspondence.
 
 ## 10. Never ship model-visible instructions without an evidence check
 

@@ -42,8 +42,8 @@ const RULES: readonly Rule[] = [
   },
 ];
 
-const advice = (what: string): string =>
-  `${what} is solution detail; keep the brief to outcome, users and risks and record this in an ADR (devsys_adr_new) or the architecture notes`;
+export const solutionDetailAdvice = (what: string): string =>
+  `${what} is solution detail; keep the brief to outcome, users and risks. Current architecture and goals belong in self-contained root ARCHITECTURE.md. Significant or hard-to-reverse decisions also require a historical ADR (devsys_adr_new) and its substantive architecture update in the same commit; routine choices do not require an ADR.`;
 
 /** The brief with fenced code blocks blanked, keeping line numbers: an example in a fence is quoted, not specified. */
 function withoutFences(text: string): string[] {
@@ -64,7 +64,7 @@ export function lintBrief(text: string): BriefFinding[] {
         kind: rule.kind,
         line: i + 1,
         match: m[0],
-        message: advice(rule.what),
+        message: solutionDetailAdvice(rule.what),
       })),
     ),
   );

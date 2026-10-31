@@ -35,6 +35,18 @@ test("the principles section holds the ten non-negotiables and nothing that move
   assert.doesNotMatch(section, /phase:|jev:|Current state/);
 });
 
+test("every principles prompt carries the mandatory architecture authority and history contract", () => {
+  const section = buildPrinciplesSection(nonNegotiables);
+  assert.match(section, /ARCHITECTURE\.md is the authoritative, self-contained/);
+  assert.match(section, /no ADR backlinks, source tables/);
+  assert.match(section, /same commit/);
+  assert.match(section, /only one new ADR/i);
+  assert.match(section, /merged.*never.*modify/i);
+  assert.match(section, /resulting commits on main\/trunk/);
+  assert.match(section, /independent semantic review/);
+  assert.match(section, /prospective adoption/);
+});
+
 test("the state section names phase, sizing, slice and profiles, never Jev availability", () => {
   const section = buildStateSection({
     ...initialState(),

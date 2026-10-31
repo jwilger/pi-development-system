@@ -1,0 +1,241 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-31T00:19:02.304Z",
+  "requested": {
+    "provider": "openai",
+    "model": "gpt-6.1-sol",
+    "thinkingLevel": "off"
+  },
+  "condition": "baseline",
+  "fixture": {
+    "id": "split-delivery",
+    "facts": "Authoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.",
+    "proposal": "Deliver two separate resulting commits on main in order. The first adds only queue ADR-002 and its substantively matching cumulative architecture update. The second adds only storage ADR-003 and its substantively matching cumulative update. Each ADR retains context, decision, rejected alternatives with reasons, consequences and reconsideration conditions. Independent semantic review and verification are complete for each; no merged record changes."
+  },
+  "fixtureHash": "48d71f358012e3fa74fe4eeabc5954cfe3d92dde2a9d8ef251fea5bef310b521",
+  "prompt": "Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary.\n\nFacts:\nAuthoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.\n\nProposal:\nDeliver two separate resulting commits on main in order. The first adds only queue ADR-002 and its substantively matching cumulative architecture update. The second adds only storage ADR-003 and its substantively matching cumulative update. Each ADR retains context, decision, rejected alternatives with reasons, consequences and reconsideration conditions. Independent semantic review and verification are complete for each; no merged record changes.",
+  "promptHash": "5c8ce528100b42a1fa3338687a374e56933a7afaa605b1512a98ed2b96e1e2a1",
+  "policy": {
+    "source": "src/core/architecture-policy.ts",
+    "sourceHash": "c4c72672a06e6f98f2b4732ff17e517dbf3933b9ac92a2365381388497900c2f",
+    "injectedHash": null
+  },
+  "limits": {
+    "turns": 12,
+    "milliseconds": 90000,
+    "retry": false,
+    "compaction": false
+  },
+  "tools": [
+    "architecture_answer"
+  ],
+  "pass": false,
+  "result": {
+    "pass": false,
+    "checks": [
+      {
+        "name": "one-typed-answer",
+        "pass": true
+      },
+      {
+        "name": "expected-decision",
+        "pass": false
+      },
+      {
+        "name": "authorized-calls-only",
+        "pass": true
+      },
+      {
+        "name": "provider-success",
+        "pass": true
+      },
+      {
+        "name": "tool-success",
+        "pass": true
+      }
+    ],
+    "answers": [
+      {
+        "decision": "revise",
+        "explanation": "ADR-001 is merged and requires synchronous delivery. The queue proposal cannot be accepted as written without reconciling that binding decision: revise ADR-002 and its cumulative architecture update to preserve synchronous delivery or explicitly supersede ADR-001 with a justified replacement decision. Separate commits, substantive agreement between each ADR and its update, and completed review do not by themselves resolve that conflict. Preserve unrelated work and existing merged records."
+      }
+    ],
+    "invalidCalls": [],
+    "effective": {
+      "provider": "openai",
+      "model": "gpt-6.1-sol"
+    },
+    "thinkingLevel": "low",
+    "errors": [],
+    "bounded": false,
+    "bound": null,
+    "turns": 2,
+    "messages": [
+      {
+        "role": "system",
+        "content": "",
+        "sections": {
+          "preamble": "You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.",
+          "tools": "<tools>\n(none)\n\nIn addition to the tools above, you may have access to other custom tools depending on the project.\n</tools>",
+          "rules": "<rules>\n- Be concise in your responses\n- Show file paths clearly when working with files\n</rules>",
+          "docs": "<docs>\nPi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):\n- Main documentation: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/README.md\n- Additional docs: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/docs\n- Examples: /home/jwilger/src/pi-development-system/node_modules/@earendil-works/pi-coding-agent/examples (extensions, custom tools, SDK)\n- When reading pi docs or examples, resolve docs/... under Additional docs and examples/... under Examples, not the current working directory\n- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md), environment variables (docs/environment-variables.md), MCP servers (docs/mcp.md), codemode scripts and non-LLM models such as classifiers and image models (docs/codemode.md)\n- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing\n- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)\n</docs>",
+          "cwd": "<cwd>\n/tmp/architecture-policy-eval-dABjrO\n</cwd>"
+        },
+        "timestamp": 1793405942331,
+        "toolsAdded": [
+          {
+            "name": "architecture_answer",
+            "description": "Report whether the proposed delivery may proceed as written, needs revision, or requires an owner decision to establish permission or missing authority/history. Explain the decision. This records an answer; it does not mutate a repository or grant approval.",
+            "parameters": {
+              "type": "object",
+              "required": [
+                "decision",
+                "explanation"
+              ],
+              "properties": {
+                "decision": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "proceed"
+                    },
+                    {
+                      "type": "string",
+                      "const": "revise"
+                    },
+                    {
+                      "type": "string",
+                      "const": "ask-owner"
+                    }
+                  ]
+                },
+                "explanation": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Assess this synthetic repository proposal as written. Call architecture_answer exactly once, then stop. Use proceed if it is acceptable as written, revise if a known problem requires a different proposal, or ask-owner if permission or necessary authority/history is unresolved. Explain your reasoning; do not actually modify anything. All relevant synthetic facts are provided below. No repository access is necessary.\n\nFacts:\nAuthoritative main history is available and resolved; the entire pending range is included. ADR-001 is already merged and requires synchronous delivery. Unrelated work must be preserved.\n\nProposal:\nDeliver two separate resulting commits on main in order. The first adds only queue ADR-002 and its substantively matching cumulative architecture update. The second adds only storage ADR-003 and its substantively matching cumulative update. Each ADR retains context, decision, rejected alternatives with reasons, consequences and reconsideration conditions. Independent semantic review and verification are complete for each; no merged record changes."
+          }
+        ],
+        "timestamp": 1793405942331
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "thinking",
+            "thinking": "**Checking queue requirements**",
+            "thinkingSignature": "{\"id\":\"rs_018d2d3b8d470d68016ae533f82c2c87d081b27f8f6130e5e7\",\"type\":\"reasoning\",\"content\":[],\"encrypted_content\":\"gAAAAABq5TP9V9cDzJ0CtyS_YzCmsJuQ_lAg0oapu0L8b_LOUwroMHpPjsOvwsu_5DKprLpxSnP3ik1IjmOmQL4JQMOSgWXhtE0US4IFcBcGPpNDxM9mLlfEdH9J78EP7Rik8p-hxLukebGCIypqdaP5I9TmrCCIeEXm2Qj6lO9vCd-z1sIYYkrJL_7Bl-eElovaX9FO5jWpAd-zuke_kZ82NOTIzAQk-NQc8y1VVA7Py7zgf38AqHcH2ChXDN1X7SWgysw-m0bj87Cn9w6vJmrSpGoSPr9g7nrlP8U8pHg1OO4E868T5TetX0p4f02z-_q_M_fchxFl4p4lSA_0apFMDdqNcdVuDSm27Q5-01l9cudK2y7ooKGERQSJIaHCfdUrHYku-6X5NlZlxxmLvLmJZx0voPHQD9px0nKLm_yyA5VAL2m4pAlb0KFA6xVl8AiXt-kIFV8vuzJwjaJW3YkMQn8msQRwUXsSBlOShQpYU3Agi9hObP0eYFh7aHUEpIOKIMRJeXRP-wDS32nbu5mpuGpOQEQn3stPr-bRU7vGjzZ7WYCqpGaekIZ6wg0g43Za9FCIGNGoG5F-qYEalAZ12uK8bztN6cMaRPeM47XHxneFJFD_ucrfG3gIsAfqTkHksNtvs7tFcVMlbfsyPdVjoJZX97tVYxLjAfZLVxV05fVzAmR3hFPamSdAdFI5hCLWBH8HKDc2k93JEYUCLus3AajebqUCE1HdExbVMr681cV-KiKnyHdXUe07psFQrYpirT0XDtlgI_ThNRhEyWP3GM7P0wu2N6V1rPok_hKrsMkw1DBmgd_z3UDA93MjCurWPJsOmEr1HgRREcFi563daJP15F8XKa7tk4BTUn0UUK9hi9M1kmU_CQV6GKIznH0q_T8h8rNWsqZYeE5pMbm8vxuMfV4tAloIQ8UxKyqHoyivrCwRz3xsafOEXVsBwpgUfMLqmMJZkVdEVIFe45ezodq7oUTZaqWJV-0d6q23fSSmapBJ0onsDaNULTjp5b26kGPuFv4Taf8a1Kff91xTFpDwdAd3w82RtjkNeHyjtzPwZ2aHUlMBIQkZyWo0-hIbM03-iSO1kVcqlBDqkbFb3bqxwJlCBc89sqlNv95ajft221S1O2z0GiZG8FULnk1pXul-KG1b4nz-AnIVSD0NZ7NpvztzkvsG1R2aTnp91PyAG77cgTlVp05_uV6F4fQTIspKbJUoiQpXz-hXS52pmEVF5lyzfFJmDbGEcoA80-LN_VRDB-irHcODKPsFku87Qgh59VYiZ5R1uF53gnCtG8GSlwZDnMCfzQVev3_kuUCgcjy2DgBy5UXgzEKX5JBtqP4juaY-nLpVQeMjfEQvG4gCJqSvUxmJhRBqno7HnRS0-xuViiJNvMUyujuQDhZFF34Kr7XKVLtTSuK5McsvqjDR1n_F249Qo1faRti4unUmizMiLT_2NYJpzmvFrDZlwTK5W1e2QzNLB6ehjb_OXalcCDIa1n6fXh9jPL9HhlXM0v_3uUotHt3-bg6cHpa_zC_iA1v8X-9QKbMDAgQVKn824iFQVoE_Xy6d59g_NDsDQQ6fPiXR8rQD3FkmNAWmd2sOhdCzi6WYsSJhElurlZt6nwqiu-Jgl1W3gFfGqklePGHx1B6QvTKB8YHb6onV4mILBkYXojbZ3WdcQnxRdvMkld-ZG8uNT0RkWt9j3Sq3PVMA2CRR8UbbhWtRVHv-aohb77qQubRb0Bit9XqUDAiE3S8umNAqxCMQaaK8stqQh-bQ1mMcfyJkRGcjJtfjYGn6NjZCCP7PckP0WloK0AH6rARWmAYglmp5M8Vo_DSr3scp6929rjj0igj_UWFvit1wBFWzW4z193BgHyjnZKOKck-P0NuKApu03Jw0KGW5-_MUSAQWFvj4O1Dc4yP67aZdnOs99K8TlXGqP11KSM8oWw3BF6CTHOKeFaBspQaPSUyHclKiy7am3PjRfJNpntAhe7TPa1Q8IEy85cTLN3vayGJ2JKm7eltxIa835jizM8w2nUfB2byllb4x3yGVVKJTvmdq_Z3ODfj6n2On492nvvCaRoI1AGuLxjglreXpiS7sOFi_DYwrWdN0RMCyXohWdJgK7plqhK88Y18y4gNav9wLz_YcXWqXEGQZygIeM6Qc4rJdQRtSopUhKUzLc08aVNGCPfeQc-AMbZLsqZ9WhES2vWzKfS7zROSqM5Be1I58SEMp6g-JVNw_s03hz_cyLV4QZH52gf-VuhViS4_eRZkXc1L-orADh_lIlQ9MxiSoFNFfPCQQjMoskWzrp0NP-Ut84svoHXmo9hiR4koPfB8rGGuwtMtLjxj7MowOghPDk_60KL5xqTuFB0r7_WivUD5yD6bIkUeQZSTDjeXJQCKVCgkc4-99KL_hNisamxOciepOrXHMrkzEvUthOX0BteBtv-48NVjqZMQcjS7GMd2aLWrB2Fpv4FuPZl89MVnI-_qMgznSLWkA-c9boHymBqn-9KxXdwlNbYLGxsTt0eE0EG8mElZvrofenG5Y6LXxHYxAEUc43nzpOmbclFYNX6udIFjMWkT_x6ESrrrjffnG3LcU_6OYxMjwy5Ked_CDyyrSdomsGSmRGbmFC0kLiHwCs_l37yK9oNz9Qv3y9Hl7ucX3smhvPIrkGRm-fuWVlCgfw3PrXy-wj52nF_swNHM77pYwfbLUvqd1eMJbGtmnYWsc4OQVULd-2p4rHmYkuRW_qNMIgmTlLhon4HfpA1h6208SSWAU2hT8UYXUAt7VaA==\",\"summary\":[{\"type\":\"summary_text\",\"text\":\"**Checking queue requirements**\"}]}"
+          },
+          {
+            "type": "toolCall",
+            "id": "call_PDTv3K7BjINSA1RzmYCjmujP|fc_018d2d3b8d470d68016ae533fde18087d0a6c559e0e9963322",
+            "name": "architecture_answer",
+            "arguments": {
+              "decision": "revise",
+              "explanation": "ADR-001 is merged and requires synchronous delivery. The queue proposal cannot be accepted as written without reconciling that binding decision: revise ADR-002 and its cumulative architecture update to preserve synchronous delivery or explicitly supersede ADR-001 with a justified replacement decision. Separate commits, substantive agreement between each ADR and its update, and completed review do not by themselves resolve that conflict. Preserve unrelated work and existing merged records."
+            }
+          }
+        ],
+        "api": "openai-responses",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "usage": {
+          "input": 800,
+          "output": 184,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 75,
+          "totalTokens": 984,
+          "cost": {
+            "input": 0.0015999999999999999,
+            "output": 0.00184,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0.00344
+          }
+        },
+        "stopReason": "toolUse",
+        "timestamp": 1793405942371,
+        "responseId": "resp_018d2d3b8d470d68016ae533f6fb1887d08629b136971a432c",
+        "rawStopReason": "completed",
+        "durationMs": 8112,
+        "thinkingLevel": "low"
+      },
+      {
+        "role": "toolResult",
+        "toolCallId": "call_PDTv3K7BjINSA1RzmYCjmujP|fc_018d2d3b8d470d68016ae533fde18087d0a6c559e0e9963322",
+        "toolName": "architecture_answer",
+        "content": [
+          {
+            "type": "text",
+            "text": "Recorded."
+          }
+        ],
+        "isError": false,
+        "durationMs": 0,
+        "timestamp": 1793405950485
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "",
+            "textSignature": "{\"v\":1,\"id\":\"msg_018d2d3b8d470d68016ae53400485087d08a29ed9922b5be2f\",\"phase\":\"final_answer\"}"
+          }
+        ],
+        "api": "openai-responses",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "usage": {
+          "input": 998,
+          "output": 4,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "totalTokens": 1002,
+          "cost": {
+            "input": 0.001996,
+            "output": 0.00004,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0.002036
+          }
+        },
+        "stopReason": "stop",
+        "timestamp": 1793405950486,
+        "responseId": "resp_018d2d3b8d470d68016ae533ff202c87d0a48d8a5d6ccc1cf6",
+        "rawStopReason": "completed",
+        "durationMs": 2061,
+        "thinkingLevel": "low"
+      }
+    ]
+  },
+  "error": null,
+  "scope": "Observable synthetic decisions; not semantic truth, independent review, or universal enforcement.",
+  "sources": {
+    "scripts/eval-architecture.ts": "2de4fd3eb7da086eef19197f4adca1193448516249f48b533ee4909ae358804c",
+    "scripts/lib/architecture-eval.ts": "e5bf123acadd5027f8ee2f4d30513b940c965508b7bf9a5d8fce6ebd9a95f35c",
+    "scripts/lib/guidance-eval.ts": "a423c6e8fa225c8ef4a4b99bd2cb95b06b8bc2e412466430a22139e9a3ce57b3",
+    "src/core/architecture-policy.ts": "2c93efeef4311b0956c19c0c0b2a5daaf1cf7fd50a5fcfb63996297befac8c19",
+    "src/core/redact.ts": "9f35816fb8457dde90ca68eea25b1d331ece278e92a36c85bf3ef873c23de543",
+    "src/context/system-prompt.ts": "eb7bd8417e7ab65d8220f80eab9f953acb9678c08916ede029bf5aa169ca7c5c"
+  },
+  "sdk": "1.4.0",
+  "elapsedMilliseconds": 10244,
+  "requestPolicyHashes": [
+    null,
+    null
+  ]
+}

@@ -27,7 +27,7 @@ An unanswered owner question never grants approval.
 
 Read the available version-controlled entry points and relevant references. Inventory:
 
-- Product/domain rules, acceptance criteria, ADRs and existing work descriptions.
+- Product/domain rules, acceptance criteria, root `ARCHITECTURE.md` as self-contained current architectural authority, and existing work descriptions. Consult ADRs for historical rationale or reconsideration, not as competing current requirements.
 - AGENTS.md, workflow/review guidance and legacy factory instructions.
 - Local configuration, issue tracker and any optional Project integration.
 - Tooling, command definitions, CI, tests, mutation policy and runtime prerequisites.
@@ -46,6 +46,14 @@ credentials, labels or a board.
 Do not treat an old factory document as unquestionably current, or infer a new policy
 from the absence of one. Current labels, states, directory layouts and station names
 may be accidental; preserve durable work and history rather than their vocabulary.
+
+## Prospective architecture adoption
+
+The standard policy requires root `ARCHITECTURE.md`, self-contained current architecture and goals with no ADR backlinks, source tables or delegated current requirements. Code must conform; distinguish intent from verified implementation and delivery. Significant or hard-to-reverse decisions need historical ADRs, not routine choices. Preserve rationale and rejected alternatives; do not retry them without a material context change.
+
+Inventory conflicts before proposing adoption. Explicitly resolve authoritative main/trunk and a full prospective adoption commit identity; unavailable history is a blocker, not permission to guess. Preserve merged records and unrelated work, and request authorization before consumer edits or policy changes. Do not rewrite historical decisions or reconstruct old commits. Unsupported historical formats must remain untouched, not be normalized for a checker.
+
+Require a substantive architecture update in the same commit as every new ADR or premerge edit, at most one new ADR per resulting trunk commit, and no other record edits in an addition commit except linked status-only supersession. Merged records are otherwise immutable, including corrections/deletion/renaming. Preserve replacement records and updates through squash. Bootstrap each cumulative pair with verification, independent semantic review and a commit before beginning another. Proposed adoption is not execution, instructions are not mechanical blocking, and structural detection is not substantive semantic approval.
 
 ## Distinguish evidence
 
