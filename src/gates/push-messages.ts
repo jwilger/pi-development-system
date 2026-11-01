@@ -25,10 +25,11 @@ async function unpushedCommits(
   cwd: string,
   ref: string,
 ): Promise<UnpushedCommit[] | undefined> {
-  const log = await exec("git", ["log", ref, "--not", "--remotes", "--format=%P%x1f%B%x00", "--"], {
-    cwd,
-    timeout: 15_000,
-  });
+  const log = await exec(
+    "git",
+    ["log", ref, "--no-show-signature", "--not", "--remotes", "--format=%P%x1f%B%x00", "--"],
+    { cwd, timeout: 15_000 },
+  );
   if (log.code !== 0) return undefined; // a ref git cannot resolve: the push itself will fail
   return log.stdout
     .split(RECORD)

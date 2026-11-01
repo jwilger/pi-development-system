@@ -188,12 +188,18 @@ function gitFixture() {
 const resultText = (r: { content: readonly { type: string }[] }) =>
   r.content.map((c) => ("text" in c ? c.text : "")).join("\n");
 
-for (const boundary of ["commit", "delivery"] as const) {
+for (const [boundary, prefix] of [
+  ["commit", ""],
+  ["delivery", ""],
+  ["commit", "JEV_OVERRIDE='Owner approved the version decision' "],
+  ["commit", 'JEV_OVERRIDE="Owner approved the version decision" '],
+  ["commit", "JEV_OVERRIDE='Literal $HOME; $(false) `false` \\ remains data' "],
+] as const) {
   for (const independent of [true, false]) {
     test(
       independent
-        ? `a dispatched independent SDK reviewer submits, records and reloads complete exact ${boundary} evidence despite an empty working diff`
-        : `an unrelated actual SDK child is refused and recorded without ${boundary} semantic credit`,
+        ? `a dispatched independent SDK reviewer submits, records and reloads complete exact ${boundary} evidence despite an empty working diff; prefix=${prefix}`
+        : `an unrelated actual SDK child is refused and recorded without ${boundary} semantic credit; prefix=${prefix}`,
       async (t) => {
         const fixture = gitFixture();
         const submissions = createSubmissionStore();
@@ -384,7 +390,7 @@ for (const boundary of ["commit", "delivery"] as const) {
                   arguments: {
                     command:
                       boundary === "commit"
-                        ? "git commit -m 'feat: preserve architecture because requirements are authoritative'"
+                        ? `${prefix}git commit -m 'feat: preserve architecture because requirements are authoritative'`
                         : "git push origin HEAD:main",
                   },
                 },

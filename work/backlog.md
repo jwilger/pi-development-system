@@ -1,5 +1,6 @@
 # Backlog
 
+- [ ] repair-strict-pr-topic-publication-admission — Repair strict PR-topic publication admission (in-progress)
 - [x] detect-a-skipped-planning-artifact — Detect a skipped planning artifact
 - [x] route-review-and-lens-effort-and-agent-spawn-model-through-c — Route review and lens effort, and agent_spawn model, through config
 - [x] scan-commits-for-secrets-non-negotiable-7 — Scan commits for secrets (non-negotiable 7)

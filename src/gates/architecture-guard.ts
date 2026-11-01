@@ -2,6 +2,7 @@ import { type ExtensionAPI, isToolCallEventType } from "@earendil-works/pi-codin
 import type { Exec } from "../core/exec.ts";
 import { resolveGit } from "../core/git-invocations.ts";
 import { pushTargets } from "../core/push-command.ts";
+import { err, ok, type Result } from "../core/result.ts";
 import { architectureReviewGap } from "../review/architecture-evidence.ts";
 import {
   inspectArchitecture,
@@ -25,7 +26,7 @@ function commandBoundary(command: string): Boundary | Refusal | undefined {
     return /^git push [A-Za-z0-9][\w.-]* HEAD:[A-Za-z0-9][\w./-]*$/.test(command)
       ? "delivery"
       : refuse(
-          "architecture-command-shape: use one explicit git push REMOTE HEAD:TRUNK. Compound calls, arbitrary sources, tags and implicit push settings cannot establish the complete delivered history.",
+          "architecture-command-shape: use one explicit git push REMOTE HEAD:TRUNK for final delivery, or git push REMOTE HEAD:TOPIC for topic publication in pull-request mode. Remove extra options while keeping the intended destination. Compound calls, arbitrary sources, tags and implicit push settings cannot establish the inspected boundary.",
         );
   }
   if (/^git merge --ff-only [A-Za-z0-9][\w./-]*$/.test(command)) return "integration";
@@ -33,11 +34,125 @@ function commandBoundary(command: string): Boundary | Refusal | undefined {
     ["commit", "commit-tree", "merge", "cherry-pick", "revert", "am"].includes(git.sub),
   );
   if (!mutatesHistory) return undefined;
-  return /^git commit (?:-m|--message) (?:'[^']*'|"[^"$`\\]*")$/s.test(command)
+  // The supported version-check override changes hook input, never the inspected tree.
+  // Its rationale is literal data, not authorization or a replacement for review.
+  const commit =
+    /^(?:JEV_OVERRIDE=('[^']+'|"[^"$`\\]+") )?git commit (?:-m|--message) (?:'[^']*'|"[^"$`\\]*")$/s.exec(
+      command,
+    );
+  return commit !== null && (commit[1] === undefined || commit[1].slice(1, -1).trim() !== "")
     ? "commit"
     : refuse(
-        "architecture-command-shape: stage separately, then use one plain git commit -m with a literal message. Compound calls, alternate indices, implicit staging and uninspected commit makers cannot establish the resulting tree.",
+        "architecture-command-shape: stage separately, then use one plain git commit -m with a literal message, optionally prefixed by one quoted nonempty literal JEV_OVERRIDE rationale. The prefix is not owner approval or review. Compound calls, other assignments, alternate indices, implicit staging and uninspected commit makers cannot establish the resulting tree.",
       );
+}
+
+function isUnambiguousBranch(branch: string): boolean {
+  return (
+    /^[A-Za-z0-9][\w./-]*$/.test(branch) &&
+    branch !== "HEAD" &&
+    !/^(?:refs|heads|tags|remotes)\//.test(branch) &&
+    !branch.includes("..") &&
+    branch
+      .split("/")
+      .every(
+        (part) =>
+          part !== "" && !part.startsWith(".") && !part.endsWith(".") && !part.endsWith(".lock"),
+      )
+  );
+}
+
+/** Publication is transport, not inspection or semantic approval of a delivery result. */
+function isTopicPublication(command: string, config: DevsysConfig): boolean {
+  const match = /^git push ([A-Za-z0-9][\w.-]*) HEAD:([A-Za-z0-9][\w./-]*)$/.exec(command);
+  const topic = match?.[2];
+  if (
+    config.delivery.mode !== "pull-request" ||
+    match?.[1] !== config.delivery.remote ||
+    topic === undefined ||
+    topic === config.delivery.trunk ||
+    !isUnambiguousBranch(topic) ||
+    !isUnambiguousBranch(config.delivery.trunk)
+  )
+    return false;
+  // Do not reinterpret a conflicting or ambiguous architecture authority as a topic.
+  return (
+    config.architecture === undefined ||
+    config.architecture.trunkRef ===
+      `refs/remotes/${config.delivery.remote}/${config.delivery.trunk}`
+  );
+}
+
+/** Git resolves includes, config scopes and environment overrides; we never change them. */
+async function publicationSetting(
+  exec: Exec,
+  cwd: string,
+  key: string,
+  type: "bool" | "bool-or-str",
+): Promise<Result<string | undefined, Refusal>> {
+  const indeterminate = () =>
+    err(
+      refuse(
+        `architecture-publication-config: cannot establish effective ${key}; implicit additional publication must be ruled out before topic transport.`,
+      ),
+    );
+  try {
+    const setting = await exec("git", ["config", `--type=${type}`, "--get", key], {
+      cwd,
+      timeout: 5000,
+    });
+    // Git exits 1 without output for an absent key, not for an invalid boolean or read error.
+    if (setting.code === 1 && setting.stdout === "" && setting.stderr === "") return ok(undefined);
+    if (setting.code !== 0 || setting.stderr !== "") return indeterminate();
+    const value = setting.stdout.trim();
+    if (value === "" || (type === "bool" && value !== "false" && value !== "true"))
+      return indeterminate();
+    return ok(value);
+  } catch {
+    return indeterminate();
+  }
+}
+
+/** Check the inherited environment at the same process boundary as Git, without exposing values. */
+async function publicationSourceRefusal(exec: Exec, cwd: string): Promise<Refusal | undefined> {
+  const refusal = refuse(
+    "architecture-publication-config: cannot establish configuration-source equivalence with push. Inherited GIT_CONFIG redirects git config but not git push; an indeterminate environment read is also refused. No configuration or publication command was changed.",
+  );
+  try {
+    const source = await exec(
+      "node",
+      ["-e", 'process.exit(Object.hasOwn(process.env, "GIT_CONFIG") ? 1 : 0)'],
+      { cwd, timeout: 5000 },
+    );
+    if (source.code !== 0 || source.stdout !== "" || source.stderr !== "") return refusal;
+  } catch {
+    return refusal;
+  }
+  return;
+}
+
+/** A literal refspec does not disable implicit tags or cross-repository recursion. */
+async function publicationConfigRefusal(exec: Exec, cwd: string): Promise<Refusal | undefined> {
+  const source = await publicationSourceRefusal(exec, cwd);
+  if (source !== undefined) return source;
+  const tags = await publicationSetting(exec, cwd, "push.followTags", "bool");
+  if (!tags.ok) return tags.error;
+  if (tags.value === "true")
+    return refuse(
+      "architecture-publication-config: effective push.followTags=true may publish annotated tags beyond the literal topic refspec. This publication path requires it to be absent or false; no configuration or command was changed.",
+    );
+  const recursion = await publicationSetting(exec, cwd, "push.recurseSubmodules", "bool-or-str");
+  if (!recursion.ok) return recursion.error;
+  // An explicit non-publishing mode overrides submodule.recurse's on-demand default.
+  if (recursion.value === "false" || recursion.value === "check") return;
+  if (recursion.value === undefined) {
+    const fallback = await publicationSetting(exec, cwd, "submodule.recurse", "bool");
+    if (!fallback.ok) return fallback.error;
+    if (fallback.value !== "true") return;
+  }
+  return refuse(
+    "architecture-publication-config: submodule recursion may publish outside the literal topic repository, or its mode is unsupported. Effective push.recurseSubmodules must be disabled or check-only; absent configuration must not inherit submodule.recurse=true. No configuration or command was changed.",
+  );
 }
 
 async function integrationRefusal(
@@ -77,10 +192,15 @@ export function registerArchitectureGuard(deps: {
     if (
       boundary === "delivery" &&
       command !== `git push ${config.value.delivery.remote} HEAD:${config.value.delivery.trunk}`
-    )
+    ) {
+      // Only this guard abstains: Git hard stops, push policy and message checks still run.
+      // No inspection, review receipt or final-history binding is created by publication.
+      if (isTopicPublication(command, config.value))
+        return publicationConfigRefusal(deps.exec, ctx.cwd);
       return refuse(
-        "architecture-push-target: only the configured remote and trunk are admitted by this boundary; other refs require an explicitly supported inspection path.",
+        "architecture-push-target: only the configured remote/trunk delivery or a strict PR-mode HEAD topic publication is supported; other refs and conflicting authority require an explicitly supported inspection path.",
       );
+    }
     const inspected = await inspectArchitecture(deps.exec, ctx.cwd, config.value.architecture, {
       kind: boundary,
     });
