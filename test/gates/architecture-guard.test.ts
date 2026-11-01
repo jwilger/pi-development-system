@@ -13,6 +13,12 @@ import { registerArchitectureGuard } from "../../src/gates/architecture-guard.ts
 import { createSessionState, parseDevsysState } from "../../src/state/session-state.ts";
 import { offlineSession } from "../harness/offline-session.ts";
 
+const publicationEnvironment = {
+  ...process.env,
+  GIT_CONFIG_GLOBAL: "/dev/null",
+  GIT_CONFIG_NOSYSTEM: "1",
+};
+
 for (const authority of ["refs/remotes/origin/main", false] as const) {
   for (const [gitSettings, refused] of [
     [
@@ -108,7 +114,7 @@ for (const authority of ["refs/remotes/origin/main", false] as const) {
         const redirected = spawnSync("git", ["config", "--get", key], {
           cwd: host.root,
           encoding: "utf8",
-          env: { ...process.env, GIT_CONFIG: join(host.root, "alternate.gitconfig") },
+          env: { ...publicationEnvironment, GIT_CONFIG: join(host.root, "alternate.gitconfig") },
         });
         assert.equal(redirected.status, 1);
         assert.equal(redirected.stdout, "");
@@ -173,7 +179,7 @@ test("production topic refuses inherited legacy GIT_CONFIG masking follow-tags",
   const redirected = spawnSync("git", ["config", "--bool", "--get", "push.followTags"], {
     cwd: host.root,
     encoding: "utf8",
-    env: { ...process.env, GIT_CONFIG: join(host.root, "alternate.gitconfig") },
+    env: { ...publicationEnvironment, GIT_CONFIG: join(host.root, "alternate.gitconfig") },
   });
   assert.equal(redirected.status, 1);
   assert.equal(redirected.stdout, "");
@@ -303,7 +309,13 @@ async function publicationSession(
   const host = await offlineSession(
     t,
     (pi) => {
-      const exec = pi.exec.bind(pi);
+      const inheritedExec = pi.exec.bind(pi);
+      const exec: typeof pi.exec = (command, args, execOptions) =>
+        inheritedExec(
+          "env",
+          ["GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1", command, ...args],
+          execOptions,
+        );
       pi.exec = async (command, args, execOptions) => {
         const fixture = publicationReadFixture(command, args, options);
         if (fixture !== undefined) return fixture;
@@ -363,7 +375,11 @@ async function publicationSession(
     },
     (root) => {
       const git = (...args: string[]) => {
-        const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
+        const result = spawnSync("git", args, {
+          cwd: root,
+          encoding: "utf8",
+          env: publicationEnvironment,
+        });
         if (result.status !== 0) throw new Error(result.stderr);
         return result.stdout.trim();
       };
