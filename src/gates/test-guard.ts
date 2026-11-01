@@ -137,8 +137,8 @@ const judge = async (
             cwd: ctx.cwd,
             slice: state.activeSlice,
             path: change.path,
-            before: change.before,
-            after: change.after,
+            before: normalizeText(change.before),
+            after: change.after === undefined ? undefined : normalizeText(change.after),
           })
         : undefined,
   });

@@ -51,6 +51,7 @@ export function createSupplyTestContractTool(deps: {
       "Supply existing contract evidence for an exact proposed test edit, then retry the normal edit/write gate. This does not approve a change or record a departure. Give the full proposed file as after; omit after only for deletion. Cite existing requirements and explain retained coverage; do not invent approval.",
     parameters,
     async execute(_id, params, _signal, _onUpdate, ctx) {
+      const slice = deps.state.get().activeSlice;
       const path = normalizeRepoPath(ctx.cwd, params.path, homedir());
       if (!isTestPath(path) || path.startsWith("../") || path.startsWith("/")) {
         return {
@@ -95,10 +96,22 @@ export function createSupplyTestContractTool(deps: {
           isError: true,
         };
       }
+      if (deps.state.get().activeSlice !== slice) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "The active slice changed while reading evidence. Inspect the current slice and resubmit; no evidence was retained.",
+            },
+          ],
+          details: { kind: "stale-slice" },
+          isError: true,
+        };
+      }
       deps.evidence.supply(
         {
           cwd: ctx.cwd,
-          slice: deps.state.get().activeSlice,
+          slice,
           path,
           before,
           after: params.after === undefined ? undefined : normalizeText(params.after),
